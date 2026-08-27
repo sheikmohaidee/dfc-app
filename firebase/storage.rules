@@ -1,0 +1,72 @@
+rules_version = '2';
+
+// ---------------------------------------------------------------------------
+// DFC Cloud Storage rules
+//
+// Two kinds of object:
+//   uploads/{uid}/...   what a customer photographed or recorded
+//   pod/{orderId}/...   proof-of-delivery photo taken by a rider
+//
+// Uploads are namespaced by uid so a client can only ever write under its own
+// prefix, and size/type limits are enforced here rather than trusted from the
+// app — a resized image is a client convenience, not a guarantee.
+// ---------------------------------------------------------------------------
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() { return request.auth != null; }
+    function uid()      { return request.auth.uid; }
+    function role()     { return request.auth.token.role; }
+    function isAdmin()  { return signedIn() && role() == 'admin'; }
+
+    function isImage() {
+      return request.resource.contentType.matches('image/(jpeg|png|webp|heic)');
+    }
+    function isAudio() {
+      return request.resource.contentType.matches('audio/(m4a|mp4|mpeg|aac|wav|webm)');
+    }
+    function underMb(n) {
+      return request.resource.size < n * 1024 * 1024;
+    }
+
+    // --- customer uploads -------------------------------------------------
+    match /uploads/{userId}/{month}/{fileName} {
+      // The owner reads their own; admins and the assigned vendor/rider read
+      // through a signed URL minted server-side, not directly.
+      allow read: if isAdmin() || (signedIn() && uid() == userId);
+
+      // `resource == null` is what actually makes an upload immutable.
+      // Overwriting an object's CONTENT is governed by `create`, not `update`
+      // — `update` in Storage rules only covers metadata-only changes. Without
+      // this clause `allow update: if false` reads as immutability but is not:
+      // a customer could replace a prescription photo after an admin had
+      // already priced against it, and the bucket would no longer hold the
+      // image the order was based on. A re-shot photo is a new object.
+      allow create: if signedIn()
+                    && uid() == userId
+                    && resource == null
+                    && ((isImage() && underMb(8)) || (isAudio() && underMb(4)));
+
+      // Metadata is frozen too — content type is part of what was validated.
+      allow update: if false;
+      allow delete: if isAdmin() || (signedIn() && uid() == userId);
+    }
+
+    // --- proof of delivery ------------------------------------------------
+    match /pod/{orderId}/{fileName} {
+      allow read: if signedIn();
+      // Same rule, and it matters more here: proof of delivery is evidence.
+      // It must outlive the rider's second thoughts about it, so a rider may
+      // write one and never replace it. Only an admin can, for a takedown.
+      allow create: if signedIn() && role() == 'rider'
+                    && resource == null
+                    && isImage() && underMb(4);
+      allow update, delete: if isAdmin();
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

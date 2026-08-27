@@ -1,0 +1,140 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------------------------------------------------------------------------
+   DFC tokens — the same values as packages/core/src/tokens.ts and the
+   Foundations artboard. shadcn zinc, unmodified, plus four category hues and
+   one verify amber. Colour only ever encodes a category or a state.
+
+   tailwind.config.ts maps every one of these to a utility class, so a dark
+   palette is a variable swap rather than a rebuild.
+--------------------------------------------------------------------------- */
+
+@layer base {
+  :root {
+    --background: #ffffff;
+    --foreground: #09090b;
+    --surface: #fafafa;
+    --card: #ffffff;
+    --card-foreground: #09090b;
+    --muted: #f4f4f5;
+    --muted-foreground: #71717a;
+    --border: #e4e4e7;
+    --input: #e4e4e7;
+    --ring: #18181b;
+    --primary: #18181b;
+    --primary-foreground: #fafafa;
+    --secondary: #f4f4f5;
+    --secondary-foreground: #18181b;
+    --accent: #f4f4f5;
+    --accent-foreground: #18181b;
+    --disabled: #d4d4d8;
+    --placeholder: #a1a1aa;
+    --body-strong: #3f3f46;
+    --icon: #52525b;
+
+    --pharmacy: #2563eb;
+    --pharmacy-fg: #1d4ed8;
+    --pharmacy-tint: #eff6ff;
+    --pharmacy-border: #dbeafe;
+
+    --grocery: #16a34a;
+    --grocery-fg: #15803d;
+    --grocery-tint: #f0fdf4;
+    --grocery-border: #bbf7d0;
+
+    --food: #ea580c;
+    --food-fg: #c2410c;
+    --food-tint: #fff7ed;
+    --food-border: #fed7aa;
+
+    --concierge: #7c3aed;
+    --concierge-fg: #6d28d9;
+    --concierge-tint: #f5f3ff;
+    --concierge-border: #ddd6fe;
+
+    --verify: #b45309;
+    --verify-fg: #92400e;
+    --verify-tint: #fffbeb;
+    --verify-border: #fde68a;
+
+    --destructive: #dc2626;
+    --destructive-fg: #b91c1c;
+    --destructive-tint: #fef2f2;
+    --destructive-border: #fecaca;
+  }
+
+  .dark {
+    --background: #09090b;
+    --foreground: #fafafa;
+    --surface: #0f0f11;
+    --card: #111113;
+    --card-foreground: #fafafa;
+    --muted: #27272a;
+    --muted-foreground: #a1a1aa;
+    --border: #27272a;
+    --input: #27272a;
+    --ring: #d4d4d8;
+    --primary: #fafafa;
+    --primary-foreground: #18181b;
+    --secondary: #27272a;
+    --secondary-foreground: #fafafa;
+    --accent: #27272a;
+    --accent-foreground: #fafafa;
+    --disabled: #3f3f46;
+    --placeholder: #52525b;
+    --body-strong: #d4d4d8;
+    --icon: #a1a1aa;
+
+    --pharmacy-tint: #0e1a30;
+    --pharmacy-border: #1c3055;
+    --grocery-tint: #0c1f14;
+    --grocery-border: #17381f;
+    --food-tint: #251409;
+    --food-border: #422211;
+    --concierge-tint: #170f2b;
+    --concierge-border: #2c1d4f;
+    --verify-tint: #251b06;
+    --verify-border: #453109;
+    --destructive-tint: #2a0f0f;
+    --destructive-border: #4c1a1a;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  /* Every figure in the product is tabular, so ₹ columns line up. */
+  .tnum {
+    @apply font-mono;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ta {
+    @apply font-tamil;
+  }
+}
+
+@layer utilities {
+  /* Thin scrollbars — the board is dense enough without 16px gutters. */
+  .scroll-slim {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  .scroll-slim::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scroll-slim::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 999px;
+  }
+  .scroll-slim::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}

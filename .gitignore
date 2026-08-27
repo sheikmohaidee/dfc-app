@@ -1,0 +1,48 @@
+# ---------------------------------------------------------------------------
+# Secrets — NEVER commit these.
+# The Firebase *service account* key grants full admin access to the project.
+# It belongs on a server (or in a secret manager), never in an app bundle.
+# ---------------------------------------------------------------------------
+*firebase-adminsdk*.json
+service-account*.json
+.env
+.env.*
+!.env.example
+google-services.json
+GoogleService-Info.plist
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Builds
+dist/
+build/
+.next/
+out/
+.expo/
+.expo-shared/
+*.tsbuildinfo
+android/
+ios/
+
+# Runtime
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# Editors / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Expo bundle-verification output
+.expo-export*
+.expo-verify

@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    // CommonJS, deliberately. Cloud Functions run real Node, and @dfc/core is
+    // consumed as a compiled CJS package rather than as TypeScript source —
+    // NodeNext resolution would demand explicit .js extensions all through
+    // core, which the Metro and Next bundlers do not want.
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "lib": ["ES2022"],
+    "outDir": "lib",
+    "rootDir": "src",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "sourceMap": true
+  },
+  "include": ["src/**/*.ts"]
+}

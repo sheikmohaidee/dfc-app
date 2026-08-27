@@ -1,0 +1,299 @@
+rules_version = '2';
+
+// ---------------------------------------------------------------------------
+// DFC Firestore rules
+//
+// These mirror the state machine in packages/core/src/status.ts. The client
+// check there is for UX; this file is the actual guard. If you change a
+// transition in one place, change it in both.
+//
+// Roles live on a custom claim (`request.auth.token.role`), set by the
+// setRole Cloud Function. Reading the role from a users/ doc would cost a
+// document read on every single rule evaluation.
+// ---------------------------------------------------------------------------
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- helpers ---------------------------------------------------------
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function uid() {
+      return request.auth.uid;
+    }
+
+    function role() {
+      return request.auth.token.role;
+    }
+
+    function isAdmin()    { return signedIn() && role() == 'admin'; }
+    function isRider()    { return signedIn() && role() == 'rider'; }
+    function isVendor()   { return signedIn() && role() == 'vendor'; }
+    function isCustomer() { return signedIn() && role() == 'customer'; }
+
+    function existing() { return resource.data; }
+    function incoming() { return request.resource.data; }
+
+    // Fields a given role is allowed to touch on an order.
+    function onlyChanged(fields) {
+      return incoming().diff(existing()).affectedKeys().hasOnly(fields);
+    }
+
+    // The transition table. Keep in step with core/status.ts.
+    function transitionAllowed(from, to, r) {
+      return
+        (from == 'incoming'         && to in ['admin_review','cancelled','rejected'] && r == 'admin') ||
+        (from == 'admin_review'     && to in ['awaiting_payment','cancelled','rejected'] && r == 'admin') ||
+        (from == 'awaiting_payment' && to in ['paid','cancelled'] && r in ['admin','customer']) ||
+        (from == 'paid'             && to in ['vendor_accepted','rejected','cancelled'] && r in ['vendor','admin']) ||
+        (from == 'vendor_accepted'  && to in ['packing','cancelled'] && r in ['vendor','admin']) ||
+        (from == 'packing'          && to in ['ready_for_pickup','cancelled'] && r in ['vendor','admin']) ||
+        (from == 'ready_for_pickup' && to in ['dispatched','cancelled'] && r == 'admin') ||
+        (from == 'dispatched'       && to in ['picked_up','cancelled'] && r in ['rider','admin']) ||
+        (from == 'picked_up'        && to in ['out_for_delivery','cancelled'] && r in ['rider','admin']) ||
+        (from == 'out_for_delivery' && to in ['delivered','cancelled'] && r in ['rider','admin']) ||
+        (from == 'rejected'         && to == 'admin_review' && r == 'admin');
+    }
+
+    function statusUnchanged() {
+      return incoming().status == existing().status;
+    }
+
+    function validTransition() {
+      return statusUnchanged()
+        || transitionAllowed(existing().status, incoming().status, role());
+    }
+
+    // --- users -----------------------------------------------------------
+
+    match /users/{userId} {
+      allow read: if isAdmin() || (signedIn() && uid() == userId);
+      // A user may create and edit their own profile, but never their role —
+      // that is a custom claim, set server-side only.
+      allow create: if signedIn() && uid() == userId
+                    && incoming().uid == userId;
+      allow update: if isAdmin()
+                    || (signedIn() && uid() == userId
+                        && incoming().role == existing().role);
+      allow delete: if isAdmin();
+    }
+
+    // --- stores ----------------------------------------------------------
+
+    match /stores/{storeId} {
+      // Everyone signed in can see the catalogue.
+      allow read: if signedIn();
+      allow create, delete: if isAdmin();
+      // A vendor may flip their own store open/closed and nothing else.
+      allow update: if isAdmin()
+                    || (isVendor() && existing().ownerUid == uid()
+                        && onlyChanged(['isOpen', 'avgPrepMinutes', 'updatedAt']));
+    }
+
+    // --- products / stock -------------------------------------------------
+
+    match /products/{productId} {
+      // Every signed-in surface reads the catalogue: the customer app to price
+      // an order, the vendor app to see its own shelf.
+      allow read: if signedIn();
+      allow create, delete: if isAdmin();
+      // A vendor may only adjust stock and the active flag on its own store's
+      // products. Prices stay with ops.
+      allow update: if isAdmin()
+                    || (isVendor()
+                        && existing().storeId == request.auth.token.storeId
+                        && onlyChanged(['stockQty', 'isActive', 'updatedAt']));
+    }
+
+    // --- promotions -------------------------------------------------------
+
+    match /promotions/{promoId} {
+      // Customers need to read live promos to see the banner in their thread.
+      allow read: if signedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // --- riders ----------------------------------------------------------
+
+    match /riders/{riderId} {
+      allow read: if isAdmin() || isVendor() || (signedIn() && uid() == riderId);
+      allow create: if isAdmin();
+      allow update: if isAdmin()
+                    || (isRider() && uid() == riderId
+                        && onlyChanged(['isOnline', 'lastSeen', 'activeOrderId']));
+      allow delete: if isAdmin();
+    }
+
+    // --- orders ----------------------------------------------------------
+
+    match /orders/{orderId} {
+
+      function mine()       { return existing().customerUid == uid(); }
+      function myStore()    { return existing().storeId != null
+                                  && get(/databases/$(database)/documents/stores/$(existing().storeId)).data.ownerUid == uid(); }
+      function myDelivery() { return existing().riderUid == uid(); }
+
+      allow read: if isAdmin()
+                  || (isCustomer() && mine())
+                  || (isVendor() && myStore())
+                  || (isRider() && myDelivery());
+
+      // Only a customer creates an order, only for themselves, and it always
+      // starts at 'incoming' with no money attached.
+      allow create: if isCustomer()
+                    && incoming().customerUid == uid()
+                    && incoming().status == 'incoming'
+                    && incoming().paymentStatus == 'unpaid'
+                    && incoming().riderUid == null;
+
+      allow update: if
+        // Admin can change anything, as long as the transition is legal.
+        (isAdmin() && validTransition())
+
+        // Customer: edit their own items while it is still unpriced, or pay.
+        || (isCustomer() && mine() && validTransition()
+            && (
+              (existing().status == 'incoming'
+               && onlyChanged(['items', 'pricing', 'updatedAt']))
+              || (existing().status == 'awaiting_payment'
+                  && onlyChanged(['status', 'paymentStatus', 'timeline', 'updatedAt']))
+              || onlyChanged(['status', 'timeline', 'updatedAt'])  // cancel
+            ))
+
+        // Vendor: accept, pack, resolve flagged items.
+        //
+        // `pricing` has to be writable here: marking an item unavailable
+        // legitimately lowers the total, and the confirmItem helper recomputes
+        // it. What a vendor must NOT be able to do is inflate the bill, so the
+        // total is allowed to fall or hold, never rise.
+        || (isVendor() && myStore() && validTransition()
+            && onlyChanged(['status', 'items', 'pricing', 'timeline', 'updatedAt'])
+            && incoming().pricing.totalPaise <= existing().pricing.totalPaise
+            && incoming().pricing.deliveryPaise == existing().pricing.deliveryPaise)
+
+        // Rider: only the three status buttons and the cash flag.
+        || (isRider() && myDelivery() && validTransition()
+            && onlyChanged(['status', 'paymentStatus', 'timeline', 'updatedAt']));
+
+      // Orders are never deleted — cancelled is a status, and the ledger has
+      // to survive an audit.
+      allow delete: if false;
+
+      // --- the customer's chat thread ------------------------------------
+      match /messages/{messageId} {
+        function parent() {
+          return get(/databases/$(database)/documents/orders/$(orderId)).data;
+        }
+        allow read: if isAdmin()
+                    || (signedIn() && parent().customerUid == uid());
+        allow create: if isAdmin()
+                      || (signedIn() && parent().customerUid == uid());
+        allow update, delete: if false;
+      }
+    }
+
+    // --- payments ---------------------------------------------------------
+    //
+    // The rule that matters: a customer may CLAIM to have paid, and may never
+    // ASSERT that a payment is verified. Only an admin (or a gateway webhook
+    // running with admin credentials) writes 'paid'. Without this, marking
+    // your own order paid is a one-line exploit.
+
+    match /payments/{paymentId} {
+
+      function mine()      { return existing().customerUid == uid(); }
+      function myPickup()  { return existing().heldByUid == uid(); }
+
+      allow read: if isAdmin()
+                  || (isCustomer() && mine())
+                  || (isRider() && (myPickup() || incoming().heldByUid == uid()));
+
+      // A customer opens their own payment; a rider opens a cash one at the
+      // door. Neither may create it already settled.
+      allow create: if (isCustomer() && incoming().customerUid == uid()
+                        && incoming().state in ['unpaid', 'awaiting_customer']
+                        && incoming().receivedPaise == 0)
+                    || (isRider() && incoming().method == 'cash'
+                        && incoming().state == 'unpaid')
+                    || isAdmin();
+
+      allow update: if
+        // Admin verifies, fails or refunds. This is the only path to 'paid'.
+        (isAdmin() && incoming().amountPaise == existing().amountPaise)
+
+        // Customer may only say "I have paid" — never that it cleared.
+        || (isCustomer() && mine()
+            && incoming().state == 'awaiting_confirmation'
+            && onlyChanged(['state', 'utr', 'updatedAt']))
+
+        // Rider records cash taken at the door, for the amount asked.
+        || (isRider()
+            && existing().method == 'cash'
+            && incoming().state == 'collected'
+            && incoming().heldByUid == uid()
+            && incoming().receivedPaise == existing().amountPaise
+            && onlyChanged(['state', 'receivedPaise', 'tenderedPaise', 'changePaise',
+                            'heldByUid', 'confirmedBy', 'confirmedAt', 'updatedAt']));
+
+      // Payment records are a financial ledger. Nothing deletes one.
+      allow delete: if false;
+    }
+
+    // --- invoices ---------------------------------------------------------
+    //
+    // A GST invoice is immutable once issued. Correcting one means a credit
+    // note, not an edit — so update and delete are closed to everyone.
+
+    match /invoices/{orderId} {
+      function invoiceOrder() {
+        return get(/databases/$(database)/documents/orders/$(orderId)).data;
+      }
+
+      allow read: if isAdmin()
+                  || (signedIn() && invoiceOrder().customerUid == uid())
+                  || (isRider() && invoiceOrder().riderUid == uid());
+
+      // Issued by whoever completes the order — customer on prepaid, rider on
+      // cash — but only for an order that is actually theirs, and only once.
+      allow create: if signedIn()
+                    && (isAdmin()
+                        || invoiceOrder().customerUid == uid()
+                        || invoiceOrder().riderUid == uid());
+
+      allow update, delete: if false;
+    }
+
+    // --- counters --------------------------------------------------------
+    // The short order code. Any signed-in user may bump it inside a
+    // transaction; nobody may read the whole collection or set it backwards.
+
+    match /counters/{counterId} {
+      allow read: if signedIn();
+
+      // Created once, by whoever gets there first. This has to be open to a
+      // signed-in user, not just an admin: the invoice sequence is keyed by
+      // financial year, so a *new counter* is created by whichever customer
+      // or rider completes the first order after 1 April. Admin-only here
+      // meant the first invoice of every year failed.
+      allow create: if signedIn()
+                    && incoming().value is int
+                    && incoming().value > 0;
+
+      // After that it only ever steps forward by one. A gap in a GST invoice
+      // sequence is a compliance problem, and a repeat is worse.
+      allow update: if signedIn()
+                    && incoming().value is int
+                    && incoming().value == existing().value + 1;
+
+      allow delete: if false;
+    }
+
+    // Anything not matched above is denied.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

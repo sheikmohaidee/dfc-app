@@ -1,0 +1,284 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&family=Hind+Madurai:wght@300;400;500;600;700&display=swap">
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;background:#FFFFFF;color:#09090B;font-family:'Geist',system-ui,-apple-system,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased}
+    a{color:#2563EB;text-decoration:none}a:hover{color:#1D4ED8}
+    .ta{font-family:'Hind Madurai','Noto Sans Tamil','Nirmala UI',sans-serif}
+    .mn{font-family:'Geist Mono',ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums}
+    .sec{display:grid;grid-template-columns:200px minmax(0,1fr);gap:40px;padding:34px 0;border-top:1px solid #E4E4E7}
+    .secttl{font-size:15px;font-weight:600;letter-spacing:-.015em}
+    .secsub{font-size:11.5px;color:#A1A1AA;line-height:1.5;margin-top:5px}
+    .k{font-size:10px;font-weight:700;letter-spacing:.1em;color:#A1A1AA}
+    .note{font-size:11.5px;color:#71717A;line-height:1.6}
+  </style>
+</helmet>
+
+<div style="width:1200px; min-height:1800px; background:#FFFFFF; padding:52px 48px 64px 48px">
+
+  <div style="display:flex; align-items:flex-end; justify-content:space-between; padding-bottom:30px">
+    <div style="display:flex; align-items:center; gap:16px">
+      <div style="width:46px; height:46px; border-radius:13px; background:#18181B; display:flex; align-items:center; justify-content:center; color:#FAFAFA; font-size:20px; font-weight:600; letter-spacing:-.03em">D</div>
+      <div style="display:flex; flex-direction:column; gap:3px">
+        <span style="font-size:26px; font-weight:600; letter-spacing:-.03em">Dinasari Food Courier</span>
+        <span class="ta" style="font-size:13px; color:#71717A">தினசரி உணவு கூரியர் · மதுரை</span>
+      </div>
+    </div>
+    <div style="display:flex; align-items:center; gap:10px">
+      <span class="mn" style="font-size:11px; color:#3F3F46; border:1px solid #E4E4E7; border-radius:6px; padding:4px 9px">shadcn/ui base</span>
+      <span class="mn" style="font-size:11px; color:#3F3F46; border:1px solid #E4E4E7; border-radius:6px; padding:4px 9px">v0.1 foundations</span>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div>
+      <div class="secttl">Neutral scale</div>
+      <div class="secsub">shadcn zinc, unmodified. The whole product is monochrome; colour only ever encodes an order category or a state.</div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:16px">
+      <div style="display:grid; grid-template-columns:repeat(6, minmax(0, 1fr)); gap:12px">
+        <div><div style="height:52px; border-radius:8px; background:#FFFFFF; border:1px solid #E4E4E7"></div><div class="mn" style="font-size:10.5px; margin-top:7px">#FFFFFF</div><div style="font-size:10.5px; color:#A1A1AA">background</div></div>
+        <div><div style="height:52px; border-radius:8px; background:#FAFAFA; border:1px solid #E4E4E7"></div><div class="mn" style="font-size:10.5px; margin-top:7px">#FAFAFA</div><div style="font-size:10.5px; color:#A1A1AA">surface / on-dark</div></div>
+        <div><div style="height:52px; border-radius:8px; background:#F4F4F5"></div><div class="mn" style="font-size:10.5px; margin-top:7px">#F4F4F5</div><div style="font-size:10.5px; color:#A1A1AA">muted / secondary</div></div>
+        <div><div style="height:52px; border-radius:8px; background:#E4E4E7"></div><div class="mn" style="font-size:10.5px; margin-top:7px">#E4E4E7</div><div style="font-size:10.5px; color:#A1A1AA">border / input</div></div>
+        <div><div style="height:52px; border-radius:8px; background:#D4D4D8"></div><div class="mn" style="font-size:10.5px; margin-top:7px">#D4D4D8</div><div style="font-size:10.5px; color:#A1A1AA">disabled</div></div>
+        <div><div style="height:52px; border-radius:8px; background:#A1A1AA"></div><div class="mn" style="font-size:10.5px; margin-top:7px">#A1A1AA</div><div style="font-size:10.5px; color:#A1A1AA">placeholder</div></div>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(6, minmax(0, 1fr)); gap:12px">
+        <div><div style="height:52px; border-radius:8px; background:#71717A"></div><div class="mn" style="font-size:10.5px; margin-top:7px">#71717A</div><div style="font-size:10.5px; color:#A1A1AA">muted-foreground</div></div>
+        <div><div style="height:52px; border-radius:8px; background:#52525B"></div><div class="mn" style="font-size:10.5px; margin-top:7px">#52525B</div><div style="font-size:10.5px; color:#A1A1AA">icon on light</div></div>
+        <div><div style="height:52px; border-radius:8px; background:#3F3F46"></div><div class="mn" style="font-size:10.5px; margin-top:7px">#3F3F46</div><div style="font-size:10.5px; color:#A1A1AA">body strong</div></div>
+        <div><div style="height:52px; border-radius:8px; background:#27272A"></div><div class="mn" style="font-size:10.5px; margin-top:7px">#27272A</div><div style="font-size:10.5px; color:#A1A1AA">on-dark chip</div></div>
+        <div><div style="height:52px; border-radius:8px; background:#18181B"></div><div class="mn" style="font-size:10.5px; margin-top:7px">#18181B</div><div style="font-size:10.5px; color:#A1A1AA">primary</div></div>
+        <div><div style="height:52px; border-radius:8px; background:#09090B"></div><div class="mn" style="font-size:10.5px; margin-top:7px">#09090B</div><div style="font-size:10.5px; color:#A1A1AA">foreground</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div>
+      <div class="secttl">Category &amp; state</div>
+      <div class="secsub">Each order type owns one hue at three strengths: tint background, border, solid. Never mix two categories in one surface.</div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:10px">
+
+      <div style="display:grid; grid-template-columns:130px repeat(3, minmax(0,1fr)) 200px; gap:12px; align-items:center">
+        <span class="k">CATEGORY</span><span class="k">TINT</span><span class="k">BORDER</span><span class="k">SOLID</span><span class="k">USED FOR</span>
+      </div>
+
+      <div style="display:grid; grid-template-columns:130px repeat(3, minmax(0,1fr)) 200px; gap:12px; align-items:center">
+        <div style="display:flex; align-items:center; gap:8px"><div style="width:8px; height:8px; border-radius:4px; background:#2563EB"></div><span style="font-size:13px; font-weight:500">Pharmacy</span></div>
+        <div style="height:40px; border-radius:7px; background:#EFF6FF; display:flex; align-items:center; padding:0 11px"><span class="mn" style="font-size:10.5px; color:#1D4ED8">#EFF6FF</span></div>
+        <div style="height:40px; border-radius:7px; background:#DBEAFE; display:flex; align-items:center; padding:0 11px"><span class="mn" style="font-size:10.5px; color:#1D4ED8">#DBEAFE</span></div>
+        <div style="height:40px; border-radius:7px; background:#2563EB; display:flex; align-items:center; padding:0 11px"><span class="mn" style="font-size:10.5px; color:#FFFFFF">#2563EB</span></div>
+        <span style="font-size:11.5px; color:#71717A">Rx cards, pre-paid rider strip</span>
+      </div>
+
+      <div style="display:grid; grid-template-columns:130px repeat(3, minmax(0,1fr)) 200px; gap:12px; align-items:center">
+        <div style="display:flex; align-items:center; gap:8px"><div style="width:8px; height:8px; border-radius:4px; background:#16A34A"></div><span style="font-size:13px; font-weight:500">Grocery</span></div>
+        <div style="height:40px; border-radius:7px; background:#F0FDF4; display:flex; align-items:center; padding:0 11px"><span class="mn" style="font-size:10.5px; color:#15803D">#F0FDF4</span></div>
+        <div style="height:40px; border-radius:7px; background:#BBF7D0; display:flex; align-items:center; padding:0 11px"><span class="mn" style="font-size:10.5px; color:#15803D">#BBF7D0</span></div>
+        <div style="height:40px; border-radius:7px; background:#16A34A; display:flex; align-items:center; padding:0 11px"><span class="mn" style="font-size:10.5px; color:#FFFFFF">#16A34A</span></div>
+        <span style="font-size:11.5px; color:#71717A">Grocery cards, COD strip, call</span>
+      </div>
+
+      <div style="display:grid; grid-template-columns:130px repeat(3, minmax(0,1fr)) 200px; gap:12px; align-items:center">
+        <div style="display:flex; align-items:center; gap:8px"><div style="width:8px; height:8px; border-radius:4px; background:#EA580C"></div><span style="font-size:13px; font-weight:500">Food</span></div>
+        <div style="height:40px; border-radius:7px; background:#FFF7ED; display:flex; align-items:center; padding:0 11px"><span class="mn" style="font-size:10.5px; color:#C2410C">#FFF7ED</span></div>
+        <div style="height:40px; border-radius:7px; background:#FED7AA; display:flex; align-items:center; padding:0 11px"><span class="mn" style="font-size:10.5px; color:#C2410C">#FED7AA</span></div>
+        <div style="height:40px; border-radius:7px; background:#EA580C; display:flex; align-items:center; padding:0 11px"><span class="mn" style="font-size:10.5px; color:#FFFFFF">#EA580C</span></div>
+        <span style="font-size:11.5px; color:#71717A">Hotel &amp; mess orders</span>
+      </div>
+
+      <div style="display:grid; grid-template-columns:130px repeat(3, minmax(0,1fr)) 200px; gap:12px; align-items:center">
+        <div style="display:flex; align-items:center; gap:8px"><div style="width:8px; height:8px; border-radius:4px; background:#7C3AED"></div><span style="font-size:13px; font-weight:500">Concierge</span></div>
+        <div style="height:40px; border-radius:7px; background:#F5F3FF; display:flex; align-items:center; padding:0 11px"><span class="mn" style="font-size:10.5px; color:#6D28D9">#F5F3FF</span></div>
+        <div style="height:40px; border-radius:7px; background:#DDD6FE; display:flex; align-items:center; padding:0 11px"><span class="mn" style="font-size:10.5px; color:#6D28D9">#DDD6FE</span></div>
+        <div style="height:40px; border-radius:7px; background:#7C3AED; display:flex; align-items:center; padding:0 11px"><span class="mn" style="font-size:10.5px; color:#FFFFFF">#7C3AED</span></div>
+        <span style="font-size:11.5px; color:#71717A">Ad-hoc multi-stop errands</span>
+      </div>
+
+      <div style="height:1px; background:#F4F4F5; margin:6px 0"></div>
+
+      <div style="display:grid; grid-template-columns:130px repeat(3, minmax(0,1fr)) 200px; gap:12px; align-items:center">
+        <div style="display:flex; align-items:center; gap:8px"><div style="width:8px; height:8px; border-radius:4px; background:#B45309"></div><span style="font-size:13px; font-weight:500">Verify</span></div>
+        <div style="height:40px; border-radius:7px; background:#FFFBEB; display:flex; align-items:center; padding:0 11px"><span class="mn" style="font-size:10.5px; color:#92400E">#FFFBEB</span></div>
+        <div style="height:40px; border-radius:7px; background:#FDE68A; display:flex; align-items:center; padding:0 11px"><span class="mn" style="font-size:10.5px; color:#92400E">#FDE68A</span></div>
+        <div style="height:40px; border-radius:7px; background:#B45309; display:flex; align-items:center; padding:0 11px"><span class="mn" style="font-size:10.5px; color:#FFFFFF">#B45309</span></div>
+        <span style="font-size:11.5px; color:#71717A">Low OCR confidence, unpriced, SLA risk</span>
+      </div>
+
+      <div style="display:grid; grid-template-columns:130px repeat(3, minmax(0,1fr)) 200px; gap:12px; align-items:center">
+        <div style="display:flex; align-items:center; gap:8px"><div style="width:8px; height:8px; border-radius:4px; background:#DC2626"></div><span style="font-size:13px; font-weight:500">Destructive</span></div>
+        <div style="height:40px; border-radius:7px; background:#FEF2F2; display:flex; align-items:center; padding:0 11px"><span class="mn" style="font-size:10.5px; color:#B91C1C">#FEF2F2</span></div>
+        <div style="height:40px; border-radius:7px; background:#FECACA; display:flex; align-items:center; padding:0 11px"><span class="mn" style="font-size:10.5px; color:#B91C1C">#FECACA</span></div>
+        <div style="height:40px; border-radius:7px; background:#DC2626; display:flex; align-items:center; padding:0 11px"><span class="mn" style="font-size:10.5px; color:#FFFFFF">#DC2626</span></div>
+        <span style="font-size:11.5px; color:#71717A">Reject, cancel, report a problem</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div>
+      <div class="secttl">Typography</div>
+      <div class="secsub">Geist for interface, Geist Mono for every figure, Hind Madurai for Tamil. Three families, no more.</div>
+    </div>
+    <div style="display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:44px">
+      <div style="display:flex; flex-direction:column; gap:16px">
+        <span class="k">GEIST · INTERFACE</span>
+        <div style="display:flex; align-items:baseline; gap:16px"><span style="font-size:30px; font-weight:700; letter-spacing:-.035em">Villapuram</span><span class="mn" style="font-size:10.5px; color:#A1A1AA">30 / 700 / -3.5%</span></div>
+        <div style="display:flex; align-items:baseline; gap:16px"><span style="font-size:21px; font-weight:600; letter-spacing:-.02em">Unlock DFC</span><span class="mn" style="font-size:10.5px; color:#A1A1AA">21 / 600 / -2%</span></div>
+        <div style="display:flex; align-items:baseline; gap:16px"><span style="font-size:17px; font-weight:600; letter-spacing:-.02em">Ad-hoc Concierge</span><span class="mn" style="font-size:10.5px; color:#A1A1AA">17 / 600</span></div>
+        <div style="display:flex; align-items:baseline; gap:16px"><span style="font-size:15px; font-weight:600; letter-spacing:-.015em">Meenakshi Medicals</span><span class="mn" style="font-size:10.5px; color:#A1A1AA">15 / 600</span></div>
+        <div style="display:flex; align-items:baseline; gap:16px"><span style="font-size:14px">Speak, snap a list, or just type.</span><span class="mn" style="font-size:10.5px; color:#A1A1AA">14 / 400</span></div>
+        <div style="display:flex; align-items:baseline; gap:16px"><span style="font-size:12.5px; color:#71717A">Delivery · 3.1 km</span><span class="mn" style="font-size:10.5px; color:#A1A1AA">12.5 / 400 / 71717A</span></div>
+        <div style="display:flex; align-items:baseline; gap:16px"><span style="font-size:10.5px; font-weight:700; letter-spacing:.1em; color:#A1A1AA">COLLECT CASH</span><span class="mn" style="font-size:10.5px; color:#A1A1AA">10.5 / 700 / +10%</span></div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:16px">
+        <span class="k">HIND MADURAI · TAMIL</span>
+        <div style="display:flex; align-items:baseline; gap:16px"><span class="ta" style="font-size:24px; font-weight:600">மருந்தகம்</span><span class="mn" style="font-size:10.5px; color:#A1A1AA">pharmacy</span></div>
+        <div style="display:flex; align-items:baseline; gap:16px"><span class="ta" style="font-size:19px; font-weight:500">டெலிவரிக்கு புறப்பட்டேன்</span><span class="mn" style="font-size:10.5px; color:#A1A1AA">out for delivery</span></div>
+        <div style="display:flex; align-items:baseline; gap:16px"><span class="ta" style="font-size:15px">உறுதி செய்து பணம் செலுத்துங்கள்</span><span class="mn" style="font-size:10.5px; color:#A1A1AA">confirm &amp; pay</span></div>
+        <div style="display:flex; align-items:baseline; gap:16px"><span class="ta" style="font-size:12px; color:#A1A1AA">இருப்பிடம் கண்டறியப்படுகிறது…</span><span class="mn" style="font-size:10.5px; color:#A1A1AA">detecting location</span></div>
+        <div style="border:1px solid #E4E4E7; border-radius:9px; padding:14px; background:#FAFAFA; margin-top:4px">
+          <div class="k" style="margin-bottom:9px">PAIRING RULE</div>
+          <div class="note">Tamil never replaces English — it sits directly beneath it at <span class="mn">0.78×</span> the size in <span class="mn">#A1A1AA</span>, and never at a heavier weight than the English above it. Riders and vendors get Tamil on <em>actions</em>; customers get it on <em>headers and money</em>. Numerals stay Latin everywhere.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div>
+      <div class="secttl">Money</div>
+      <div class="secsub">Every figure in the product is Geist Mono with tabular numerals, so columns line up down a Kanban board.</div>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:16px">
+      <div style="border:1px solid #E4E4E7; border-radius:10px; padding:16px"><div class="mn" style="font-size:26px; font-weight:600; letter-spacing:-.03em">₹243</div><div class="note" style="margin-top:8px">Prefix, no space. No paise on customer surfaces.</div></div>
+      <div style="border:1px solid #E4E4E7; border-radius:10px; padding:16px"><div class="mn" style="font-size:26px; font-weight:600; letter-spacing:-.03em">₹1,24,500</div><div class="note" style="margin-top:8px">Indian grouping — lakh, not thousand. Payout ledgers only.</div></div>
+      <div style="border:1px solid #E4E4E7; border-radius:10px; padding:16px"><div class="mn" style="font-size:26px; font-weight:600; letter-spacing:-.03em; color:#B45309">₹ —</div><div class="note" style="margin-top:8px">Unpriced. Verify amber, never a zero.</div></div>
+      <div style="border:1px solid #E4E4E7; border-radius:10px; padding:16px"><div class="mn" style="font-size:26px; font-weight:600; letter-spacing:-.03em; color:#A16207">₹124?</div><div class="note" style="margin-top:8px">AI estimate below confidence. Trailing question mark.</div></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div>
+      <div class="secttl">Shape &amp; elevation</div>
+      <div class="secsub">Four radii, four shadows. Anything not on this list is a mistake.</div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:20px">
+      <div style="display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:14px">
+        <div><div style="height:56px; border:1px solid #E4E4E7; border-radius:4px; background:#FAFAFA"></div><div class="mn" style="font-size:10.5px; margin-top:7px">4px</div><div style="font-size:10.5px; color:#A1A1AA">chip, tag</div></div>
+        <div><div style="height:56px; border:1px solid #E4E4E7; border-radius:7px; background:#FAFAFA"></div><div class="mn" style="font-size:10.5px; margin-top:7px">7px</div><div style="font-size:10.5px; color:#A1A1AA">segmented, filter</div></div>
+        <div><div style="height:56px; border:1px solid #E4E4E7; border-radius:8px; background:#FAFAFA"></div><div class="mn" style="font-size:10.5px; margin-top:7px">8px</div><div style="font-size:10.5px; color:#A1A1AA">button, input</div></div>
+        <div><div style="height:56px; border:1px solid #E4E4E7; border-radius:12px; background:#FAFAFA"></div><div class="mn" style="font-size:10.5px; margin-top:7px">12px</div><div style="font-size:10.5px; color:#A1A1AA">card, column</div></div>
+        <div><div style="height:56px; border:1px solid #E4E4E7; border-radius:14px; background:#FAFAFA"></div><div class="mn" style="font-size:10.5px; margin-top:7px">14px</div><div style="font-size:10.5px; color:#A1A1AA">generative UI card</div></div>
+        <div><div style="height:56px; border:1px solid #E4E4E7; border-radius:999px; background:#FAFAFA"></div><div class="mn" style="font-size:10.5px; margin-top:7px">999px</div><div style="font-size:10.5px; color:#A1A1AA">pill, avatar, mic</div></div>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:14px">
+        <div><div style="height:56px; border-radius:10px; background:#FFFFFF; border:1px solid #E4E4E7; box-shadow:0 1px 2px 0 rgba(9,9,11,.05)"></div><div class="mn" style="font-size:10.5px; margin-top:9px">sm</div><div style="font-size:10.5px; color:#A1A1AA">resting Kanban card</div></div>
+        <div><div style="height:56px; border-radius:10px; background:#FFFFFF; border:1px solid #E4E4E7; box-shadow:0 1px 3px 0 rgba(9,9,11,.08),0 1px 2px -1px rgba(9,9,11,.06)"></div><div class="mn" style="font-size:10.5px; margin-top:9px">card</div><div style="font-size:10.5px; color:#A1A1AA">generative UI card</div></div>
+        <div><div style="height:56px; border-radius:10px; background:#FFFFFF; border:1px solid #E4E4E7; box-shadow:0 2px 8px rgba(9,9,11,.12)"></div><div class="mn" style="font-size:10.5px; margin-top:9px">float</div><div style="font-size:10.5px; color:#A1A1AA">mic, map overlay, FAB</div></div>
+        <div><div style="height:56px; border-radius:10px; background:#FFFFFF; border:1px solid #E4E4E7; box-shadow:-10px 0 28px rgba(9,9,11,.18)"></div><div class="mn" style="font-size:10.5px; margin-top:9px">sheet</div><div style="font-size:10.5px; color:#A1A1AA">side sheet, bottom sheet</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div>
+      <div class="secttl">Controls</div>
+      <div class="secsub">Rider primaries are 70px because they are pressed with a thumb, in sun, on a parked bike.</div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:22px">
+
+      <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">
+        <div style="height:36px; border-radius:8px; background:#18181B; display:flex; align-items:center; padding:0 15px"><span style="font-size:13.5px; font-weight:500; color:#FAFAFA">Primary</span></div>
+        <div style="height:36px; border-radius:8px; background:#F4F4F5; display:flex; align-items:center; padding:0 15px"><span style="font-size:13.5px; font-weight:500; color:#18181B">Secondary</span></div>
+        <div style="height:36px; border-radius:8px; border:1px solid #E4E4E7; display:flex; align-items:center; padding:0 15px"><span style="font-size:13.5px; font-weight:500; color:#3F3F46">Outline</span></div>
+        <div style="height:36px; border-radius:8px; display:flex; align-items:center; padding:0 15px"><span style="font-size:13.5px; font-weight:500; color:#3F3F46">Ghost</span></div>
+        <div style="height:36px; border-radius:8px; background:#DC2626; display:flex; align-items:center; padding:0 15px"><span style="font-size:13.5px; font-weight:500; color:#FFFFFF">Destructive</span></div>
+        <div style="height:36px; border-radius:8px; background:#D4D4D8; display:flex; align-items:center; padding:0 15px"><span style="font-size:13.5px; font-weight:500; color:#FFFFFF">Disabled</span></div>
+      </div>
+
+      <div style="display:flex; align-items:flex-end; gap:12px">
+        <div style="height:32px; border-radius:7px; background:#18181B; display:flex; align-items:center; padding:0 12px"><span style="font-size:12.5px; font-weight:500; color:#FAFAFA">sm 32</span></div>
+        <div style="height:40px; border-radius:8px; background:#18181B; display:flex; align-items:center; padding:0 16px"><span style="font-size:14px; font-weight:500; color:#FAFAFA">md 40</span></div>
+        <div style="height:48px; border-radius:8px; background:#18181B; display:flex; align-items:center; padding:0 20px"><span style="font-size:15px; font-weight:600; color:#FAFAFA">lg 48 · mobile CTA</span></div>
+        <div style="height:70px; border-radius:11px; background:#18181B; display:flex; align-items:center; padding:0 24px"><span style="font-size:19px; font-weight:700; color:#FFFFFF; letter-spacing:-.02em">xl 70 · rider</span></div>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:24px; flex-wrap:wrap">
+        <div style="display:flex; align-items:center; gap:9px">
+          <div style="width:20px; height:20px; border-radius:5px; background:#18181B; display:flex; align-items:center; justify-content:center"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#FAFAFA" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></div>
+          <div style="width:20px; height:20px; border-radius:5px; background:#FFFFFF; border:1.5px solid #D4D4D8"></div>
+          <span style="font-size:11.5px; color:#71717A">checkbox</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:9px">
+          <div style="width:42px; height:24px; border-radius:12px; background:#16A34A; padding:2px; display:flex; justify-content:flex-end"><div style="width:20px; height:20px; border-radius:10px; background:#FFFFFF; box-shadow:0 1px 2px rgba(9,9,11,.2)"></div></div>
+          <div style="width:42px; height:24px; border-radius:12px; background:#E4E4E7; padding:2px; display:flex"><div style="width:20px; height:20px; border-radius:10px; background:#FFFFFF; box-shadow:0 1px 2px rgba(9,9,11,.2)"></div></div>
+          <span style="font-size:11.5px; color:#71717A">switch · store open</span>
+        </div>
+        <div style="display:flex; border:1px solid #E4E4E7; border-radius:7px; overflow:hidden; height:32px">
+          <div style="display:flex; align-items:center; padding:0 12px; font-size:12px; font-weight:500; background:#18181B; color:#FAFAFA">Comfortable</div>
+          <div style="display:flex; align-items:center; padding:0 12px; font-size:12px; color:#71717A; border-left:1px solid #E4E4E7">Dense</div>
+        </div>
+        <div style="height:36px; border:1px solid #E4E4E7; border-radius:8px; display:flex; align-items:center; overflow:hidden; width:150px">
+          <span class="mn" style="width:30px; text-align:center; font-size:12.5px; color:#71717A; border-right:1px solid #E4E4E7; line-height:34px; background:#FAFAFA">₹</span>
+          <span class="mn" style="font-size:13.5px; font-weight:500; padding-left:10px">60</span>
+        </div>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap">
+        <span style="font-size:9px; font-weight:700; letter-spacing:.06em; color:#1D4ED8; background:#EFF6FF; border:1px solid #DBEAFE; border-radius:4px; padding:2px 6px">PHARMACY</span>
+        <span style="font-size:9px; font-weight:700; letter-spacing:.06em; color:#15803D; background:#F0FDF4; border:1px solid #BBF7D0; border-radius:4px; padding:2px 6px">GROCERY</span>
+        <span style="font-size:9px; font-weight:700; letter-spacing:.06em; color:#C2410C; background:#FFF7ED; border:1px solid #FED7AA; border-radius:4px; padding:2px 6px">FOOD</span>
+        <span style="font-size:9px; font-weight:700; letter-spacing:.06em; color:#6D28D9; background:#F5F3FF; border:1px solid #DDD6FE; border-radius:4px; padding:2px 6px">CONCIERGE</span>
+        <span style="font-size:9px; font-weight:700; letter-spacing:.06em; color:#B45309; background:#FFFBEB; border:1px solid #FDE68A; border-radius:4px; padding:2px 6px">VERIFY</span>
+        <span style="font-size:9px; font-weight:700; letter-spacing:.06em; color:#1D4ED8; background:#EFF6FF; border:1px solid #DBEAFE; border-radius:4px; padding:2px 6px">PREPAID</span>
+        <span style="font-size:9px; font-weight:700; letter-spacing:.06em; color:#15803D; background:#F0FDF4; border:1px solid #BBF7D0; border-radius:4px; padding:2px 6px">COD</span>
+        <span style="font-size:9px; font-weight:700; letter-spacing:.06em; color:#B45309; background:#FFFBEB; border:1px solid #FDE68A; border-radius:4px; padding:2px 6px">SWAPPED</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div>
+      <div class="secttl">Surfaces</div>
+      <div class="secsub">Six frames, one system. The customer app carries no tab bar at all — the thread is the whole product.</div>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px">
+      <div style="border:1px solid #E4E4E7; border-radius:10px; padding:14px"><div style="font-size:13px; font-weight:600; letter-spacing:-.01em">Customer · iOS</div><div class="mn" style="font-size:11px; color:#71717A; margin-top:5px">390 × 844</div><div class="note" style="margin-top:7px">Conversational thread. Voice / camera / text dock. No bottom nav.</div></div>
+      <div style="border:1px solid #E4E4E7; border-radius:10px; padding:14px"><div style="font-size:13px; font-weight:600; letter-spacing:-.01em">Customer · Android</div><div class="mn" style="font-size:11px; color:#71717A; margin-top:5px">412 × 892</div><div class="note" style="margin-top:7px">Same thread, +2px type, 12px radii, 58px mic, back affordance.</div></div>
+      <div style="border:1px solid #E4E4E7; border-radius:10px; padding:14px"><div style="font-size:13px; font-weight:600; letter-spacing:-.01em">Vendor</div><div class="mn" style="font-size:11px; color:#71717A; margin-top:5px">390 × 844</div><div class="note" style="margin-top:7px">Accept clock, packing checklist, pharmacist confirmation. 3-tab bar.</div></div>
+      <div style="border:1px solid #E4E4E7; border-radius:10px; padding:14px"><div style="font-size:13px; font-weight:600; letter-spacing:-.01em">Rider</div><div class="mn" style="font-size:11px; color:#71717A; margin-top:5px">390 × 844</div><div class="note" style="margin-top:7px">Order-type strip, schematic route, 70px status buttons, cash hero.</div></div>
+      <div style="border:1px solid #E4E4E7; border-radius:10px; padding:14px"><div style="font-size:13px; font-weight:600; letter-spacing:-.01em">Admin · desktop</div><div class="mn" style="font-size:11px; color:#71717A; margin-top:5px">1440 × 900</div><div class="note" style="margin-top:7px">Four-column board, no sidebar. Comfortable and dense densities.</div></div>
+      <div style="border:1px solid #E4E4E7; border-radius:10px; padding:14px"><div style="font-size:13px; font-weight:600; letter-spacing:-.01em">Admin · mobile</div><div class="mn" style="font-size:11px; color:#71717A; margin-top:5px">390 × 844</div><div class="note" style="margin-top:7px">Columns collapse to stage tabs; cards keep the desktop anatomy.</div></div>
+    </div>
+  </div>
+
+  <div class="sec" style="border-bottom:1px solid #E4E4E7">
+    <div>
+      <div class="secttl">Rules that hold everywhere</div>
+      <div class="secsub">The short list worth arguing about.</div>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:14px 32px">
+      <div class="note"><strong style="color:#09090B">Unstructured in, structured out.</strong> Every voice note or photo resolves into a bordered template card within one screen. The AI never answers a photo with a paragraph.</div>
+      <div class="note"><strong style="color:#09090B">Show the doubt.</strong> Anything the model is unsure of carries a VERIFY chip and a question mark on its price — and becomes a human's job in the next column.</div>
+      <div class="note"><strong style="color:#09090B">Touch targets.</strong> 44px minimum anywhere a finger goes; 52px for calls; 70px for rider status. Steppers may be 30px inside a 48px row.</div>
+      <div class="note"><strong style="color:#09090B">One primary per screen.</strong> Black fill is scarce. If two buttons are black, one of them is wrong.</div>
+      <div class="note"><strong style="color:#09090B">Colour is meaning.</strong> A hue only ever says which category or which state. Nothing is coloured for decoration.</div>
+      <div class="note"><strong style="color:#09090B">No fake chrome.</strong> No painted status bars, no drawn keyboards, no invented battery icons in any mockup.</div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

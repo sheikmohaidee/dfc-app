@@ -1,0 +1,36 @@
+{
+  "name": "@dfc/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Domain model, AI contract, tokens and i18n shared by every DFC surface",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./tokens": {
+      "types": "./dist/tokens.d.ts",
+      "default": "./dist/tokens.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepare": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test src/__tests__/*.test.ts",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "typescript": "^5.6.3"
+  },
+  "files": [
+    "dist",
+    "src"
+  ]
+}

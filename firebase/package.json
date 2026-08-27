@@ -1,0 +1,30 @@
+{
+  "name": "@dfc/firebase",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "seed": "tsx seed/seed.ts",
+    "emulators": "firebase emulators:start",
+    "deploy:rules": "firebase deploy --only firestore:rules,storage",
+    "deploy:indexes": "firebase deploy --only firestore:indexes",
+    "test:rules": "firebase emulators:exec --only firestore --project dfc-rules-test \"tsx --test tests/rules.test.ts\"",
+    "test": "npm run test:indexes && npm run test:rules && npm run test:storage && npm run test:functions",
+    "test:functions": "firebase emulators:exec --only firestore --project dfc-functions-test \"tsx --test --test-concurrency=1 functions/tests/signature.test.ts functions/tests/webhook.test.ts functions/tests/idempotency.test.ts functions/tests/counters.test.ts functions/tests/roles.test.ts functions/tests/notifications.test.ts\"",
+    "deploy:hosting": "firebase deploy --only hosting",
+    "serve:hosting": "firebase emulators:start --only hosting",
+    "test:storage": "firebase emulators:exec --only storage --project dfc-storage-test \"tsx --test tests/storage.test.ts\"",
+    "test:indexes": "tsx --test tests/indexes.test.ts"
+  },
+  "dependencies": {
+    "@dfc/core": "*",
+    "firebase-admin": "^13.0.2"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "firebase": "^12.18.0",
+    "firebase-tools": "^13.29.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

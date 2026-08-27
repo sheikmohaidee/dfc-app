@@ -1,0 +1,71 @@
+{
+  "pages": [
+    { "id": "page-1", "name": "Customer" },
+    { "id": "page-2", "name": "Vendor" },
+    { "id": "page-3", "name": "Rider" },
+    { "id": "page-4", "name": "Admin" },
+    { "id": "page-5", "name": "Foundations" }
+  ],
+  "artboards": [
+    { "file": "Login.dc.html",          "page": "page-1", "x": 0,    "y": 0, "w": 390,  "h": 844 },
+    { "file": "Main.dc.html",           "page": "page-1", "x": 510,  "y": 0, "w": 390,  "h": 844, "title": "Chat · Variation A" },
+    { "file": "ChatVariantB.dc.html",   "page": "page-1", "x": 1020, "y": 0, "w": 390,  "h": 844, "title": "Chat · Variation B" },
+    { "file": "CustomerAndroid.dc.html","page": "page-1", "x": 1530, "y": 0, "w": 412,  "h": 892, "title": "Android · Voice → Grocery" },
+
+    { "file": "VendorInbox.dc.html",    "page": "page-2", "x": 0,    "y": 0, "w": 390,  "h": 844 },
+    { "file": "VendorFulfil.dc.html",   "page": "page-2", "x": 510,  "y": 0, "w": 390,  "h": 844 },
+
+    { "file": "RiderActive.dc.html",    "page": "page-3", "x": 0,    "y": 0, "w": 390,  "h": 844, "title": "Rider · Pre-paid pharmacy" },
+    { "file": "RiderCOD.dc.html",       "page": "page-3", "x": 510,  "y": 0, "w": 390,  "h": 844, "title": "Rider · Cash on delivery" },
+
+    { "file": "AdminComfortable.dc.html","page": "page-4", "x": 0,    "y": 0, "w": 1440, "h": 900, "title": "Board · Comfortable" },
+    { "file": "AdminDense.dc.html",      "page": "page-4", "x": 1560, "y": 0, "w": 1440, "h": 900, "title": "Board · High density" },
+    { "file": "AdminConcierge.dc.html",  "page": "page-4", "x": 3120, "y": 0, "w": 1440, "h": 900, "title": "Board · Concierge side sheet" },
+    { "file": "AdminMobile.dc.html",     "page": "page-4", "x": 4680, "y": 0, "w": 390,  "h": 844, "title": "Board · Mobile responsive" },
+
+    { "file": "Foundations.dc.html",     "page": "page-5", "x": 0,    "y": 0, "w": 1200, "h": 1800 }
+  ],
+  "annotations": [
+    {
+      "id": "note-customer",
+      "page": "page-1",
+      "x": 0,
+      "y": -150,
+      "w": 640,
+      "text": "CUSTOMER — the hero flow.\nA photo of a handwritten prescription resolves into a structured template card (Variation A) or an editable inline checklist with live totals (Variation B — the toggles and steppers actually work). The Android board shows the other input path: a Tamil voice note becoming a grocery card, substitution and all.\nNo bottom nav anywhere. The thread is the whole product."
+    },
+    {
+      "id": "note-vendor",
+      "page": "page-2",
+      "x": 0,
+      "y": -150,
+      "w": 640,
+      "text": "VENDOR — Meenakshi Medicals, Anna Nagar.\nAn accept clock on the incoming request, then a packing checklist. The amber block is where the AI's low-confidence item becomes a human decision: the pharmacist sees the cropped handwriting, the model's reading, and its confidence, then confirms, substitutes or rejects."
+    },
+    {
+      "id": "note-rider",
+      "page": "page-3",
+      "x": 0,
+      "y": -150,
+      "w": 640,
+      "text": "RIDER — built for sunlight and one thumb.\nOrder type is the first thing on screen and it is the only colour: blue pre-paid pharmacy, green cash-on-delivery grocery. On a COD run the amount to collect is 54px white on near-black, because getting that number wrong costs real money."
+    },
+    {
+      "id": "note-admin",
+      "page": "page-4",
+      "x": 0,
+      "y": -150,
+      "w": 700,
+      "text": "ADMIN — the four-column order lifecycle, no sidebar.\nComfortable shows the customer's raw upload beside the AI's reading, so the reviewer can check the model without opening anything. Dense is the same board at volume, keyboard-driven. The side sheet is the ad-hoc concierge case: confirm each store, type a delivery fee, send a price.\nThe last board is the same thing on a phone — columns become stage tabs, cards keep their anatomy."
+    },
+    {
+      "id": "note-foundations",
+      "page": "page-5",
+      "x": 0,
+      "y": -150,
+      "w": 640,
+      "text": "FOUNDATIONS — shadcn zinc, unmodified, plus four category hues and one verify amber.\nGeist for interface, Geist Mono for every figure (tabular, so ₹ columns line up down a board), Hind Madurai for Tamil. Tamil sits under English at 0.78×, never heavier.\nEverything else on this canvas is built from this sheet."
+    }
+  ],
+  "launch": { "view": "canvas", "page": "page-1" }
+}

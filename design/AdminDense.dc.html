@@ -1,0 +1,260 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&family=Hind+Madurai:wght@300;400;500;600&display=swap">
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;background:#FFFFFF;color:#09090B;font-family:'Geist',system-ui,-apple-system,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased}
+    a{color:#2563EB;text-decoration:none}a:hover{color:#1D4ED8}
+    .ta{font-family:'Hind Madurai','Noto Sans Tamil','Nirmala UI',sans-serif}
+    .mn{font-family:'Geist Mono',ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums}
+    .col{background:#FFFFFF;border:1px solid #E4E4E7;border-radius:10px;display:flex;flex-direction:column;overflow:hidden}
+    .r:hover{background:#FAFAFA}
+  </style>
+</helmet>
+
+<div style="width:1440px; height:900px; display:flex; flex-direction:column; background:#FFFFFF; overflow:hidden">
+
+  <div style="height:56px; flex-shrink:0; border-bottom:1px solid #E4E4E7; display:flex; align-items:center; gap:16px; padding:0 20px">
+    <div style="display:flex; align-items:center; gap:10px">
+      <div style="width:28px; height:28px; border-radius:8px; background:#18181B; display:flex; align-items:center; justify-content:center; color:#FAFAFA; font-size:12.5px; font-weight:600; letter-spacing:-.02em">D</div>
+      <div style="display:flex; flex-direction:column; gap:0">
+        <span style="font-size:13.5px; font-weight:600; letter-spacing:-.015em">Command Center</span>
+        <span class="ta" style="font-size:10px; color:#A1A1AA; line-height:1.2">கட்டளை மையம்</span>
+      </div>
+    </div>
+    <div style="flex-grow:1; display:flex; justify-content:center">
+      <div style="width:380px; height:34px; border:1px solid #E4E4E7; border-radius:8px; display:flex; align-items:center; gap:9px; padding:0 11px; background:#FFFFFF">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#A1A1AA" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7.5"></circle><path d="m21 21-4.35-4.35"></path></svg>
+        <span style="font-size:13px; color:#A1A1AA; flex-grow:1">Search order, phone, store…</span>
+        <span class="mn" style="font-size:10.5px; color:#A1A1AA; border:1px solid #E4E4E7; border-radius:4px; padding:1px 5px">⌘K</span>
+      </div>
+    </div>
+    <div style="display:flex; align-items:center; gap:14px">
+      <div style="display:flex; align-items:center; gap:6px; border:1px solid #BBF7D0; background:#F0FDF4; border-radius:999px; padding:4px 10px">
+        <div style="width:6px; height:6px; border-radius:3px; background:#16A34A"></div>
+        <span style="font-size:11.5px; font-weight:600; color:#15803D">47 live</span>
+      </div>
+      <span class="mn" style="font-size:11.5px; color:#A1A1AA">Sat 23 Aug · 6:48 PM</span>
+      <div style="width:28px; height:28px; border-radius:14px; background:#F4F4F5; border:1px solid #E4E4E7; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; color:#52525B">AR</div>
+    </div>
+  </div>
+
+  <div style="height:48px; flex-shrink:0; border-bottom:1px solid #E4E4E7; display:flex; align-items:center; gap:8px; padding:0 20px">
+    <div style="height:28px; border-radius:7px; background:#18181B; color:#FAFAFA; display:flex; align-items:center; padding:0 12px; font-size:12.5px; font-weight:500">All</div>
+    <div style="height:28px; border-radius:7px; border:1px solid #E4E4E7; display:flex; align-items:center; gap:6px; padding:0 11px; font-size:12.5px; color:#3F3F46">
+      <div style="width:6px; height:6px; border-radius:3px; background:#2563EB"></div>Pharmacy</div>
+    <div style="height:28px; border-radius:7px; border:1px solid #E4E4E7; display:flex; align-items:center; gap:6px; padding:0 11px; font-size:12.5px; color:#3F3F46">
+      <div style="width:6px; height:6px; border-radius:3px; background:#16A34A"></div>Grocery</div>
+    <div style="height:28px; border-radius:7px; border:1px solid #E4E4E7; display:flex; align-items:center; gap:6px; padding:0 11px; font-size:12.5px; color:#3F3F46">
+      <div style="width:6px; height:6px; border-radius:3px; background:#EA580C"></div>Food</div>
+    <div style="height:28px; border-radius:7px; border:1px solid #E4E4E7; display:flex; align-items:center; gap:6px; padding:0 11px; font-size:12.5px; color:#3F3F46">
+      <div style="width:6px; height:6px; border-radius:3px; background:#7C3AED"></div>Concierge</div>
+
+    <div style="flex-grow:1"></div>
+
+    <div style="display:flex; border:1px solid #E4E4E7; border-radius:7px; overflow:hidden; height:28px">
+      <div style="display:flex; align-items:center; padding:0 11px; font-size:12px; color:#71717A">Comfortable</div>
+      <div style="display:flex; align-items:center; padding:0 11px; font-size:12px; font-weight:500; background:#18181B; color:#FAFAFA; border-left:1px solid #E4E4E7">Dense</div>
+    </div>
+    <div style="height:28px; border-radius:7px; border:1px solid #E4E4E7; display:flex; align-items:center; gap:6px; padding:0 11px; font-size:12.5px; font-weight:500; color:#18181B">
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#18181B" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+      Manual order
+    </div>
+  </div>
+
+  <div style="flex-grow:1; display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:14px; padding:14px 20px; overflow:hidden">
+
+    <div class="col">
+      <div style="display:flex; align-items:center; gap:8px; padding:9px 12px; border-bottom:1px solid #E4E4E7; background:#FAFAFA">
+        <span style="font-size:11.5px; font-weight:600; letter-spacing:-.01em; flex-grow:1">Incoming AI Requests</span>
+        <span class="mn" style="font-size:10.5px; font-weight:600; color:#3F3F46">18</span>
+      </div>
+      <sc-for list="{{ c1 }}" as="r" hint-placeholder-count="18">
+        <div class="r" style="{{ r.rowStyle }}">
+          <span style="{{ r.dotStyle }}"></span>
+          <span class="mn" style="font-size:10.5px; font-weight:600; width:34px; flex-shrink:0">{{ r.id }}</span>
+          <span style="{{ r.tagStyle }}">{{ r.tag }}</span>
+          <span style="font-size:11px; color:#3F3F46; flex-grow:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.place }}</span>
+          <span class="mn" style="{{ r.amtStyle }}">{{ r.amt }}</span>
+          <span class="mn" style="font-size:9.5px; color:#A1A1AA; width:26px; text-align:right; flex-shrink:0">{{ r.age }}</span>
+        </div>
+      </sc-for>
+      <div style="padding:8px 12px; font-size:10.5px; color:#A1A1AA">+ 4 older</div>
+    </div>
+
+    <div class="col">
+      <div style="display:flex; align-items:center; gap:8px; padding:9px 12px; border-bottom:1px solid #E4E4E7; background:#FAFAFA">
+        <span style="font-size:11.5px; font-weight:600; letter-spacing:-.01em; flex-grow:1">Admin Review &amp; Pricing</span>
+        <span class="mn" style="font-size:10.5px; font-weight:600; color:#3F3F46">14</span>
+      </div>
+      <sc-for list="{{ c2 }}" as="r" hint-placeholder-count="14">
+        <div class="r" style="{{ r.rowStyle }}">
+          <span style="{{ r.dotStyle }}"></span>
+          <span class="mn" style="font-size:10.5px; font-weight:600; width:34px; flex-shrink:0">{{ r.id }}</span>
+          <span style="{{ r.tagStyle }}">{{ r.tag }}</span>
+          <span style="font-size:11px; color:#3F3F46; flex-grow:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.place }}</span>
+          <span class="mn" style="{{ r.amtStyle }}">{{ r.amt }}</span>
+          <span class="mn" style="font-size:9.5px; color:#A1A1AA; width:26px; text-align:right; flex-shrink:0">{{ r.age }}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div class="col">
+      <div style="display:flex; align-items:center; gap:8px; padding:9px 12px; border-bottom:1px solid #E4E4E7; background:#FAFAFA">
+        <span style="font-size:11.5px; font-weight:600; letter-spacing:-.01em; flex-grow:1">Awaiting Payment</span>
+        <span class="mn" style="font-size:10.5px; font-weight:600; color:#3F3F46">9</span>
+      </div>
+      <sc-for list="{{ c3 }}" as="r" hint-placeholder-count="9">
+        <div class="r" style="{{ r.rowStyle }}">
+          <span style="{{ r.dotStyle }}"></span>
+          <span class="mn" style="font-size:10.5px; font-weight:600; width:34px; flex-shrink:0">{{ r.id }}</span>
+          <span style="{{ r.tagStyle }}">{{ r.tag }}</span>
+          <span style="font-size:11px; color:#3F3F46; flex-grow:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.place }}</span>
+          <span class="mn" style="{{ r.amtStyle }}">{{ r.amt }}</span>
+          <span class="mn" style="font-size:9.5px; color:#A1A1AA; width:26px; text-align:right; flex-shrink:0">{{ r.age }}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div class="col">
+      <div style="display:flex; align-items:center; gap:8px; padding:9px 12px; border-bottom:1px solid #E4E4E7; background:#FAFAFA">
+        <span style="font-size:11.5px; font-weight:600; letter-spacing:-.01em; flex-grow:1">Dispatched to Rider</span>
+        <span class="mn" style="font-size:10.5px; font-weight:600; color:#3F3F46">16</span>
+      </div>
+      <sc-for list="{{ c4 }}" as="r" hint-placeholder-count="16">
+        <div class="r" style="{{ r.rowStyle }}">
+          <span style="{{ r.dotStyle }}"></span>
+          <span class="mn" style="font-size:10.5px; font-weight:600; width:34px; flex-shrink:0">{{ r.id }}</span>
+          <span style="{{ r.tagStyle }}">{{ r.tag }}</span>
+          <span style="font-size:11px; color:#3F3F46; flex-grow:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.place }}</span>
+          <span class="mn" style="{{ r.amtStyle }}">{{ r.amt }}</span>
+          <span class="mn" style="font-size:9.5px; color:#A1A1AA; width:26px; text-align:right; flex-shrink:0">{{ r.age }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="height:30px; flex-shrink:0; border-top:1px solid #E4E4E7; background:#FAFAFA; display:flex; align-items:center; gap:18px; padding:0 20px">
+    <span class="mn" style="font-size:10.5px; color:#71717A">↑↓ move</span>
+    <span class="mn" style="font-size:10.5px; color:#71717A">⏎ open</span>
+    <span class="mn" style="font-size:10.5px; color:#71717A">⌘⇧P price</span>
+    <span class="mn" style="font-size:10.5px; color:#71717A">⌘⇧D dispatch</span>
+    <span style="flex-grow:1"></span>
+    <span class="mn" style="font-size:10.5px; color:#A1A1AA">142 orders today · median review 42s · 3 SLA breaches</span>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var palette = {
+      RX: { dot: '#2563EB', fg: '#1D4ED8', bg: '#EFF6FF', bd: '#DBEAFE' },
+      GR: { dot: '#16A34A', fg: '#15803D', bg: '#F0FDF4', bd: '#BBF7D0' },
+      FD: { dot: '#EA580C', fg: '#C2410C', bg: '#FFF7ED', bd: '#FED7AA' },
+      CN: { dot: '#7C3AED', fg: '#6D28D9', bg: '#F5F3FF', bd: '#DDD6FE' }
+    };
+
+    function build(list) {
+      return list.map(function (t) {
+        var p = palette[t[1]];
+        var sel = t[5] === 1;
+        return {
+          id: t[0],
+          tag: t[1],
+          place: t[2],
+          amt: t[3],
+          age: t[4],
+          rowStyle: 'display:flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-bottom:1px solid #F4F4F5;cursor:default;'
+            + (sel ? 'background:#F4F4F5;box-shadow:inset 2px 0 0 #18181B' : ''),
+          dotStyle: 'width:6px;height:6px;border-radius:3px;flex-shrink:0;background:' + p.dot,
+          tagStyle: 'font-size:8.5px;font-weight:700;letter-spacing:.04em;border-radius:3px;padding:1px 4px;flex-shrink:0;color:'
+            + p.fg + ';background:' + p.bg + ';border:1px solid ' + p.bd,
+          amtStyle: 'font-size:10.5px;font-weight:600;width:44px;text-align:right;flex-shrink:0;color:'
+            + (t[3] === '—' ? '#B45309' : '#09090B')
+        };
+      });
+    }
+
+    var c1 = build([
+      ['1057', 'RX', 'K.K. Nagar', '—', '9s', 0],
+      ['1056', 'CN', 'Villapuram', '—', '41s', 0],
+      ['1055', 'GR', 'Anna Nagar', '—', '1m', 0],
+      ['1054', 'RX', 'Thirunagar', '—', '2m', 0],
+      ['1053', 'FD', 'Simmakkal', '—', '2m', 0],
+      ['1052', 'GR', 'Tallakulam', '—', '3m', 0],
+      ['1051', 'CN', 'Villapuram', '—', '4m', 0],
+      ['1050', 'RX', 'Goripalayam', '—', '4m', 0],
+      ['1049', 'GR', 'K.K. Nagar', '—', '5m', 0],
+      ['1048', 'FD', 'Anna Nagar', '—', '6m', 0],
+      ['1047', 'GR', 'K.K. Nagar', '—', '6m', 0],
+      ['1046', 'RX', 'Mattuthavani', '—', '7m', 0],
+      ['1045', 'CN', 'Thirunagar', '—', '8m', 0],
+      ['1043', 'GR', 'Villapuram', '—', '9m', 0],
+      ['1042', 'RX', 'K.K. Nagar', '—', '11m', 0],
+      ['1040', 'FD', 'Goripalayam', '—', '12m', 0],
+      ['1038', 'RX', 'Anna Nagar', '—', '14m', 0],
+      ['1037', 'GR', 'Simmakkal', '—', '15m', 0]
+    ]);
+
+    var c2 = build([
+      ['1039', 'RX', 'Meenakshi Medicals', '₹512', '8m', 1],
+      ['1044', 'FD', 'Muniyandi Vilas', '—', '3m', 0],
+      ['1035', 'GR', 'Amma Mini Mart', '₹722', '11m', 0],
+      ['1034', 'RX', 'Vilakkuthoon Pharma', '₹188', '12m', 0],
+      ['1033', 'CN', 'Simmakkal · 2 stops', '₹365', '13m', 0],
+      ['1032', 'GR', 'Amma Mini Mart', '₹94', '15m', 0],
+      ['1031', 'RX', 'Meenakshi Medicals', '₹640', '16m', 0],
+      ['1028', 'FD', 'Konar Kadai', '₹210', '18m', 0],
+      ['1027', 'GR', 'Sri Balaji Stores', '₹1,105', '19m', 0],
+      ['1026', 'RX', 'Meenakshi Medicals', '₹76', '21m', 0],
+      ['1025', 'CN', 'Tallakulam · 1 stop', '—', '22m', 0],
+      ['1023', 'GR', 'Amma Mini Mart', '₹458', '24m', 0],
+      ['1022', 'RX', 'Vilakkuthoon Pharma', '₹332', '26m', 0],
+      ['1021', 'FD', 'Muniyandi Vilas', '₹165', '27m', 0]
+    ]);
+
+    var c3 = build([
+      ['1036', 'RX', 'K. Vetri · Goripalayam', '₹94', '3m', 0],
+      ['1030', 'GR', 'R. Devi · Tallakulam', '₹1,240', '18m', 0],
+      ['1020', 'RX', 'S. Anitha · Anna Nagar', '₹276', '21m', 0],
+      ['1019', 'FD', 'P. Kumar · Simmakkal', '₹185', '24m', 0],
+      ['1018', 'GR', 'M. Jaya · K.K. Nagar', '₹612', '26m', 0],
+      ['1017', 'CN', 'T. Rajan · Villapuram', '₹430', '29m', 0],
+      ['1016', 'RX', 'V. Selvi · Thirunagar', '₹158', '31m', 0],
+      ['1015', 'GR', 'N. Arasu · Mattuthavani', '₹889', '34m', 0],
+      ['1014', 'FD', 'B. Latha · Goripalayam', '₹240', '38m', 0]
+    ]);
+
+    var c4 = build([
+      ['1029', 'RX', 'A. Dhanush → Villapuram', '₹243', '8m', 0],
+      ['1024', 'GR', 'S. Mani → Thirunagar', '₹486', '21m', 0],
+      ['1013', 'RX', 'K. Vimal → Anna Nagar', '₹120', '4m', 0],
+      ['1012', 'FD', 'R. Sathya → Simmakkal', '₹310', '6m', 0],
+      ['1011', 'GR', 'A. Dhanush → K.K. Nagar', '₹745', '12m', 0],
+      ['1010', 'CN', 'M. Ilango → Tallakulam', '₹365', '14m', 0],
+      ['1009', 'RX', 'S. Mani → Goripalayam', '₹92', '16m', 0],
+      ['1008', 'GR', 'K. Vimal → Villapuram', '₹1,024', '17m', 0],
+      ['1007', 'FD', 'R. Sathya → Anna Nagar', '₹198', '19m', 0],
+      ['1006', 'RX', 'M. Ilango → Thirunagar', '₹455', '22m', 0],
+      ['1005', 'GR', 'A. Dhanush → Simmakkal', '₹268', '24m', 0],
+      ['1004', 'CN', 'S. Mani → K.K. Nagar', '₹512', '25m', 0],
+      ['1003', 'RX', 'K. Vimal → Mattuthavani', '₹134', '28m', 0],
+      ['1002', 'GR', 'R. Sathya → Tallakulam', '₹673', '30m', 0],
+      ['1001', 'FD', 'M. Ilango → Goripalayam', '₹225', '33m', 0],
+      ['1000', 'RX', 'A. Dhanush → Anna Nagar', '₹87', '36m', 0]
+    ]);
+
+    return { c1: c1, c2: c2, c3: c3, c4: c4 };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "noEmit": false,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    // CommonJS so Cloud Functions can require() it without extension games.
+    // The bundlers (Metro, Next) are happy with CJS too.
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "types": []
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/__tests__/**"]
+}

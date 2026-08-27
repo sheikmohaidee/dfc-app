@@ -1,0 +1,12 @@
+{
+  // The tests live outside `src` so they never reach `lib/` and never ship to
+  // Cloud Functions. That puts them outside the build tsconfig's rootDir too,
+  // hence this second config — `npm run typecheck` runs both.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": ".",
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts"]
+}

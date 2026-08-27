@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "noEmit": true,
+    // Node types are for the test files only. tsconfig.build.json keeps
+    // `types: []` and excludes __tests__, so the published dist/ stays free of
+    // any ambient Node dependency — core has to run in a browser and on a
+    // phone as well as in a Cloud Function.
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts"]
+}

@@ -1,0 +1,99 @@
+{
+  "cli": {
+    "version": ">= 12.0.0",
+    "appVersionSource": "remote"
+  },
+
+  "build": {
+    "base": {
+      "node": "20.18.0",
+      "env": {
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "dfc-app-bdb4e.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "dfc-app-bdb4e",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "dfc-app-bdb4e.firebasestorage.app",
+        "EXPO_PUBLIC_GEMINI_MODEL": "gemini-2.5-flash"
+      }
+    },
+
+    "development": {
+      "extends": "base",
+      "developmentClient": true,
+      "distribution": "internal",
+      "channel": "development",
+      "env": { "APP_VARIANT": "customer" }
+    },
+    "development-rider": {
+      "extends": "development",
+      "env": { "APP_VARIANT": "rider" }
+    },
+    "development-vendor": {
+      "extends": "development",
+      "env": { "APP_VARIANT": "vendor" }
+    },
+
+    "preview": {
+      "extends": "base",
+      "distribution": "internal",
+      "channel": "preview",
+      "android": { "buildType": "apk" },
+      "env": { "APP_VARIANT": "customer" }
+    },
+    "preview-rider": { "extends": "preview", "env": { "APP_VARIANT": "rider" } },
+    "preview-vendor": { "extends": "preview", "env": { "APP_VARIANT": "vendor" } },
+
+    "production": {
+      "extends": "base",
+      "channel": "production",
+      "autoIncrement": true,
+      "android": { "buildType": "app-bundle" },
+      "env": { "APP_VARIANT": "customer" }
+    },
+    "production-rider": {
+      "extends": "production",
+      "env": { "APP_VARIANT": "rider" }
+    },
+    "production-vendor": {
+      "extends": "production",
+      "env": { "APP_VARIANT": "vendor" }
+    }
+  },
+
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "REPLACE_WITH_APPLE_ID_EMAIL",
+        "ascAppId": "REPLACE_WITH_APP_STORE_CONNECT_APP_ID",
+        "appleTeamId": "REPLACE_WITH_TEAM_ID"
+      },
+      "android": {
+        "serviceAccountKeyPath": "../../secrets/play-service-account.json",
+        "track": "internal",
+        "releaseStatus": "draft"
+      }
+    },
+    "production-rider": {
+      "ios": {
+        "appleId": "REPLACE_WITH_APPLE_ID_EMAIL",
+        "ascAppId": "REPLACE_WITH_RIDER_ASC_APP_ID",
+        "appleTeamId": "REPLACE_WITH_TEAM_ID"
+      },
+      "android": {
+        "serviceAccountKeyPath": "../../secrets/play-service-account.json",
+        "track": "internal",
+        "releaseStatus": "draft"
+      }
+    },
+    "production-vendor": {
+      "ios": {
+        "appleId": "REPLACE_WITH_APPLE_ID_EMAIL",
+        "ascAppId": "REPLACE_WITH_VENDOR_ASC_APP_ID",
+        "appleTeamId": "REPLACE_WITH_TEAM_ID"
+      },
+      "android": {
+        "serviceAccountKeyPath": "../../secrets/play-service-account.json",
+        "track": "internal",
+        "releaseStatus": "draft"
+      }
+    }
+  }
+}
