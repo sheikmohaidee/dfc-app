@@ -311,8 +311,9 @@ export default function RiderTask() {
                 ) : cod ? (
                   <CashSheet
                     amountPaise={order.pricing.totalPaise}
+                    orderCode={order.code}
                     busy={busy}
-                    onCollect={(tendered) => void finish(tendered)}
+                    onCollect={(tendered, mode) => void finish(tendered)}
                   />
                 ) : (
                   <Button

@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DFC Product Blueprint & Architectural Systems</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-ground: #090d16;
+      --bg-surface: #111827;
+      --bg-card: #1f293d;
+      --bg-card-hover: #28354f;
+      --border-color: rgba(255, 255, 255, 0.08);
+      --border-accent: rgba(6, 182, 212, 0.3);
+
+      --accent-cyan: #06b6d4;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-purple: #8b5cf6;
+      --accent-rose: #f43f5e;
+
+      --text-main: #f9fafb;
+      --text-muted: #9ca3af;
+      --text-dim: #6b7280;
+
+      --font-display: 'Plus Jakarta Sans', sans-serif;
+      --font-body: 'Inter', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    [data-theme="light"] {
+      --bg-ground: #f8fafc;
+      --bg-surface: #ffffff;
+      --bg-card: #f1f5f9;
+      --bg-card-hover: #e2e8f0;
+      --border-color: rgba(0, 0, 0, 0.08);
+      --border-accent: rgba(6, 182, 212, 0.4);
+      --text-main: #0f172a;
+      --text-muted: #475569;
+      --text-dim: #94a3b8;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--bg-ground);
+      color: var(--text-main);
+      font-family: var(--font-body);
+      line-height: 1.6;
+      padding: 2.5rem 1.5rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* Header & Hero */
+    .header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: 9999px;
+      background: rgba(6, 182, 212, 0.1);
+      border: 1px solid var(--border-accent);
+      color: var(--accent-cyan);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 1.25rem;
+    }
+
+    .header-badge .pulse {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--accent-emerald);
+      box-shadow: 0 0 10px var(--accent-emerald);
+    }
+
+    h1 {
+      font-family: var(--font-display);
+      font-size: 2.5rem;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      line-height: 1.15;
+      margin-bottom: 0.75rem;
+      background: linear-gradient(135deg, #ffffff 0%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      font-size: 1.125rem;
+      color: var(--text-muted);
+      max-width: 750px;
+      margin-bottom: 2.5rem;
+    }
+
+    /* Quick Metrics Banner */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+      margin-bottom: 3rem;
+    }
+
+    .metric-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 0.75rem;
+      padding: 1.25rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .metric-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 3px;
+      height: 100%;
+      background: var(--card-accent, var(--accent-cyan));
+    }
+
+    .metric-val {
+      font-family: var(--font-mono);
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 0.25rem;
+    }
+
+    .metric-lbl {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* Section Styling */
+    section {
+      margin-bottom: 3.5rem;
+    }
+
+    .section-title {
+      font-family: var(--font-display);
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .section-title svg {
+      color: var(--accent-cyan);
+    }
+
+    /* Role Flow Tabs */
+    .tab-container {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 1rem;
+      padding: 1.5rem;
+    }
+
+    .tab-buttons {
+      display: flex;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 1rem;
+      margin-bottom: 1.5rem;
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-family: var(--font-body);
+      font-size: 0.9375rem;
+      font-weight: 600;
+      padding: 0.6rem 1.2rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-main);
+      background: var(--bg-card);
+    }
+
+    .tab-btn.active {
+      color: var(--bg-ground);
+      background: var(--accent-cyan);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Stepper & Cards */
+    .flow-stepper {
+      display: grid;
+      gap: 1.25rem;
+    }
+
+    .flow-step {
+      display: flex;
+      gap: 1.25rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 0.75rem;
+      padding: 1.25rem;
+      position: relative;
+    }
+
+    .step-num {
+      width: 2.25rem;
+      height: 2.25rem;
+      border-radius: 0.5rem;
+      background: rgba(6, 182, 212, 0.15);
+      color: var(--accent-cyan);
+      font-family: var(--font-mono);
+      font-weight: 700;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+
+    .step-content h4 {
+      font-family: var(--font-display);
+      font-size: 1.05rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .step-content p {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .tech-pill {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 0.25rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      color: var(--accent-purple);
+      margin-top: 0.5rem;
+    }
+
+    /* Grid for Design & Tech Specs */
+    .two-col-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .spec-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 0.875rem;
+      padding: 1.5rem;
+    }
+
+    .spec-card h3 {
+      font-family: var(--font-display);
+      font-size: 1.15rem;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .spec-list {
+      list-style: none;
+    }
+
+    .spec-list li {
+      padding: 0.6rem 0;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .spec-list li:last-child { border-bottom: none; }
+    .spec-list li strong { color: var(--text-main); font-weight: 500; }
+
+    /* Code Block & Badges */
+    .code-chip {
+      font-family: var(--font-mono);
+      font-size: 0.8125rem;
+      background: var(--bg-card);
+      padding: 0.2rem 0.5rem;
+      border-radius: 0.25rem;
+      color: var(--accent-cyan);
+    }
+
+    /* Live Credentials Table */
+    .cred-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+      text-align: left;
+    }
+
+    .cred-table th, .cred-table td {
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .cred-table th {
+      background: var(--bg-card);
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .cred-table td strong {
+      color: var(--text-main);
+    }
+
+    .role-tag {
+      padding: 0.2rem 0.6rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+
+    .role-admin { background: rgba(244, 63, 94, 0.15); color: var(--accent-rose); }
+    .role-customer { background: rgba(6, 182, 212, 0.15); color: var(--accent-cyan); }
+    .role-vendor { background: rgba(245, 158, 11, 0.15); color: var(--accent-amber); }
+    .role-rider { background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); }
+
+    /* Diagram Canvas */
+    .arch-diagram {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 1rem;
+      padding: 1.5rem;
+      overflow-x: auto;
+      margin-bottom: 2rem;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      body { padding: 1.25rem 0.85rem; }
+      h1 { font-size: 1.85rem; }
+      .metrics-grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="header-badge">
+      <span class="pulse"></span>
+      Firestore Seeded & Verified Live
+    </div>
+    <h1>Dinasari Food Courier (DFC) Blueprint</h1>
+    <p class="subtitle">
+      Hyper-local multi-service delivery platform for Madurai, Tamil Nadu. Monorepo architecture featuring multimodal AI ordering, integer-paise financial engine, Rule 33 GST compliance, and real-time operational dashboard.
+    </p>
+  </header>
+
+  <!-- Metrics Grid -->
+  <div class="metrics-grid">
+    <div class="metric-card" style="--card-accent: var(--accent-emerald)">
+      <div class="metric-val">382 / 382</div>
+      <div class="metric-lbl">Tests Passing (100%)</div>
+    </div>
+    <div class="metric-card" style="--card-accent: var(--accent-cyan)">
+      <div class="metric-val">4 Roles</div>
+      <div class="metric-lbl">Customer · Vendor · Rider · Admin</div>
+    </div>
+    <div class="metric-card" style="--card-accent: var(--accent-purple)">
+      <div class="metric-val">Gemini 2.5</div>
+      <div class="metric-lbl">Multimodal Tamil/OCR Engine</div>
+    </div>
+    <div class="metric-card" style="--card-accent: var(--accent-amber)">
+      <div class="metric-val">12 Localities</div>
+      <div class="metric-lbl">Madurai Distance Matrix</div>
+    </div>
+  </div>
+
+  <!-- End-to-End System Flow Diagram -->
+  <section>
+    <div class="section-title">
+      <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h7"/></svg>
+      End-to-End Operational Lifecycle
+    </div>
+    <div class="arch-diagram">
+      <svg viewBox="0 0 1000 240" width="100%" height="auto" style="min-width: 700px;">
+        <!-- Nodes -->
+        <rect x="20" y="80" width="160" height="80" rx="10" fill="#1f293d" stroke="#06b6d4" stroke-width="2"/>
+        <text x="100" y="115" fill="#f9fafb" font-family="Plus Jakarta Sans" font-size="14" font-weight="700" text-anchor="middle">1. Customer Chat</text>
+        <text x="100" y="138" fill="#9ca3af" font-family="Inter" font-size="11" text-anchor="middle">Voice / Photo / Text</text>
+
+        <path d="M 180 120 L 240 120" stroke="#06b6d4" stroke-width="2" marker-end="url(#arrow)"/>
+
+        <rect x="240" y="80" width="170" height="80" rx="10" fill="#1f293d" stroke="#8b5cf6" stroke-width="2"/>
+        <text x="325" y="115" fill="#f9fafb" font-family="Plus Jakarta Sans" font-size="14" font-weight="700" text-anchor="middle">2. Gemini 2.5 AI</text>
+        <text x="325" y="138" fill="#9ca3af" font-family="Inter" font-size="11" text-anchor="middle">OCR + Zod Extraction</text>
+
+        <path d="M 410 120 L 470 120" stroke="#8b5cf6" stroke-width="2"/>
+
+        <rect x="470" y="80" width="170" height="80" rx="10" fill="#1f293d" stroke="#f43f5e" stroke-width="2"/>
+        <text x="555" y="115" fill="#f9fafb" font-family="Plus Jakarta Sans" font-size="14" font-weight="700" text-anchor="middle">3. Admin Board</text>
+        <text x="555" y="138" fill="#9ca3af" font-family="Inter" font-size="11" text-anchor="middle">Item Price & Fee Set</text>
+
+        <path d="M 640 120 L 700 120" stroke="#f43f5e" stroke-width="2"/>
+
+        <rect x="700" y="80" width="140" height="80" rx="10" fill="#1f293d" stroke="#f59e0b" stroke-width="2"/>
+        <text x="770" y="115" fill="#f9fafb" font-family="Plus Jakarta Sans" font-size="14" font-weight="700" text-anchor="middle">4. Vendor Inbox</text>
+        <text x="770" y="138" fill="#9ca3af" font-family="Inter" font-size="11" text-anchor="middle">180s Accept & Pack</text>
+
+        <path d="M 840 120 L 900 120" stroke="#f59e0b" stroke-width="2"/>
+
+        <rect x="900" y="80" width="80" height="80" rx="10" fill="#1f293d" stroke="#10b981" stroke-width="2"/>
+        <text x="940" y="115" fill="#f9fafb" font-family="Plus Jakarta Sans" font-size="14" font-weight="700" text-anchor="middle">5. Rider</text>
+        <text x="940" y="138" fill="#9ca3af" font-family="Inter" font-size="11" text-anchor="middle">OTP / COD</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- Interactive Role Workflows -->
+  <section>
+    <div class="section-title">
+      <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+      Role-Specific Feature Deep Dive
+    </div>
+
+    <div class="tab-container">
+      <div class="tab-buttons">
+        <button class="tab-btn active" onclick="openTab(event, 'customer-tab')">Customer Experience</button>
+        <button class="tab-btn" onclick="openTab(event, 'vendor-tab')">Vendor / Store Partner</button>
+        <button class="tab-btn" onclick="openTab(event, 'rider-tab')">Delivery Rider</button>
+        <button class="tab-btn" onclick="openTab(event, 'admin-tab')">Admin Command Center</button>
+      </div>
+
+      <!-- Customer Tab -->
+      <div id="customer-tab" class="tab-content active">
+        <div class="flow-stepper">
+          <div class="flow-step">
+            <div class="step-num">01</div>
+            <div class="step-content">
+              <h4>Multimodal Chat Thread (<span class="code-chip">app/(customer)/chat.tsx</span>)</h4>
+              <p>Replaces rigid grid navigation with a conversational ordering thread. Customers record Tamil or English voice messages, capture photos of handwritten notes/prescriptions, or type freeform text.</p>
+              <span class="tech-pill">Gemini 2.5 Flash · Voice Base64 · Tamil OCR</span>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="step-num">02</div>
+            <div class="step-content">
+              <h4>Generative Order Card & Verification (<span class="code-chip">src/ui/order-card.tsx</span>)</h4>
+              <p>Gemini extractions render inline as interactive cards rather than paragraphs. Items extracted with low confidence (&lt;0.60) carry an amber VERIFY badge requiring pharmacist or admin confirmation.</p>
+              <span class="tech-pill">Zod Validation · Human-in-the-loop · Auto Retry</span>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="step-num">03</div>
+            <div class="step-content">
+              <h4>Live 3D Tracker & Route Arc (<span class="code-chip">app/(customer)/order/[id].tsx</span>)</h4>
+              <p>Real-time order progress rail, dynamic ETA counter, 3D parcel scene with SVG fallback for low-power devices, route distance curvature, rider profile card, and 4-digit delivery OTP badge.</p>
+              <span class="tech-pill">@react-three/fiber · Expo-GL · Haversine GPS</span>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="step-num">04</div>
+            <div class="step-content">
+              <h4>Payment Settlement & Tax Invoice (<span class="code-chip">app/(customer)/pay/[id].tsx</span>)</h4>
+              <p>Supports deep-linked UPI apps (GPay, PhonePe, Paytm), Razorpay hosted checkout, and Cash on Delivery. Generates GST Rule 33 compliant tax invoices with pure-agent reimbursement separation.</p>
+              <span class="tech-pill">UPI Deep Linking · Rule 33 GST · Integer Paise</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vendor Tab -->
+      <div id="vendor-tab" class="tab-content">
+        <div class="flow-stepper">
+          <div class="flow-step">
+            <div class="step-num">01</div>
+            <div class="step-content">
+              <h4>Live Store Order Inbox (<span class="code-chip">app/(vendor)/inbox.tsx</span>)</h4>
+              <p>Real-time order queue for store managers with operational store open/close toggle and a 180-second countdown clock to accept incoming orders before auto-reassignment.</p>
+              <span class="tech-pill">High-Priority Push · Firestore Snapshot · Audio Chime</span>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="step-num">02</div>
+            <div class="step-content">
+              <h4>Fulfillment Checklist & Pharmacist Block (<span class="code-chip">app/(vendor)/order/[id].tsx</span>)</h4>
+              <p>Interactive item checklist allowing vendors to tick off packed stock, flag out-of-stock items, propose price adjustments, and execute pharmacist confirmation for medicine orders.</p>
+              <span class="tech-pill">Pharmacist Sign-Off · Line Item Mutator</span>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="step-num">03</div>
+            <div class="step-content">
+              <h4>Vendor Payouts & Statements (<span class="code-chip">app/(vendor)/payouts.tsx</span>)</h4>
+              <p>Weekly payout balance tracker detailing net order earnings, store commissions, settled payouts, and registered bank details.</p>
+              <span class="tech-pill">Paise Ledger · Statutory Statement</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rider Tab -->
+      <div id="rider-tab" class="tab-content">
+        <div class="flow-stepper">
+          <div class="flow-step">
+            <div class="step-num">01</div>
+            <div class="step-content">
+              <h4>Online Duty Toggle & Task Queue (<span class="code-chip">app/(rider)/queue.tsx</span>)</h4>
+              <p>Clean duty switch (Online/Offline) displaying active assignment cards with pickup store address, drop locality, expected distance, and trip payout.</p>
+              <span class="tech-pill">Background Geofence · Battery Throttling (25m/10s)</span>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="step-num">02</div>
+            <div class="step-content">
+              <h4>Doorstep Execution & CashSheet Calculator (<span class="code-chip">app/(rider)/task/[id].tsx</span>)</h4>
+              <p>Optimized for outdoor sunlight with high-contrast 70px action buttons. Includes single-tap map navigation, 54px Cash-on-Delivery bill calculator, and 4-digit OTP entry modal.</p>
+              <span class="tech-pill">CashSheet · Doorstep OTP Validation · Haptic Feedback</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Admin Tab -->
+      <div id="admin-tab" class="tab-content">
+        <div class="flow-stepper">
+          <div class="flow-step">
+            <div class="step-num">01</div>
+            <div class="step-content">
+              <h4>4-Column Real-Time Kanban Board (<span class="code-chip">apps/admin-web/src/components/board/board.tsx</span>)</h4>
+              <p>Operational control center for dispatch staff. Organizes orders across Incoming, Admin Review, Awaiting Payment, and Dispatched columns with smooth drag-and-drop state validation.</p>
+              <span class="tech-pill">@dnd-kit · Keyboard Shortcuts (⌘+Enter) · Real-Time Snapshot</span>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="step-num">02</div>
+            <div class="step-content">
+              <h4>3D Situation Map of Madurai (<span class="code-chip">apps/admin-web/src/components/live/live-map.tsx</span>)</h4>
+              <p>Interactive Three.js environment projecting 12 Madurai localities into a 3D ground plane with order volume pillars, Vaigai River ribbon, and live rider leg arcs.</p>
+              <span class="tech-pill">Three.js · OrbitControls · Demand Render Loop</span>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="step-num">03</div>
+            <div class="step-content">
+              <h4>Order Side-Sheet & Line Item Editor (<span class="code-chip">apps/admin-web/src/components/sheets/order-sheet.tsx</span>)</h4>
+              <p>Allows dispatchers to play original customer voice notes, view prescription images full-screen, modify item quantities/prices, set distance delivery fees, and assign riders.</p>
+              <span class="tech-pill">Media Player · Pricing Matrix · Rider Dispatcher</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Technical Architecture & Design System -->
+  <section>
+    <div class="section-title">
+      <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+      Design System & Technical Specs
+    </div>
+
+    <div class="two-col-grid">
+      <div class="spec-card">
+        <h3>🎨 Visual Tokens & Design Language</h3>
+        <ul class="spec-list">
+          <li><strong>Theme Philosophy</strong> <span>Dark-first glassmorphism with subtle borders</span></li>
+          <li><strong>Brand Tone</strong> <span>Zinc 900 base (#18181B) + Electric Cyan (#2563EB)</span></li>
+          <li><strong>Pharmacy Tone</strong> <span>Deep Blue (#1E3A8A) + Soft Icy Blue (#DBEAFE)</span></li>
+          <li><strong>Grocery Tone</strong> <span>Deep Green (#14532D) + Emerald (#BBF7D0)</span></li>
+          <li><strong>Concierge Tone</strong> <span>Warm Purple (#581C87) + Lavender (#F3E8FF)</span></li>
+          <li><strong>Bilingual Type</strong> <span>Geist Sans / Mono + Hind Madurai (Tamil)</span></li>
+        </ul>
+      </div>
+
+      <div class="spec-card">
+        <h3>⚡ Monorepo Technical Stack</h3>
+        <ul class="spec-list">
+          <li><strong>Mobile App Target</strong> <span>Expo Router SDK 54 (Customer, Rider, Vendor)</span></li>
+          <li><strong>Admin Dashboard</strong> <span>Next.js 15 App Router (Static Export)</span></li>
+          <li><strong>Core Engine</strong> <span>Shared Zod Schemas + GST Tax Calculation</span></li>
+          <li><strong>Backend Infrastructure</strong> <span>Firebase Firestore + App Check + Functions</span></li>
+          <li><strong>AI Inference</strong> <span>Gemini 2.5 Flash via Firebase AI Logic</span></li>
+          <li><strong>Monetary Architecture</strong> <span>Strict Integer Paise (Paise = INR × 100)</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Live Test Credentials -->
+  <section>
+    <div class="section-title">
+      <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 0121 9z"/></svg>
+      Seeded Test Credentials (Live on <span class="code-chip">dfc-app-bdb4e</span>)
+    </div>
+    <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 0.875rem; overflow: hidden;">
+      <table class="cred-table">
+        <thead>
+          <tr>
+            <th>Role Target</th>
+            <th>Email Credential</th>
+            <th>Password</th>
+            <th>Default Landing Route</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="role-tag role-admin">Admin Command</span></td>
+            <td><strong>admin@dfc.test</strong></td>
+            <td><code>dfc-admin-2026</code></td>
+            <td>https://dfc-app-bdb4e.web.app</td>
+          </tr>
+          <tr>
+            <td><span class="role-tag role-customer">Customer App</span></td>
+            <td><strong>customer@dfc.test</strong></td>
+            <td><code>dfc-customer-2026</code></td>
+            <td><code>/(customer)/chat</code></td>
+          </tr>
+          <tr>
+            <td><span class="role-tag role-vendor">Vendor Partner</span></td>
+            <td><strong>vendor@dfc.test</strong></td>
+            <td><code>dfc-vendor-2026</code></td>
+            <td><code>/(vendor)/inbox</code></td>
+          </tr>
+          <tr>
+            <td><span class="role-tag role-rider">Delivery Rider</span></td>
+            <td><strong>rider@dfc.test</strong></td>
+            <td><code>dfc-rider-2026</code></td>
+            <td><code>/(rider)/queue</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <script>
+    function openTab(evt, tabName) {
+      var i, tabcontent, tablinks;
+      tabcontent = document.getElementsByClassName("tab-content");
+      for (i = 0; i < tabcontent.length; i++) {
+        tabcontent[i].classList.remove("active");
+      }
+      tablinks = document.getElementsByClassName("tab-btn");
+      for (i = 0; i < tablinks.length; i++) {
+        tablinks[i].classList.remove("active");
+      }
+      document.getElementById(tabName).classList.add("active");
+      evt.currentTarget.classList.add("active");
+    }
+  </script>
+</body>
+</html>
