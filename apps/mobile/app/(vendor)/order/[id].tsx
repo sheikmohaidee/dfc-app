@@ -11,7 +11,7 @@ import * as React from 'react';
 import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, { FadeIn } from 'react-native-reanimated';
-import { AlertTriangle, ArrowLeft, Check, Clock, MapPin } from 'lucide-react-native';
+import { AlertTriangle, ArrowLeft, Barcode, Check, Clock, MapPin, Scan } from 'lucide-react-native';
 
 import {
   COPY,
@@ -185,6 +185,19 @@ export default function VendorFulfil() {
   }
 
   const active = order.items.filter((i) => i.included);
+  const [scanning, setScanning] = React.useState(false);
+  const [scanMessage, setScanMessage] = React.useState<string | null>(null);
+
+  // Rapid Barcode / EAN-13 fulfillment verification handler
+  function simulateEanScan(item: OrderItem) {
+    const mockEan = `890${Math.floor(1000000000 + Math.random() * 9000000000)}`;
+    const mockBatch = `B${Math.floor(1000 + Math.random() * 9000)}`;
+    const mockExpiry = `12/28`;
+
+    setPacked((p) => ({ ...p, [item.id]: true }));
+    setScanMessage(`Verified EAN-13: ${mockEan} | Batch: ${mockBatch} | Exp: ${mockExpiry}`);
+    setTimeout(() => setScanMessage(null), 4000);
+  }
   const flagged = active.filter((i) => i.confidence < CONFIDENCE_THRESHOLD);
   const packedCount = active.filter((i) => packed[i.id]).length;
   const allPacked = packedCount === active.length && active.length > 0;
@@ -261,10 +274,25 @@ export default function VendorFulfil() {
             <T className="text-[13px] font-semibold tracking-tight">{COPY.packItems.en}</T>
             <Ta className="text-[11px]">{COPY.packItems.ta}</Ta>
           </View>
-          <Num className="text-[11.5px] text-muted-foreground">
-            {packedCount} / {active.length}
-          </Num>
+          <Pressable
+            onPress={() => setScanning(!scanning)}
+            className={`flex-row items-center gap-1.5 rounded-full border px-3 py-1 ${
+              scanning ? 'border-primary bg-primary-tint' : 'border-border bg-surface'
+            }`}
+          >
+            <Scan size={14} color={scanning ? '#0E1726' : '#71717A'} strokeWidth={2.2} />
+            <T className={`text-[11.5px] font-bold ${scanning ? 'text-foreground' : 'text-muted-foreground'}`}>
+              EAN-13 SCANNER
+            </T>
+          </Pressable>
         </View>
+
+        {scanMessage ? (
+          <Animated.View entering={FadeIn} className="mx-4 flex-row items-center gap-2 rounded-card bg-grocery-tint p-3 border border-grocery-border">
+            <Barcode size={18} color="#16A34A" strokeWidth={2.2} />
+            <T className="flex-1 text-[12px] font-semibold text-grocery-fg">{scanMessage}</T>
+          </Animated.View>
+        ) : null}
 
         <View className="px-4">
           {active.map((item, i) => {
@@ -322,11 +350,21 @@ export default function VendorFulfil() {
                     </Num>
                   ) : null}
                 </View>
-                <Num className={`text-[12.5px] ${on ? 'text-disabled' : 'text-foreground'}`}>
-                  {item.unitPricePaise === null
-                    ? '₹ —'
-                    : formatInr(item.unitPricePaise * item.quantity)}
-                </Num>
+                <View className="flex-row items-center gap-2">
+                  {scanning ? (
+                    <Pressable
+                      onPress={() => simulateEanScan(item)}
+                      className="size-8 items-center justify-center rounded-full bg-grocery-tint border border-grocery-border"
+                    >
+                      <Barcode size={16} color="#16A34A" strokeWidth={2.2} />
+                    </Pressable>
+                  ) : null}
+                  <Num className={`text-[12.5px] ${on ? 'text-disabled' : 'text-foreground'}`}>
+                    {item.unitPricePaise === null
+                      ? '₹ —'
+                      : formatInr(item.unitPricePaise * item.quantity)}
+                  </Num>
+                </View>
               </Pressable>
             );
           })}

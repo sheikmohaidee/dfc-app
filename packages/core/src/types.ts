@@ -143,6 +143,15 @@ export interface OrderItem {
   substitutedFor?: string;
   note?: string;
 
+  /** EAN-13 or barcode scanned during packing for zero-error fulfillment verification. */
+  ean?: string;
+  /** Batch number captured during barcode scanning (pharmacy/FSSAI compliance). */
+  batchNumber?: string;
+  /** Expiry date string (MM/YY or YYYY-MM) captured during fulfillment. */
+  expiryDate?: string;
+  /** Verified by barcode scanner. */
+  barcodeVerified?: boolean;
+
   /**
    * The customer corrected what OCR read on this line.
    *
