@@ -20,10 +20,12 @@ import * as Clipboard from 'expo-clipboard';
 import {
   ArrowLeft,
   Banknote,
+  BellOff,
   Check,
   Copy,
   CreditCard,
   Info,
+  Mic,
   ShieldCheck,
   Smartphone,
 } from 'lucide-react-native';
@@ -34,6 +36,7 @@ import {
   formatInr,
   isUpiConfigured,
   isValidUtr,
+  type GateInstructionTag,
   type Order,
   type Payment,
   type UpiApp,
@@ -63,6 +66,9 @@ export default function Pay() {
   const [utr, setUtr] = React.useState('');
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [selectedTags, setSelectedTags] = React.useState<GateInstructionTag[]>([]);
+  const [voiceNoteRecorded, setVoiceNoteRecorded] = React.useState(false);
+  const [isRecordingNote, setIsRecordingNote] = React.useState(false);
 
   React.useEffect(() => {
     if (!id) return;
@@ -247,6 +253,90 @@ export default function Pay() {
           </Animated.View>
         ) : (
           <>
+            {/* Delivery Gate Instructions & 15s Voice Memo */}
+            <Card className="p-4 gap-3 border-border bg-card">
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row items-center gap-2">
+                  <BellOff size={16} color="#3B82F6" />
+                  <T className="text-[13px] font-bold text-foreground">Gate &amp; Arrival Instructions</T>
+                </View>
+                <T className="text-[10px] font-extrabold uppercase text-primary">Final 100m</T>
+              </View>
+
+              <T className="text-[11.5px] text-muted-foreground">
+                Help your rider reach your doorstep without calling you multiple times.
+              </T>
+
+              <View className="flex-row flex-wrap gap-2">
+                {[
+                  { tag: 'no_bell' as GateInstructionTag, label: "Don't ring bell 🔕" },
+                  { tag: 'leave_with_guard' as GateInstructionTag, label: 'Leave with guard 👮' },
+                  { tag: 'pet_inside' as GateInstructionTag, label: 'Pet in premises 🐕' },
+                  { tag: 'call_before' as GateInstructionTag, label: 'Call before arriving 📞' },
+                ].map(({ tag, label }) => {
+                  const isSelected = selectedTags.includes(tag);
+                  return (
+                    <Pressable
+                      key={tag}
+                      onPress={() => {
+                        void Haptics.selectionAsync();
+                        setSelectedTags((prev) =>
+                          prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
+                        );
+                      }}
+                      className={`px-3 py-1.5 rounded-full border ${
+                        isSelected
+                          ? 'bg-primary/15 border-primary'
+                          : 'bg-surface border-border'
+                      }`}
+                    >
+                      <T className={`text-[11.5px] font-semibold ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}>
+                        {label}
+                      </T>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {/* 15-second Voice Memo Recorder */}
+              <View className="pt-1 border-t border-border/50">
+                <Pressable
+                  onPress={() => {
+                    if (!isRecordingNote) {
+                      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      setIsRecordingNote(true);
+                      setTimeout(() => {
+                        setIsRecordingNote(false);
+                        setVoiceNoteRecorded(true);
+                        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                      }, 2500);
+                    }
+                  }}
+                  className={`flex-row items-center justify-between p-2.5 rounded-xl border ${
+                    voiceNoteRecorded
+                      ? 'bg-emerald-500/10 border-emerald-500/30'
+                      : isRecordingNote
+                      ? 'bg-red-500/10 border-red-500/40 animate-pulse'
+                      : 'bg-surface border-border'
+                  }`}
+                >
+                  <View className="flex-row items-center gap-2">
+                    <Mic size={15} color={isRecordingNote ? '#EF4444' : voiceNoteRecorded ? '#10B981' : '#71717A'} />
+                    <T className={`text-[12px] font-semibold ${voiceNoteRecorded ? 'text-emerald-500' : isRecordingNote ? 'text-red-500' : 'text-foreground'}`}>
+                      {isRecordingNote
+                        ? 'Recording 15s memo… speak gate directions'
+                        : voiceNoteRecorded
+                        ? '15s Audio Memo Attached 🎧'
+                        : 'Record 15s Voice Memo for Rider'}
+                    </T>
+                  </View>
+                  {voiceNoteRecorded && (
+                    <T className="text-[10.5px] text-emerald-600 dark:text-emerald-400 font-bold">Saved</T>
+                  )}
+                </Pressable>
+              </View>
+            </Card>
+
             {/* --- UPI --- */}
             <View className="gap-2.5">
               <View className="flex-row items-center gap-2 px-1">
@@ -346,8 +436,8 @@ export default function Pay() {
               </View>
               <PressableScale to={0.98} haptic onPress={() => void payByCard()} disabled={busy}>
                 <Card className="flex-row items-center gap-3 p-4">
-                  <View className="size-10 items-center justify-center rounded-[11px] bg-pharmacy-tint">
-                    <CreditCard size={19} color="#2563EB" strokeWidth={2} />
+                  <View className="size-10 items-center justify-center rounded-[11px] bg-primary/10">
+                    <CreditCard size={19} color="#18181B" strokeWidth={2} />
                   </View>
                   <View className="flex-1">
                     <T className="text-[15px] font-semibold tracking-tight">Pay securely online</T>
@@ -382,13 +472,6 @@ export default function Pay() {
                   </View>
                 </Card>
               </PressableScale>
-
-              {order.category === 'pharmacy' ? (
-                <T className="px-1 text-[11.5px] leading-[17px] text-placeholder">
-                  Prescription orders are normally pre-paid so the pharmacist can dispense before
-                  the rider arrives — paying now is faster.
-                </T>
-              ) : null}
             </View>
           </>
         )}

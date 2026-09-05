@@ -14,7 +14,7 @@
 
 import * as React from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Html, OrbitControls, RoundedBox } from '@react-three/drei';
+import { Html as DreiHtml, OrbitControls, RoundedBox } from '@react-three/drei';
 import * as THREE from 'three';
 
 import {
@@ -147,7 +147,7 @@ function LocalityPillar({ cluster, dark }: { cluster: Cluster; dark: boolean }) 
         <meshBasicMaterial color={dark ? '#27272A' : '#D4D4D8'} />
       </mesh>
 
-      <Html
+      <DreiHtml
         position={[0, target + 0.42, 0]}
         center
         distanceFactor={12}
@@ -162,7 +162,7 @@ function LocalityPillar({ cluster, dark }: { cluster: Cluster; dark: boolean }) 
             {cluster.count} · {formatInr(cluster.valuePaise)}
           </span>
         </div>
-      </Html>
+      </DreiHtml>
     </group>
   );
 }

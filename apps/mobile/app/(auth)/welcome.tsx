@@ -53,12 +53,12 @@ const SLIDES: Slide[] = [
     body: '“Rendu muzham malligai, oru kilo paruppu” works exactly as well as typing it. Speak the way you speak.',
   },
   {
-    tone: 'pharmacy',
-    icon: <ShieldCheck size={16} color="#2563EB" strokeWidth={2.2} />,
-    kicker: 'A PHARMACIST CHECKS EVERY ONE',
-    title: 'Medicine,\nchecked by a human',
-    titleTa: 'மருந்தாளர் உறுதிப்படுத்துகிறார்',
-    body: 'Anything our system is unsure of is flagged and confirmed by a licensed pharmacist before it is dispensed. Never a guess.',
+    tone: 'brand',
+    icon: <ShieldCheck size={16} color="#EA580C" strokeWidth={2.2} />,
+    kicker: 'FAST LOCAL DELIVERY',
+    title: 'Delivered in minutes,\nacross Madurai',
+    titleTa: 'விரைவான உள்ளூர் டெலிவரி',
+    body: 'Fresh food, daily essentials, and concierge errands picked up from neighborhood stores and delivered straight to your door.',
   },
 ];
 

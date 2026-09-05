@@ -27,9 +27,10 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { Camera, Check, ChevronDown, MapPin, Mic, User } from 'lucide-react-native';
+import { Camera, Check, ChevronDown, Flame, MapPin, Mic, Sparkles, Sun, User, Users } from 'lucide-react-native';
 
-import { COPY, formatInr, isTerminal, localityById, type Order } from '@dfc/core';
+import { COPY, formatInr, isTerminal, localityById, predictContextualCart, type Order } from '@dfc/core';
+import { ArDishModal } from '@/ui/ar-dish-modal';
 
 import { useAuth } from '@/providers/auth';
 import { extractOrder, fallbackExtraction } from '@/lib/ai';
@@ -198,8 +199,16 @@ export default function Chat() {
   const [thinking, setThinking] = React.useState(false);
   const [recording, setRecording] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [arModalVisible, setArModalVisible] = React.useState(false);
+  const [arDishKey, setArDishKey] = React.useState('bun-parotta');
+  const [dietaryFilter, setDietaryFilter] = React.useState<string | null>(null);
 
   const scrollRef = React.useRef<ScrollView>(null);
+
+  const predictiveCard = React.useMemo(
+    () => predictContextualCart(Object.values(orders), profile?.localityId ?? 'kk-nagar'),
+    [orders, profile?.localityId],
+  );
 
   // Live view of my orders. This drives two things: a card already in the
   // thread updates when an admin prices it, and — on a cold start — the thread
@@ -298,7 +307,7 @@ export default function Chat() {
           ? uploadCapture(user.uid, args.capture).catch(() => undefined)
           : Promise.resolve(undefined);
 
-        const order = await createOrderFromExtraction({
+        const newOrderId = await createOrderFromExtraction({
           customer: profile,
           extraction: result.extraction,
           source: {
@@ -336,7 +345,7 @@ export default function Chat() {
           ),
         );
 
-        push({ id: rid(), kind: 'order', orderId: order.id, variant: args.variant });
+        push({ id: rid(), kind: 'order', orderId: newOrderId, variant: args.variant });
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch (e) {
         setTurns((prev) => prev.filter((t) => t.id !== statusId));
@@ -419,6 +428,77 @@ export default function Chat() {
     <Screen edges={['top']}>
       <Header />
 
+      {/* Advanced Tier-1 Quick Action Pills & Dietary Filters */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 8, gap: 8 }}
+        className="border-b border-muted bg-surface/50 max-h-12 shrink-0"
+      >
+        <Pressable
+          onPress={() => router.push('/food-rescue' as never)}
+          className="flex-row items-center gap-1.5 rounded-full bg-orange-500/10 border border-orange-500/30 px-3 py-1.5"
+        >
+          <Flame size={13} color="#F97316" />
+          <T className="text-[11px] font-bold text-orange-600 dark:text-orange-400">Rescue 60% OFF</T>
+        </Pressable>
+
+        <Pressable
+          onPress={() => router.push('/subscriptions' as never)}
+          className="flex-row items-center gap-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 px-3 py-1.5"
+        >
+          <Sun size={13} color="#D97706" />
+          <T className="text-[11px] font-bold text-amber-600 dark:text-amber-400">Morning Drops (6 AM)</T>
+        </Pressable>
+
+        <Pressable
+          onPress={() => router.push('/group-order' as never)}
+          className="flex-row items-center gap-1.5 rounded-full bg-primary/10 border border-primary/30 px-3 py-1.5"
+        >
+          <Users size={13} color="#2563EB" />
+          <T className="text-[11px] font-bold text-primary">Group Order</T>
+        </Pressable>
+
+        <Pressable
+          onPress={() => {
+            setArDishKey('bun-parotta');
+            setArModalVisible(true);
+          }}
+          className="flex-row items-center gap-1.5 rounded-full bg-purple-500/10 border border-purple-500/30 px-3 py-1.5"
+        >
+          <Sparkles size={13} color="#9333EA" />
+          <T className="text-[11px] font-bold text-purple-600 dark:text-purple-400">3D Dish AR</T>
+        </Pressable>
+
+        {/* Dietary & Kitchen Filter Toggles */}
+        {[
+          { key: 'veg', label: '🌱 Pure Veg' },
+          { key: 'halal', label: 'حلال Halal' },
+          { key: 'jain', label: '🥬 Jain' },
+          { key: 'fssai_5star', label: '⭐ 5-Star Clean' },
+        ].map(({ key, label }) => {
+          const isSelected = dietaryFilter === key;
+          return (
+            <Pressable
+              key={key}
+              onPress={() => {
+                void Haptics.selectionAsync();
+                setDietaryFilter(isSelected ? null : key);
+              }}
+              className={`flex-row items-center gap-1 rounded-full px-3 py-1.5 border ${
+                isSelected
+                  ? 'bg-emerald-500/15 border-emerald-500 text-emerald-500'
+                  : 'bg-surface border-border/80 text-muted-foreground'
+              }`}
+            >
+              <T className={`text-[11px] font-semibold ${isSelected ? 'text-emerald-500 font-bold' : 'text-muted-foreground'}`}>
+                {label}
+              </T>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={0}
@@ -435,9 +515,54 @@ export default function Chat() {
             switch (turn.kind) {
               case 'bot-text':
                 return (
-                  <Animated.View key={turn.id} entering={FadeInUp.duration(220)} className="gap-1">
-                    <T className="text-[15px] leading-[22px]">{turn.text}</T>
-                    {turn.textTa ? <Ta className="text-[13px]">{turn.textTa}</Ta> : null}
+                  <Animated.View key={turn.id} entering={FadeInUp.duration(220)} className="gap-2.5">
+                    <View className="gap-1">
+                      <T className="text-[15px] leading-[22px]">{turn.text}</T>
+                      {turn.textTa ? <Ta className="text-[13px]">{turn.textTa}</Ta> : null}
+                    </View>
+
+                    {/* Predictive Contextual Cart Card */}
+                    {turn.id === 'greeting' && (
+                      <View className="rounded-xl border border-primary/25 bg-card p-3.5 gap-2 shadow-sm">
+                        <View className="flex-row items-center justify-between">
+                          <T className="text-[10px] font-extrabold tracking-wider text-primary uppercase">
+                            {predictiveCard.kicker.en}
+                          </T>
+                          <Badge label="AI AFFINITY" tone="pharmacy" />
+                        </View>
+                        <T className="text-[14px] font-bold text-foreground">{predictiveCard.title.en}</T>
+                        <Ta className="text-[11.5px] text-muted-foreground">{predictiveCard.title.ta}</Ta>
+
+                        <View className="rounded-lg bg-surface p-2.5 gap-1.5 border border-border/50">
+                          {predictiveCard.suggestedItems.map((item, idx) => (
+                            <View key={idx} className="flex-row justify-between">
+                              <T className="text-[11.5px] text-muted-foreground">
+                                {item.quantity}× {item.name}
+                              </T>
+                              <T className="text-[11.5px] font-mono font-medium text-foreground">
+                                {formatInr(item.pricePaise * item.quantity)}
+                              </T>
+                            </View>
+                          ))}
+                        </View>
+
+                        <Pressable
+                          onPress={() => {
+                            const query =
+                              predictiveCard.suggestedItems
+                                .map((i) => `${i.quantity} ${i.name}`)
+                                .join(', ') + ` from ${predictiveCard.storeName}`;
+                            void run({ kind: 'text', text: query, variant: 'review' });
+                          }}
+                          className="flex-row items-center justify-center gap-2 rounded-lg bg-primary py-2.5"
+                        >
+                          <Sparkles size={14} color="#FFFFFF" />
+                          <T className="text-[12px] font-bold text-white">
+                            1-Tap Reorder · {formatInr(predictiveCard.totalPaise)}
+                          </T>
+                        </Pressable>
+                      </View>
+                    )}
                   </Animated.View>
                 );
 
@@ -561,8 +686,8 @@ export default function Chat() {
             </Animated.View>
           ) : (
             <View className="flex-row gap-2">
-              <Chip label={COPY.pharmacy.en} />
               <Chip label={COPY.grocery.en} />
+              <Chip label={COPY.food.en} />
               <Chip label={COPY.concierge.en} />
             </View>
           )}
@@ -602,6 +727,16 @@ export default function Chat() {
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      {/* 3D AR Dish Explorer Modal */}
+      <ArDishModal
+        visible={arModalVisible}
+        dishKey={arDishKey}
+        onClose={() => setArModalVisible(false)}
+        onAddToCart={(d) => {
+          void run({ kind: 'text', text: `1 ${d.name} from ${d.storeName}`, variant: 'review' });
+        }}
+      />
 
       {/* Hidden badge import keeps the design-system surface obvious. */}
       <View className="hidden">

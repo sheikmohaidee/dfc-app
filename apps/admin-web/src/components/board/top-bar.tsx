@@ -6,7 +6,7 @@
  */
 
 import * as React from 'react';
-import { Boxes, LogOut, Megaphone, Package, Plus, Search } from 'lucide-react';
+import { Bike, Boxes, Flame, Layers, LogOut, Package, Plus, Route, Search, Sparkles, UtensilsCrossed } from 'lucide-react';
 import Link from 'next/link';
 
 import { COPY, type Category } from '@dfc/core';
@@ -16,7 +16,6 @@ import type { CategoryFilter, Density } from '@/hooks/useBoard';
 
 const FILTERS: { key: CategoryFilter; label: string; dot?: string }[] = [
   { key: 'all', label: 'All' },
-  { key: 'pharmacy', label: 'Pharmacy', dot: 'bg-pharmacy' },
   { key: 'grocery', label: 'Grocery', dot: 'bg-grocery' },
   { key: 'food', label: 'Food', dot: 'bg-food' },
   { key: 'concierge', label: 'Concierge', dot: 'bg-concierge' },
@@ -28,12 +27,18 @@ export function TopBar({
   liveCount,
   userName,
   onSignOut,
+  onOpenRiders,
+  onOpenFoodRescue,
+  onOpenBatching,
 }: {
   search: string;
   onSearch: (v: string) => void;
   liveCount: number;
   userName: string;
   onSignOut: () => void;
+  onOpenRiders?: () => void;
+  onOpenFoodRescue?: () => void;
+  onOpenBatching?: () => void;
 }) {
   const inputRef = React.useRef<HTMLInputElement>(null);
 
@@ -97,12 +102,44 @@ export function TopBar({
         </div>
       </div>
 
-      <div className="flex items-center gap-3.5">
+      <div className="flex items-center gap-3">
         <nav className="hidden items-center gap-1.5 lg:flex">
+          {onOpenFoodRescue && (
+            <button
+              onClick={onOpenFoodRescue}
+              className="flex items-center gap-1.5 rounded-md border border-orange-500/30 bg-orange-500/10 px-2.5 py-1.5 text-[11.5px] font-medium text-orange-600 dark:text-orange-400 transition-colors hover:bg-orange-500/20"
+            >
+              <Flame className="size-3.5" />
+              Food Rescue
+            </button>
+          )}
+
+          {onOpenBatching && (
+            <button
+              onClick={onOpenBatching}
+              className="flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-[11.5px] font-medium text-primary transition-colors hover:bg-primary/20"
+            >
+              <Route className="size-3.5" />
+              Smart Batching
+            </button>
+          )}
+
+          {onOpenRiders ? (
+            <button
+              onClick={onOpenRiders}
+              className="flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[11.5px] font-medium text-body-strong transition-colors hover:bg-muted"
+            >
+              <Bike className="size-3.5" />
+              Captains &amp; Audits
+            </button>
+          ) : null}
+
           {[
-            { href: '/live', icon: Boxes, label: 'Live ops' },
+            { href: '/live', icon: Boxes, label: '3D Live Map' },
+            { href: '/kds', icon: UtensilsCrossed, label: 'Kitchen KDS' },
             { href: '/catalogue', icon: Package, label: 'Stock' },
-            { href: '/promotions', icon: Megaphone, label: 'Ads' },
+            { href: '/inventory-bom', icon: Layers, label: 'BOM Recipes' },
+            { href: '/ads', icon: Sparkles, label: 'Ads Auction' },
           ].map(({ href, icon: Icon, label }) => (
             <Link
               key={href}
@@ -140,12 +177,18 @@ export function FilterBar({
   density,
   onDensity,
   onManualOrder,
+  onOpenRiders,
+  onOpenFoodRescue,
+  onOpenBatching,
 }: {
   filter: CategoryFilter;
   onFilter: (f: CategoryFilter) => void;
   density: Density;
   onDensity: (d: Density) => void;
   onManualOrder: () => void;
+  onOpenRiders?: () => void;
+  onOpenFoodRescue?: () => void;
+  onOpenBatching?: () => void;
 }) {
   return (
     <div className="flex h-12 shrink-0 items-center gap-2 overflow-x-auto border-b px-5 scroll-slim">
@@ -169,6 +212,27 @@ export function FilterBar({
       })}
 
       <span className="flex-1" />
+
+      {onOpenFoodRescue && (
+        <Button variant="outline" size="sm" onClick={onOpenFoodRescue} className="shrink-0 gap-1 text-orange-500 lg:hidden">
+          <Flame className="size-3.5" />
+          Rescue
+        </Button>
+      )}
+
+      {onOpenBatching && (
+        <Button variant="outline" size="sm" onClick={onOpenBatching} className="shrink-0 gap-1 text-primary lg:hidden">
+          <Route className="size-3.5" />
+          Batching
+        </Button>
+      )}
+
+      {onOpenRiders ? (
+        <Button variant="outline" size="sm" onClick={onOpenRiders} className="shrink-0 gap-1.5 lg:hidden">
+          <Bike className="size-3.5" />
+          Riders
+        </Button>
+      ) : null}
 
       <div className="flex h-7 shrink-0 overflow-hidden rounded-md border">
         {(['comfortable', 'dense'] as Density[]).map((d, i) => (

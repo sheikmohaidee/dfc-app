@@ -14,7 +14,7 @@
  */
 
 import * as React from 'react';
-import { KeyboardAvoidingView, Platform, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, TextInput, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, { FadeIn, FadeInDown, FadeOut, Layout } from 'react-native-reanimated';
 import * as Location from 'expo-location';
@@ -41,6 +41,7 @@ export default function SignIn() {
   const router = useRouter();
   const {
     signIn,
+    loginAsDemoPersona,
     unlockWithBiometrics,
     biometricsAvailable,
     user,
@@ -449,8 +450,62 @@ export default function SignIn() {
               </View>
             ) : null}
 
+            {!staffMode && step === 'number' ? (
+              <View className="mt-2 rounded-2xl border border-dashed border-border bg-surface/70 p-3">
+                <View className="flex-row items-center justify-between pb-2">
+                  <T className="text-[11px] font-bold uppercase tracking-wider text-placeholder">
+                    Quick Demo Switcher
+                  </T>
+                  <T className="text-[10px] font-semibold text-emerald-600">Offline Ready</T>
+                </View>
+                <View className="flex-row gap-2">
+                  <TouchableOpacity
+                    onPress={async () => {
+                      await loginAsDemoPersona('customer');
+                      router.replace('/(customer)/chat');
+                    }}
+                    className="flex-1 items-center rounded-xl bg-primary/10 py-2 border border-primary/20"
+                  >
+                    <T className="text-[11.5px] font-bold text-primary">Customer</T>
+                    <T className="text-[9.5px] text-muted-foreground">Order & Chat</T>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={async () => {
+                      await loginAsDemoPersona('vendor');
+                      router.replace('/(vendor)/inbox');
+                    }}
+                    className="flex-1 items-center rounded-xl bg-amber-500/10 py-2 border border-amber-500/20"
+                  >
+                    <T className="text-[11.5px] font-bold text-amber-700">Vendor</T>
+                    <T className="text-[9.5px] text-muted-foreground">KDS & Menu</T>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={async () => {
+                      await loginAsDemoPersona('rider');
+                      router.replace('/(rider)/queue');
+                    }}
+                    className="flex-1 items-center rounded-xl bg-emerald-500/10 py-2 border border-emerald-500/20"
+                  >
+                    <T className="text-[11.5px] font-bold text-emerald-700">Rider</T>
+                    <T className="text-[9.5px] text-muted-foreground">Tasks & Drops</T>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : null}
+
+            <View className="flex-row items-center justify-between px-2 pt-2">
+              <TouchableOpacity onPress={() => router.push('/(auth)/forgot-password' as never)}>
+                <T className="text-[12px] text-muted-foreground">Forgot password?</T>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => router.push('/(auth)/register' as never)}>
+                <T className="text-[12px] font-semibold text-primary">New account</T>
+              </TouchableOpacity>
+            </View>
+
             {step === 'number' && !staffMode ? (
-              <T className="px-2 text-center text-[11px] leading-[16px] text-placeholder">
+              <T className="px-2 text-center text-[11px] leading-[16px] text-placeholder pt-2">
                 By continuing you agree to our Terms and Privacy Policy. SMS charges may apply.
               </T>
             ) : null}

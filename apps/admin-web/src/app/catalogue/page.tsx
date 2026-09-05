@@ -3,33 +3,41 @@
 /**
  * Catalogue and stock.
  *
- * The point of this screen is that pricing stops being guesswork. Once a
- * product has a real price and a real count, the model's estimate gets
- * replaced automatically and "not available" arrives before the rider does,
- * not after.
- *
- * Editing is inline and immediate — a shopkeeper on the phone reading counts
- * out loud should not have to open a modal per row.
+ * Menu management for Admin: add new products, delete products, and toggle item
+ * availability ON/OFF in real time.
  */
 
 import * as React from 'react';
 import Link from 'next/link';
-import { AlertTriangle, ArrowLeft, Minus, Plus, Search, TriangleAlert } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Check,
+  Minus,
+  PackagePlus,
+  Plus,
+  Search,
+  Trash2,
+  TriangleAlert,
+} from 'lucide-react';
 
 import {
+  ACTIVE_CATEGORIES,
   CATEGORY_CODE,
   SEED_STORES,
   discountPercent,
   formatInr,
   stockState,
   STOCK_LABEL,
+  toPaise,
   type Category,
   type Product,
   type StockState,
 } from '@dfc/core';
 
 import { Badge, Button, Card, Input, RupeeInput, Skeleton, Switch } from '@/components/ui/primitives';
-import { adjustStock, patchProduct, subscribeProducts } from '@/lib/catalogue';
+import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { addProduct, adjustStock, deleteProduct, patchProduct, subscribeProducts } from '@/lib/catalogue';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 
@@ -83,7 +91,13 @@ function StockStepper({ product }: { product: Product }) {
   );
 }
 
-function Row({ product }: { product: Product }) {
+function Row({
+  product,
+  onDelete,
+}: {
+  product: Product;
+  onDelete: (id: string) => void;
+}) {
   const state = stockState(product);
   const off = discountPercent(product);
   const store = SEED_STORES.find((s) => s.id === product.storeId);
@@ -91,7 +105,7 @@ function Row({ product }: { product: Product }) {
   return (
     <div
       className={cn(
-        'grid grid-cols-[minmax(0,1fr)_92px_112px_112px_128px_84px] items-center gap-3 border-b px-4 py-2.5 transition-colors hover:bg-surface',
+        'grid grid-cols-[minmax(0,1fr)_92px_112px_112px_128px_84px_44px] items-center gap-3 border-b px-4 py-2.5 transition-colors hover:bg-surface',
         !product.isActive && 'opacity-45',
       )}
     >
@@ -103,7 +117,6 @@ function Row({ product }: { product: Product }) {
           <span className="truncate text-[13px] font-medium tracking-tight">{product.name}</span>
           <span className="tnum truncate text-[10.5px] text-placeholder">
             {product.unit} · {store?.name ?? product.storeId}
-            {product.prescriptionOnly ? ' · Rx only' : ''}
           </span>
         </div>
       </div>
@@ -143,7 +156,190 @@ function Row({ product }: { product: Product }) {
           onCheckedChange={(v) => void patchProduct(product.id, { isActive: v })}
         />
       </div>
+
+      <div className="flex justify-end">
+        <button
+          onClick={() => onDelete(product.id)}
+          title="Delete product"
+          className="grid size-7 place-items-center rounded text-placeholder transition-colors hover:bg-destructive-tint hover:text-destructive"
+        >
+          <Trash2 className="size-3.5" />
+        </button>
+      </div>
     </div>
+  );
+}
+
+function AddProductDialog({
+  open,
+  onClose,
+  onAdded,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onAdded: () => void;
+}) {
+  const [storeId, setStoreId] = React.useState('amma-mini-mart');
+  const [name, setName] = React.useState('');
+  const [nameTa, setNameTa] = React.useState('');
+  const [category, setCategory] = React.useState<Category>('grocery');
+  const [unit, setUnit] = React.useState('1 kg');
+  const [mrp, setMrp] = React.useState<number | null>(toPaise(100));
+  const [sell, setSell] = React.useState<number | null>(toPaise(90));
+  const [qty, setQty] = React.useState('25');
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const activeStores = SEED_STORES.filter((s) => s.category !== 'pharmacy');
+
+  async function submit() {
+    if (!name.trim()) {
+      setError('Product name is required.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await addProduct({
+        storeId,
+        name: name.trim(),
+        nameTa: nameTa.trim() || undefined,
+        category,
+        unit: unit.trim() || 'each',
+        mrpPaise: mrp ?? toPaise(50),
+        sellPaise: sell ?? toPaise(45),
+        stockQty: Number(qty) || 10,
+        lowStockAt: 5,
+        isActive: true,
+      });
+      onClose();
+      onAdded();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) return null;
+
+  return (
+    <Sheet open onOpenChange={(o) => !o && onClose()}>
+      <SheetContent width={460}>
+        <SheetHeader>
+          <div className="flex items-center gap-3">
+            <span className="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground">
+              <PackagePlus className="size-4" strokeWidth={2.4} />
+            </span>
+            <div className="flex flex-col">
+              <SheetTitle className="text-base font-semibold tracking-tight">Add Menu Item</SheetTitle>
+              <span className="ta text-[11px] text-placeholder">புதிய பொருள் சேர்க்க</span>
+            </div>
+          </div>
+        </SheetHeader>
+
+        <SheetBody className="flex flex-col gap-3.5">
+          {error ? (
+            <div className="rounded border border-destructive-border bg-destructive-tint p-2.5 text-xs text-destructive-fg">
+              {error}
+            </div>
+          ) : null}
+
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-body-strong">Fulfilling Store</span>
+            <select
+              value={storeId}
+              onChange={(e) => setStoreId(e.target.value)}
+              className="h-8 rounded-md border bg-background px-2 text-xs font-medium outline-none focus:border-ring"
+            >
+              {activeStores.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({s.category}) · {s.localityId}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-body-strong">Product Name</span>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Sambar Rice / Ponni Boiled Rice"
+              className="h-8 text-xs"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-body-strong">Tamil Name (Optional)</span>
+            <Input
+              value={nameTa}
+              onChange={(e) => setNameTa(e.target.value)}
+              placeholder="e.g. சாம்பார் சாதம்"
+              className="h-8 text-xs"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-body-strong">Category</span>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value as Category)}
+                className="h-8 rounded-md border bg-background px-2 text-xs font-medium outline-none"
+              >
+                {ACTIVE_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c.toUpperCase()}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-body-strong">Unit / Measure</span>
+              <Input
+                value={unit}
+                onChange={(e) => setUnit(e.target.value)}
+                placeholder="1 kg, plate, piece, 500 ml"
+                className="h-8 text-xs"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2.5">
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-body-strong">MRP (₹)</span>
+              <RupeeInput valuePaise={mrp} onChangePaise={setMrp} className="h-8" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-body-strong">Sell Price (₹)</span>
+              <RupeeInput valuePaise={sell} onChangePaise={setSell} className="h-8" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-body-strong">Initial Stock</span>
+              <Input
+                value={qty}
+                onChange={(e) => setQty(e.target.value.replace(/[^\d]/g, ''))}
+                placeholder="20"
+                className="h-8 text-xs"
+              />
+            </div>
+          </div>
+        </SheetBody>
+
+        <SheetFooter>
+          <div className="flex w-full gap-2.5">
+            <Button variant="outline" size="default" onClick={onClose} disabled={busy} className="flex-1">
+              Cancel
+            </Button>
+            <Button size="default" onClick={() => void submit()} disabled={busy} className="flex-1 gap-1">
+              <Check className="size-4" />
+              {busy ? 'Saving…' : 'Save Item'}
+            </Button>
+          </div>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -154,11 +350,13 @@ export default function CataloguePage() {
   const [error, setError] = React.useState<string | null>(null);
   const [search, setSearch] = React.useState('');
   const [only, setOnly] = React.useState<'all' | StockState>('all');
+  const [addModalOpen, setAddModalOpen] = React.useState(false);
 
   React.useEffect(() => {
     return subscribeProducts(
       (p) => {
-        setProducts(p);
+        // Exclude pharmacy items from active catalogue
+        setProducts(p.filter((prod) => prod.category !== 'pharmacy'));
         setLoading(false);
       },
       (e) => {
@@ -173,7 +371,11 @@ export default function CataloguePage() {
     return products.filter((p) => {
       if (only !== 'all' && stockState(p) !== only) return false;
       if (!needle) return true;
-      return p.name.toLowerCase().includes(needle) || p.unit.toLowerCase().includes(needle);
+      return (
+        p.name.toLowerCase().includes(needle) ||
+        p.unit.toLowerCase().includes(needle) ||
+        (p.nameTa ?? '').toLowerCase().includes(needle)
+      );
     });
   }, [products, search, only]);
 
@@ -200,8 +402,8 @@ export default function CataloguePage() {
           Board
         </Link>
         <div className="flex flex-col leading-none">
-          <span className="text-[13.5px] font-semibold tracking-tight">Catalogue &amp; stock</span>
-          <span className="ta mt-0.5 text-[10px] text-placeholder">பொருட்கள் & கையிருப்பு</span>
+          <span className="text-[13.5px] font-semibold tracking-tight">Catalogue &amp; Menu</span>
+          <span className="ta mt-0.5 text-[10px] text-placeholder">பொருட்கள் &amp; மெனு மேலாண்மை</span>
         </div>
         <div className="flex-1" />
         <div className="relative w-full max-w-[300px]">
@@ -209,10 +411,14 @@ export default function CataloguePage() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search products…"
+            placeholder="Search items…"
             className="h-[34px] pl-9"
           />
         </div>
+        <Button size="sm" onClick={() => setAddModalOpen(true)} className="gap-1.5">
+          <Plus className="size-3.5" strokeWidth={2.4} />
+          Add Item
+        </Button>
       </div>
 
       {/* Stock health */}
@@ -253,17 +459,17 @@ export default function CataloguePage() {
         {outCount > 0 ? (
           <span className="flex items-center gap-1.5 text-[12px] text-destructive-fg">
             <TriangleAlert className="size-3.5" />
-            {outCount} product{outCount === 1 ? '' : 's'} cannot be ordered right now
+            {outCount} product{outCount === 1 ? '' : 's'} unavailable right now
           </span>
         ) : null}
       </div>
 
       {/* Table */}
       <div className="scroll-slim min-h-0 flex-1 overflow-y-auto">
-        <div className="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_92px_112px_112px_128px_84px] gap-3 border-b bg-surface px-4 py-2">
-          {['PRODUCT', 'STATE', 'ON HAND', 'MRP', 'SELL PRICE', 'ACTIVE'].map((h, i) => (
+        <div className="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_92px_112px_112px_128px_84px_44px] gap-3 border-b bg-surface px-4 py-2">
+          {['PRODUCT', 'STATE', 'ON HAND', 'MRP', 'SELL PRICE', 'ACTIVE', ''].map((h, i) => (
             <span
-              key={h}
+              key={i}
               className={cn(
                 'text-[10px] font-bold tracking-[0.1em] text-placeholder',
                 i > 0 && i < 5 && 'text-center',
@@ -286,39 +492,39 @@ export default function CataloguePage() {
             <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
             <div className="text-[12.5px] leading-relaxed text-destructive-fg">
               {error}
-              <div className="mt-1 text-muted-foreground">
-                If this is a permissions error, deploy the updated Firestore rules:{' '}
-                <code className="tnum rounded bg-background px-1">
-                  npm run deploy:rules -w @dfc/firebase
-                </code>
-              </div>
             </div>
           </div>
         ) : visible.length === 0 ? (
           <div className="grid h-48 place-items-center gap-3 text-center">
             <div>
-              <p className="text-[14px] font-medium">No products yet</p>
+              <p className="text-[14px] font-medium">No items found</p>
               <p className="mt-1 text-[12.5px] text-muted-foreground">
-                Seed the catalogue with{' '}
-                <code className="tnum rounded bg-muted px-1">npm run seed -w @dfc/firebase</code>,
-                or add one by hand.
+                Click <strong>+ Add Item</strong> above to create a new menu item.
               </p>
             </div>
           </div>
         ) : (
-          visible.map((p) => <Row key={p.id} product={p} />)
+          visible.map((p) => (
+            <Row
+              key={p.id}
+              product={p}
+              onDelete={(id) => void deleteProduct(id)}
+            />
+          ))
         )}
       </div>
 
       <div className="flex h-[30px] shrink-0 items-center gap-4 border-t bg-surface px-5">
         <span className="tnum text-[10.5px] text-placeholder">
-          {visible.length} of {products.length} products · edits save as you type
+          {visible.length} of {products.length} menu items · toggle switches update availability instantly
         </span>
-        <div className="flex-1" />
-        <Button variant="outline" size="sm" disabled>
-          Import CSV
-        </Button>
       </div>
+
+      <AddProductDialog
+        open={addModalOpen}
+        onClose={() => setAddModalOpen(false)}
+        onAdded={() => {}}
+      />
     </main>
   );
 }

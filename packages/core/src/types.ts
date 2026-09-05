@@ -37,6 +37,14 @@ export interface UserProfile {
   updatedAt: number;
 }
 
+export interface RiderCancellationRecord {
+  orderId: string;
+  orderCode: number;
+  reason: string;
+  explanation?: string;
+  timestamp: number;
+}
+
 export interface Rider {
   uid: string;
   name: string;
@@ -46,6 +54,16 @@ export interface Rider {
   activeOrderId: string | null;
   /** Coarse last-known position, updated while a task is live. */
   lastSeen?: { lat: number; lng: number; at: number };
+  /** Daily cancellation count (max 2 per day before forced offline). */
+  cancellationsToday?: number;
+  /** Limit of allowed cancellations per day (default: 2). */
+  maxDailyCancellations?: number;
+  /** True when forced offline due to exceeding the cancellation limit. */
+  isOfflineDueToCancellations?: boolean;
+  /** Explanations/history of cancelled orders. */
+  cancellationHistory?: RiderCancellationRecord[];
+  /** Last explanation provided to admin after exceeding cancellation limit. */
+  explanationGiven?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -53,6 +71,8 @@ export interface Rider {
 // ---------------------------------------------------------------------------
 
 export type Category = 'pharmacy' | 'grocery' | 'food' | 'concierge';
+export const ACTIVE_CATEGORIES: Category[] = ['grocery', 'food', 'concierge'];
+
 
 export interface Store {
   id: string;
@@ -109,6 +129,19 @@ export interface OrderSource {
   transcript?: string;
   /** Photo: MIME type we handed to the model. */
   mimeType?: string;
+}
+
+export type GateInstructionTag =
+  | 'no_bell'
+  | 'leave_with_guard'
+  | 'pet_inside'
+  | 'call_before';
+
+export interface DeliveryInstructions {
+  tags: GateInstructionTag[];
+  audioMemoUrl?: string;
+  audioDurationSeconds?: number;
+  textNote?: string;
 }
 
 export interface AiTrace {
@@ -205,6 +238,7 @@ export interface TimelineEvent {
   /** uid, or 'system' for automated transitions. */
   by: string;
   note?: string;
+  delayMinutes?: number;
 }
 
 export interface Order {
@@ -247,6 +281,28 @@ export interface Order {
 
   /** Six-digit code the rider asks for at the door. */
   deliveryOtp: string;
+
+  /** Final 100m gate instructions and optional 15s voice memo. */
+  instructions?: DeliveryInstructions;
+  /** 100% rider tip in paise. */
+  riderTipPaise?: number;
+
+  // --- Timing & Delays ---
+  prepStartedAt?: number;
+  prepCompletedAt?: number;
+  actualPrepMinutes?: number;
+  dispatchedAt?: number;
+  pickedUpAt?: number;
+  deliveredAt?: number;
+  actualDeliveryMinutes?: number;
+  delayMinutes?: number;
+  delayReason?: string;
+  delayReportedAt?: number;
+
+  // --- Cancellation Auditing ---
+  cancellationReason?: string;
+  cancelledByRole?: Role;
+  cancelledByUid?: string;
 
   timeline: TimelineEvent[];
   createdAt: number;

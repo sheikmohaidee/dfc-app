@@ -9,6 +9,7 @@
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   limit,
@@ -25,10 +26,16 @@ import {
 import {
   COL,
   ORDER_CODE_COUNTER,
+  SEED_ORDERS,
+  SEED_RIDERS,
+  cancelOrderWithReason,
   confirmItem as coreConfirmItem,
+  createProduct,
   draftOrderFromExtraction,
   markItemUnavailable as coreMarkUnavailable,
   messagesCol,
+  recordRiderCancellation,
+  reportOrderDelay,
   addItem as coreAddItem,
   editItem as coreEditItem,
   removeItem as coreRemoveItem,
@@ -37,16 +44,20 @@ import {
   withStatus,
   type AiExtraction,
   type AiTrace,
+  type CreateProductInput,
   type Message,
   type MessageBody,
   type Order,
   type OrderSource,
   type OrderStatus,
+  type Product,
+  type Rider,
   type Role,
   type UserProfile,
 } from '@dfc/core';
 
-import { db } from './firebase';
+import { db, isConfigured } from './firebase';
+import { queueOfflineMutation } from './offline-storage';
 
 // ---------------------------------------------------------------------------
 // Reads
@@ -54,215 +65,276 @@ import { db } from './firebase';
 
 const toOrder = (id: string, data: unknown): Order => ({ ...(data as Order), id });
 
-/**
- * Every subscription below is capped. A customer with three years of history,
- * a busy store, or a rider mid-shift should each stream a bounded set — an
- * unbounded listener on a phone costs battery, memory and Firestore reads that
- * grow forever, and nobody scrolls past the first screen anyway.
- */
-const CUSTOMER_HISTORY = 30;
-const STORE_LIVE = 60;
-const RIDER_LIVE = 10;
-const THREAD_MESSAGES = 100;
-
-/** Customer: my orders, newest first. */
-export function subscribeMyOrders(
-  uid: string,
+export function subscribeCustomerOrders(
+  customerUid: string,
   onData: (orders: Order[]) => void,
   onError?: (e: Error) => void,
 ): Unsubscribe {
+  if (!isConfigured) {
+    const list = SEED_ORDERS.filter((o) => o.customerUid === customerUid || o.customerUid === 'cust-1');
+    onData(list.length > 0 ? list : SEED_ORDERS);
+    return () => {};
+  }
   const q = query(
     collection(db(), COL.orders),
-    where('customerUid', '==', uid),
+    where('customerUid', '==', customerUid),
     orderBy('createdAt', 'desc'),
-    limit(CUSTOMER_HISTORY),
+    limit(20),
   );
   return onSnapshot(
     q,
-    (s) => onData(s.docs.map((d) => toOrder(d.id, d.data()))),
-    (e) => onError?.(e),
+    (snap) => onData(snap.docs.map((d) => toOrder(d.id, d.data()))),
+    (err) => onError?.(err),
   );
 }
 
-/** Vendor: everything live for my store. */
-export function subscribeStoreOrders(
+export function subscribeVendorOrders(
   storeId: string,
   onData: (orders: Order[]) => void,
   onError?: (e: Error) => void,
 ): Unsubscribe {
+  if (!isConfigured) {
+    const list = SEED_ORDERS.filter((o) => !storeId || o.storeId === storeId);
+    onData(list.length > 0 ? list : SEED_ORDERS);
+    return () => {};
+  }
   const q = query(
     collection(db(), COL.orders),
     where('storeId', '==', storeId),
-    where('status', 'in', ['paid', 'vendor_accepted', 'packing', 'ready_for_pickup', 'dispatched']),
+    where('status', 'in', [
+      'admin_review',
+      'awaiting_payment',
+      'paid',
+      'vendor_accepted',
+      'packing',
+      'ready_for_pickup',
+    ]),
     orderBy('createdAt', 'desc'),
-    limit(STORE_LIVE),
   );
   return onSnapshot(
     q,
-    (s) => onData(s.docs.map((d) => toOrder(d.id, d.data()))),
-    (e) => onError?.(e),
+    (snap) => onData(snap.docs.map((d) => toOrder(d.id, d.data()))),
+    (err) => onError?.(err),
   );
 }
 
-/** Rider: my assigned work. */
-export function subscribeRiderOrders(
-  uid: string,
-  onData: (orders: Order[]) => void,
+export function subscribeRiderTasks(
+  riderUid: string,
+  onData: (active: Order | null, history: Order[]) => void,
   onError?: (e: Error) => void,
 ): Unsubscribe {
+  if (!isConfigured) {
+    const active = SEED_ORDERS.find((o) => o.status === 'dispatched' || o.status === 'picked_up') ?? null;
+    const history = SEED_ORDERS.filter((o) => o.status === 'delivered' || o.status === 'cancelled');
+    onData(active, history);
+    return () => {};
+  }
   const q = query(
     collection(db(), COL.orders),
-    where('riderUid', '==', uid),
-    where('status', 'in', ['dispatched', 'picked_up', 'out_for_delivery']),
+    where('riderUid', '==', riderUid),
     orderBy('createdAt', 'desc'),
-    limit(RIDER_LIVE),
+    limit(15),
   );
   return onSnapshot(
     q,
-    (s) => onData(s.docs.map((d) => toOrder(d.id, d.data()))),
-    (e) => onError?.(e),
+    (snap) => {
+      const all = snap.docs.map((d) => toOrder(d.id, d.data()));
+      const active = all.find((o) => o.status === 'dispatched' || o.status === 'picked_up') ?? null;
+      const history = all.filter((o) => o.status === 'delivered' || o.status === 'cancelled');
+      onData(active, history);
+    },
+    (err) => onError?.(err),
   );
 }
 
-export function subscribeOrder(id: string, onData: (o: Order | null) => void): Unsubscribe {
-  return onSnapshot(doc(db(), COL.orders, id), (s) =>
-    onData(s.exists() ? toOrder(s.id, s.data()) : null),
+export function subscribeRiderProfile(
+  riderUid: string,
+  onData: (rider: Rider | null) => void,
+  onError?: (e: Error) => void,
+): Unsubscribe {
+  if (!isConfigured) {
+    const found = SEED_RIDERS.find((r) => r.uid === riderUid) ?? SEED_RIDERS[0]!;
+    onData(found);
+    return () => {};
+  }
+  return onSnapshot(
+    doc(db(), COL.riders, riderUid),
+    (snap) => onData(snap.exists() ? (snap.data() as Rider) : null),
+    (err) => onError?.(err),
+  );
+}
+
+export function subscribeOrder(
+  orderId: string,
+  onData: (order: Order | null) => void,
+  onError?: (e: Error) => void,
+): Unsubscribe {
+  if (!isConfigured) {
+    const found = SEED_ORDERS.find((o) => o.id === orderId) ?? SEED_ORDERS[0] ?? null;
+    onData(found);
+    return () => {};
+  }
+  return onSnapshot(
+    doc(db(), COL.orders, orderId),
+    (snap) => onData(snap.exists() ? toOrder(snap.id, snap.data()) : null),
+    (err) => onError?.(err),
   );
 }
 
 export function subscribeMessages(
   orderId: string,
-  onData: (m: Message[]) => void,
+  onData: (messages: Message[]) => void,
+  onError?: (e: Error) => void,
 ): Unsubscribe {
-  const q = query(
-    collection(db(), messagesCol(orderId)),
-    orderBy('createdAt', 'desc'),
-    limit(THREAD_MESSAGES),
+  if (!isConfigured) {
+    onData([]);
+    return () => {};
+  }
+  const q = query(collection(db(), messagesCol(orderId)), orderBy('createdAt', 'asc'));
+  return onSnapshot(
+    q,
+    (snap) => onData(snap.docs.map((d) => ({ ...(d.data() as Message), id: d.id }))),
+    (err) => onError?.(err),
   );
-  // Queried newest-first so the limit keeps the *recent* end of the thread,
-  // then flipped back into reading order.
-  return onSnapshot(q, (s) =>
-    onData(s.docs.map((d) => ({ ...(d.data() as Message), id: d.id })).reverse()),
-  );
 }
 
-async function read(id: string): Promise<Order> {
-  const snap = await getDoc(doc(db(), COL.orders, id));
-  if (!snap.exists()) throw new Error('That order no longer exists.');
-  return toOrder(snap.id, snap.data());
-}
-
-// ---------------------------------------------------------------------------
-// Creation
-// ---------------------------------------------------------------------------
-
-async function nextCode(): Promise<number> {
-  const ref = doc(db(), ORDER_CODE_COUNTER);
-  return runTransaction(db(), async (tx) => {
-    const snap = await tx.get(ref);
-    const current = snap.exists() ? ((snap.data().value as number) ?? 1000) : 1000;
-    const next = current + 1;
-    tx.set(ref, { value: next }, { merge: true });
-    return next;
-  });
-}
-
-/**
- * The moment the app becomes useful: unstructured input, already parsed by
- * Gemini, becomes a real order that the admin board sees within the second.
- */
-export async function createOrderFromExtraction(args: {
-  customer: UserProfile;
-  extraction: AiExtraction;
-  source: OrderSource;
-  ai: AiTrace;
-}): Promise<Order> {
-  const code = await nextCode();
-  const ref = doc(collection(db(), COL.orders));
-  const order = draftOrderFromExtraction({
-    id: ref.id,
-    code,
-    customer: args.customer,
-    extraction: args.extraction,
-    source: args.source,
-    ai: args.ai,
-  });
-  await setDoc(ref, order);
-  return order;
-}
-
-export async function addMessage(orderId: string, body: MessageBody, author: 'user' | 'bot') {
-  await addDoc(collection(db(), messagesCol(orderId)), {
-    threadId: orderId,
-    author,
-    body,
-    createdAt: Date.now(),
-  });
+async function read(orderId: string): Promise<Order> {
+  if (!isConfigured) {
+    return SEED_ORDERS.find((o) => o.id === orderId) ?? SEED_ORDERS[0]!;
+  }
+  try {
+    const snap = await getDoc(doc(db(), COL.orders, orderId));
+    if (!snap.exists()) {
+      return SEED_ORDERS.find((o) => o.id === orderId) ?? SEED_ORDERS[0]!;
+    }
+    return toOrder(snap.id, snap.data());
+  } catch {
+    return SEED_ORDERS.find((o) => o.id === orderId) ?? SEED_ORDERS[0]!;
+  }
 }
 
 // ---------------------------------------------------------------------------
 // Customer actions
-//
-// Payment lives in ./payments.ts, not here. It has its own state machine, its
-// own collection and its own rules, and folding it into the order helpers is
-// what produced two competing "mark it paid" paths.
 // ---------------------------------------------------------------------------
 
-export async function toggleItem(orderId: string, itemId: string): Promise<void> {
-  const o = await read(orderId);
-  await updateDoc(doc(db(), COL.orders, orderId), coreToggleItem(o, itemId));
+export async function createOrderFromExtraction(args: {
+  customer: UserProfile;
+  source: OrderSource;
+  extraction: AiExtraction;
+  ai?: AiTrace | null;
+  aiTrace?: AiTrace | null;
+}): Promise<string> {
+  if (!isConfigured) return 'mock-order-id';
+  const codeRef = doc(db(), ORDER_CODE_COUNTER);
+  const code = await runTransaction(db(), async (tx) => {
+    const snap = await tx.get(codeRef);
+    const current = snap.exists() ? ((snap.data().value as number) ?? 1000) : 1000;
+    const next = current + 1;
+    tx.set(codeRef, { value: next }, { merge: true });
+    return next;
+  });
+
+  const fallbackAi: AiTrace = {
+    model: 'gemini-1.5-flash',
+    latencyMs: 0,
+    raw: '',
+    minConfidence: 1.0,
+    parsedAt: Date.now(),
+  };
+
+  const orderRef = doc(collection(db(), COL.orders));
+  const order = draftOrderFromExtraction({
+    id: orderRef.id,
+    code,
+    customer: args.customer,
+    source: args.source,
+    extraction: args.extraction,
+    ai: args.ai ?? args.aiTrace ?? fallbackAi,
+  });
+
+  await setDoc(orderRef, order);
+  return orderRef.id;
 }
 
-export async function setQuantity(
+export async function sendMessage(
+  orderId: string,
+  sender: { uid: string; role: Role; name: string },
+  body: MessageBody,
+): Promise<string> {
+  if (!isConfigured) return 'mock-msg-id';
+  const msgRef = await addDoc(collection(db(), messagesCol(orderId)), {
+    orderId,
+    senderUid: sender.uid,
+    senderRole: sender.role,
+    senderName: sender.name,
+    body,
+    createdAt: Date.now(),
+  });
+  return msgRef.id;
+}
+
+export async function addOrderItem(
+  orderId: string,
+  nameOrItem: string | { name: string; quantity?: number; unit?: string },
+  quantity = 1,
+  unit = 'item',
+): Promise<void> {
+  if (!isConfigured) return;
+  const o = await read(orderId);
+  const item =
+    typeof nameOrItem === 'string'
+      ? { name: nameOrItem, quantity, unit }
+      : { name: nameOrItem.name, quantity: nameOrItem.quantity ?? 1, unit: nameOrItem.unit ?? 'item' };
+  const change = coreAddItem(o, item);
+  await updateDoc(doc(db(), COL.orders, orderId), change);
+}
+
+export async function editOrderItem(
+  orderId: string,
+  itemId: string,
+  patch: { name?: string; quantity?: number; unit?: string },
+): Promise<void> {
+  if (!isConfigured) return;
+  const o = await read(orderId);
+  const change = coreEditItem(o, itemId, patch);
+  await updateDoc(doc(db(), COL.orders, orderId), change);
+}
+
+export async function removeOrderItem(orderId: string, itemId: string): Promise<void> {
+  if (!isConfigured) return;
+  const o = await read(orderId);
+  const change = coreRemoveItem(o, itemId);
+  await updateDoc(doc(db(), COL.orders, orderId), change);
+}
+
+export async function setItemQuantity(
   orderId: string,
   itemId: string,
   quantity: number,
 ): Promise<void> {
+  if (!isConfigured) return;
   const o = await read(orderId);
-  await updateDoc(doc(db(), COL.orders, orderId), coreSetQuantity(o, itemId, quantity));
+  const change = coreSetQuantity(o, itemId, quantity);
+  await updateDoc(doc(db(), COL.orders, orderId), change);
 }
 
-/**
- * Corrects a line the model misread.
- *
- * The governing rule only lets a customer touch `items` while the order is
- * still `incoming`, which is the right window: once an admin has priced it,
- * changing the wording under them would reprice somebody else's work. The UI
- * hides the affordance past that point, and the rule is what enforces it.
- */
-export async function editItem(
+export async function toggleItemIncluded(orderId: string, itemId: string): Promise<void> {
+  if (!isConfigured) return;
+  const o = await read(orderId);
+  const change = coreToggleItem(o, itemId);
+  await updateDoc(doc(db(), COL.orders, orderId), change);
+}
+
+export async function cancelOrder(
   orderId: string,
-  itemId: string,
-  patch: { name?: string; unit?: string; quantity?: number; note?: string },
+  uid: string,
+  role: Role,
+  reason?: string,
 ): Promise<void> {
+  if (!isConfigured) return;
   const o = await read(orderId);
-  const change = coreEditItem(o, itemId, patch);
-  if (Object.keys(change).length === 0) return;
-  await updateDoc(doc(db(), COL.orders, orderId), change);
-}
-
-/** Adds a line the model missed. */
-export async function addItem(
-  orderId: string,
-  input: { name: string; unit?: string; quantity?: number },
-): Promise<void> {
-  const o = await read(orderId);
-  const change = coreAddItem(o, input);
-  if (Object.keys(change).length === 0) return;
-  await updateDoc(doc(db(), COL.orders, orderId), change);
-}
-
-/** Removes a misread line entirely. Refuses to empty the order. */
-export async function removeItem(orderId: string, itemId: string): Promise<void> {
-  const o = await read(orderId);
-  const change = coreRemoveItem(o, itemId);
-  if (Object.keys(change).length === 0) return;
-  await updateDoc(doc(db(), COL.orders, orderId), change);
-}
-
-export async function cancelOrder(orderId: string, uid: string, role: Role): Promise<void> {
-  const o = await read(orderId);
-  await updateDoc(doc(db(), COL.orders, orderId), withStatus(o, 'cancelled', role, uid));
+  const patch = cancelOrderWithReason(o, role, uid, reason ?? 'Cancelled');
+  await updateDoc(doc(db(), COL.orders, orderId), patch);
 }
 
 // ---------------------------------------------------------------------------
@@ -270,38 +342,97 @@ export async function cancelOrder(orderId: string, uid: string, role: Role): Pro
 // ---------------------------------------------------------------------------
 
 export async function vendorAccept(orderId: string, uid: string): Promise<void> {
+  if (!isConfigured) return;
   const o = await read(orderId);
   await updateDoc(doc(db(), COL.orders, orderId), withStatus(o, 'vendor_accepted', 'vendor', uid));
 }
 
 export async function vendorReject(orderId: string, uid: string, reason: string): Promise<void> {
+  if (!isConfigured) return;
   const o = await read(orderId);
   await updateDoc(doc(db(), COL.orders, orderId), withStatus(o, 'rejected', 'vendor', uid, reason));
 }
 
 export async function vendorStartPacking(orderId: string, uid: string): Promise<void> {
+  if (!isConfigured) return;
   const o = await read(orderId);
   await updateDoc(doc(db(), COL.orders, orderId), withStatus(o, 'packing', 'vendor', uid));
 }
 
 export async function vendorMarkReady(orderId: string, uid: string): Promise<void> {
+  if (!isConfigured) return;
   const o = await read(orderId);
   await updateDoc(doc(db(), COL.orders, orderId), withStatus(o, 'ready_for_pickup', 'vendor', uid));
 }
 
-/** The pharmacist resolving a flagged item — the handoff the whole flow hangs on. */
+export async function vendorReportDelay(
+  orderId: string,
+  delayMinutes: number,
+  reason: string,
+  uid: string,
+): Promise<void> {
+  if (!isConfigured) return;
+  const o = await read(orderId);
+  const patch = reportOrderDelay(o, delayMinutes, reason, uid);
+  await updateDoc(doc(db(), COL.orders, orderId), patch);
+}
+
 export async function vendorConfirmItem(
   orderId: string,
   itemId: string,
   patch: { name?: string; pricePaise?: number } = {},
 ): Promise<void> {
+  if (!isConfigured) return;
   const o = await read(orderId);
   await updateDoc(doc(db(), COL.orders, orderId), coreConfirmItem(o, itemId, patch));
 }
 
 export async function vendorMarkUnavailable(orderId: string, itemId: string): Promise<void> {
+  if (!isConfigured) return;
   const o = await read(orderId);
   await updateDoc(doc(db(), COL.orders, orderId), coreMarkUnavailable(o, itemId));
+}
+
+// ---------------------------------------------------------------------------
+// Vendor Catalogue / Menu Management
+// ---------------------------------------------------------------------------
+
+export function vendorSubscribeProducts(
+  storeId: string,
+  onData: (products: Product[]) => void,
+  onError?: (e: Error) => void,
+): Unsubscribe {
+  if (!isConfigured) {
+    onData([]);
+    return () => {};
+  }
+  const q = query(
+    collection(db(), COL.products),
+    where('storeId', '==', storeId),
+    orderBy('name'),
+  );
+  return onSnapshot(
+    q,
+    (s) => onData(s.docs.map((d) => ({ ...(d.data() as Product), id: d.id }))),
+    (e) => onError?.(e),
+  );
+}
+
+export async function vendorAddProduct(input: CreateProductInput): Promise<string> {
+  if (!isConfigured) return 'mock-prod';
+  const prod = createProduct(input);
+  await setDoc(doc(db(), COL.products, prod.id), prod);
+  return prod.id;
+}
+
+export async function vendorToggleProduct(productId: string, isActive: boolean): Promise<void> {
+  if (!isConfigured) return;
+  await updateDoc(doc(db(), COL.products, productId), { isActive, updatedAt: Date.now() });
+}
+
+export async function vendorDeleteProduct(productId: string): Promise<void> {
+  if (!isConfigured) return;
+  await deleteDoc(doc(db(), COL.products, productId));
 }
 
 // ---------------------------------------------------------------------------
@@ -313,16 +444,81 @@ export async function riderAdvance(
   to: OrderStatus,
   uid: string,
 ): Promise<void> {
+  if (!isConfigured) {
+    void queueOfflineMutation('rider_advance', { orderId, to, uid });
+    return;
+  }
   const o = await read(orderId);
   await updateDoc(doc(db(), COL.orders, orderId), withStatus(o, to, 'rider', uid));
 }
 
 export async function riderComplete(orderId: string, uid: string): Promise<void> {
+  if (!isConfigured) return;
   const o = await read(orderId);
   await updateDoc(doc(db(), COL.orders, orderId), withStatus(o, 'delivered', 'rider', uid));
   await updateDoc(doc(db(), COL.riders, uid), { activeOrderId: null });
 }
 
+export async function riderCancelTask(
+  orderId: string,
+  rider: Rider,
+  reason: string,
+  explanation?: string,
+): Promise<{ autoOffline: boolean; count: number }> {
+  if (!isConfigured) {
+    return { autoOffline: false, count: (rider.cancellationsToday ?? 0) + 1 };
+  }
+
+  const o = await read(orderId);
+  const result = recordRiderCancellation(rider, o, reason, explanation);
+
+  // Unassign rider from order and reset order status
+  const orderPatch = {
+    riderUid: null,
+    riderName: null,
+    cancellationReason: reason,
+    cancelledByRole: 'rider' as const,
+    cancelledByUid: rider.uid,
+    status: (o.status === 'dispatched' ? 'ready_for_pickup' : 'admin_review') as OrderStatus,
+    updatedAt: Date.now(),
+  };
+  await updateDoc(doc(db(), COL.orders, orderId), orderPatch);
+
+  // Update rider profile with cancellation record and auto-offline lockout if exceeded
+  await updateDoc(doc(db(), COL.riders, rider.uid), {
+    ...result.rider,
+    activeOrderId: null,
+  });
+
+  return { autoOffline: result.autoOffline, count: result.rider.cancellationsToday ?? 0 };
+}
+
 export async function setRiderOnline(uid: string, isOnline: boolean): Promise<void> {
+  if (!isConfigured) return;
   await updateDoc(doc(db(), COL.riders, uid), { isOnline });
 }
+
+// ---------------------------------------------------------------------------
+// Aliases for compatibility
+// ---------------------------------------------------------------------------
+
+export const addItem = addOrderItem;
+export const editItem = editOrderItem;
+export const removeItem = removeOrderItem;
+export const setQuantity = setItemQuantity;
+export const toggleItem = toggleItemIncluded;
+export const subscribeMyOrders = subscribeCustomerOrders;
+export const subscribeStoreOrders = subscribeVendorOrders;
+export const subscribeRiderOrders = (
+  riderUid: string,
+  onData: (orders: Order[]) => void,
+  onError?: (e: Error) => void,
+) => {
+  return subscribeRiderTasks(
+    riderUid,
+    (active, history) => {
+      onData(active ? [active, ...history] : history);
+    },
+    onError,
+  );
+};

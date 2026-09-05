@@ -67,7 +67,7 @@ function IncomingCard({ order, onOpen }: { order: Order; onOpen: () => void }) {
                 <Num className="text-[13px] font-semibold">#{order.code}</Num>
                 <Badge
                   label={order.paymentMode === 'prepaid' ? 'PREPAID' : 'COD'}
-                  tone={order.paymentMode === 'prepaid' ? 'pharmacy' : 'grocery'}
+                  tone={order.paymentMode === 'prepaid' ? 'neutral' : 'grocery'}
                 />
               </View>
               <T className="text-[12px] leading-[18px] text-muted-foreground" numberOfLines={2}>
@@ -202,8 +202,8 @@ export default function VendorInbox() {
       {/* Store header */}
       <View className="border-b border-border">
         <View className="flex-row items-center gap-3 px-4 pb-3 pt-3.5">
-          <View className="size-9 items-center justify-center rounded-[10px] border border-pharmacy-border bg-pharmacy-tint">
-            <Boxes size={18} color="#2563EB" strokeWidth={2} />
+          <View className="size-9 items-center justify-center rounded-[10px] border border-border bg-surface">
+            <Boxes size={18} color="#18181B" strokeWidth={2} />
           </View>
           <View className="flex-1">
             <T className="text-[15px] font-semibold tracking-[-0.2px]" numberOfLines={1}>
@@ -295,12 +295,13 @@ export default function VendorInbox() {
       <View className="flex-row border-t border-border bg-background px-2 pb-5 pt-2">
         {[
           { icon: Boxes, label: 'Orders', on: true, go: null },
+          { icon: Boxes, label: 'Menu / Stock', on: false, go: '/(vendor)/menu' as const },
           { icon: Receipt, label: 'Payouts', on: false, go: '/(vendor)/payouts' as const },
           { icon: SlidersHorizontal, label: 'Account', on: false, go: '/(vendor)/settings' as const },
         ].map(({ icon: Icon, label, on, go }) => (
           <Pressable
             key={label}
-            onPress={() => go && router.push(go)}
+            onPress={() => go && router.push(go as never)}
             accessibilityRole="button"
             accessibilityLabel={label}
             className="h-[52px] flex-1 items-center justify-center gap-1"
