@@ -26,6 +26,7 @@ import {
   toggleItem as coreToggleItem,
   withDeliveryFee as coreWithDeliveryFee,
   withStatus,
+  DEFAULT_PLATFORM_CONFIG,
   type AdCampaign,
   type BatchCandidate,
   type FoodRescueListing,
@@ -34,6 +35,8 @@ import {
   type Order,
   type OrderStatus,
   type Payment,
+  type PlatformConfig,
+  type PlatformStatus,
   type Product,
   type Rider,
   type Role,
@@ -352,6 +355,7 @@ class MockStore {
   private adCampaigns: AdCampaign[] = [...SEED_AD_CAMPAIGNS];
   private ingredients: Ingredient[] = [...SEED_INGREDIENTS];
   private foodRescueListings: FoodRescueListing[] = [];
+  private platformConfig: PlatformConfig = { ...DEFAULT_PLATFORM_CONFIG };
   private listeners = new Set<() => void>();
 
   constructor() {
@@ -417,6 +421,59 @@ class MockStore {
 
   public getHexSurgeMap(): Record<string, SpatialHexCell> {
     return computeSpatialHexSurge(this.orders, this.riders);
+  }
+
+  public getPlatformConfig(): PlatformConfig {
+    return { ...this.platformConfig };
+  }
+
+  public updatePlatformConfig(updates: Partial<PlatformConfig>): void {
+    this.platformConfig = {
+      ...this.platformConfig,
+      ...updates,
+      updatedAt: Date.now(),
+      updatedBy: 'admin-dispatch',
+    };
+    this.notify();
+  }
+
+  public toggleSleepMode(enabled?: boolean): void {
+    const nextStatus: PlatformStatus =
+      enabled !== undefined
+        ? enabled
+          ? 'sleep'
+          : 'online'
+        : this.platformConfig.status === 'sleep'
+          ? 'online'
+          : 'sleep';
+
+    this.updatePlatformConfig({
+      status: nextStatus,
+      manualOverride: true,
+    });
+  }
+
+  public toggleRainSurge(active?: boolean, multiplier = 1.25, bonusPaise = 2000): void {
+    const nextActive = active !== undefined ? active : !this.platformConfig.rainSurge.active;
+    this.updatePlatformConfig({
+      rainSurge: {
+        ...this.platformConfig.rainSurge,
+        active: nextActive,
+        multiplier,
+        riderSafetyBonusPaise: bonusPaise,
+      },
+    });
+  }
+
+  public runAutoBatching(): { batchedCount: number; candidateBatches: BatchCandidate[] } {
+    const candidates = findBatchOpportunities(
+      this.orders,
+      this.platformConfig.automations.maxBatchDistanceMeters,
+    );
+    return {
+      batchedCount: candidates.reduce((sum, b) => sum + b.orders.length, 0),
+      candidateBatches: candidates,
+    };
   }
 
   // --- Mutations ---

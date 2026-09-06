@@ -10,7 +10,7 @@ import * as React from 'react';
 import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInUp } from 'react-native-reanimated';
-import { AlertTriangle, Boxes, Receipt, SlidersHorizontal } from 'lucide-react-native';
+import { AlertTriangle, Boxes, Moon, Receipt, SlidersHorizontal } from 'lucide-react-native';
 
 import {
   COPY,
@@ -22,6 +22,7 @@ import {
 } from '@dfc/core';
 
 import { useAuth } from '@/providers/auth';
+import { usePlatformStatus } from '@/hooks/usePlatformStatus';
 import { subscribeStoreOrders, vendorAccept, vendorReject } from '@/lib/orders';
 import { Badge, Button, Card, Divider, Empty, Loading, Money, Num, Screen, T, Ta } from '@/ui';
 
@@ -165,6 +166,7 @@ export default function VendorInbox() {
   const [orders, setOrders] = React.useState<Order[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [online, setOnline] = React.useState(true);
+  const platform = usePlatformStatus();
 
   React.useEffect(() => {
     if (!profile?.storeId) {
@@ -250,6 +252,18 @@ export default function VendorInbox() {
         contentContainerClassName="gap-3 px-4 py-4"
         refreshControl={<RefreshControl refreshing={false} onRefresh={() => {}} />}
       >
+        {platform.status === 'sleep' ? (
+          <View className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 gap-1.5 mb-1">
+            <View className="flex-row items-center gap-2">
+              <Moon size={15} color="#F59E0B" />
+              <T className="text-xs font-bold text-amber-500">Kitchen Resting · இரவு ஓய்வு</T>
+            </View>
+            <T className="text-[11.5px] leading-relaxed text-zinc-300">
+              Live orders paused until {platform.nextOpenTime ?? '6:00 AM'}. Breakfast drops pre-orders will land at 5:30 AM for morning preparation.
+            </T>
+          </View>
+        ) : null}
+
         <View className="flex-row items-center gap-2">
           <View className={`size-[7px] rounded-full ${incoming.length ? 'bg-destructive' : 'bg-disabled'}`} />
           <T className="text-xs font-semibold tracking-tight">{COPY.newRequest.en}</T>

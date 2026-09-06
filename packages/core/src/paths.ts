@@ -27,6 +27,7 @@ export const COL = {
   payments: 'payments',
   invoices: 'invoices',
   counters: 'counters',
+  config: 'config',
 } as const;
 
 export const SUB = {
@@ -55,6 +56,9 @@ export const ORDER_CODE_COUNTER = `${COL.counters}/orderCode`;
  */
 export const invoiceCounter = (financialYear: string) =>
   `${COL.counters}/invoice-${financialYear}`;
+
+/** Platform operations configuration (operating hours, sleep mode, rain surge, automations). */
+export const platformConfigDoc = `${COL.config}/platform`;
 
 // ---------------------------------------------------------------------------
 // Cloud Storage

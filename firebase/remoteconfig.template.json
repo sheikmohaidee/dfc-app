@@ -1,0 +1,92 @@
+{
+  "parameters": {
+    "platform_status": {
+      "defaultValue": {
+        "value": "online"
+      },
+      "description": "Platform operational state: online, sleep, or emergency_pause",
+      "valueType": "STRING"
+    },
+    "sleep_mode_message_en": {
+      "defaultValue": {
+        "value": "Madurai is resting for the night! Orders reopen at 6:00 AM."
+      },
+      "description": "Notice displayed to customers during sleep mode in English",
+      "valueType": "STRING"
+    },
+    "sleep_mode_message_ta": {
+      "defaultValue": {
+        "value": "மதுரை உறங்குகிறது — காலை 6:00 மணிக்கு மீண்டும் தொடங்கும்."
+      },
+      "description": "Notice displayed to customers during sleep mode in Tamil",
+      "valueType": "STRING"
+    },
+    "operating_hours_open": {
+      "defaultValue": {
+        "value": "06:00"
+      },
+      "description": "Daily opening time in HH:mm 24-hour format (Madurai morning)",
+      "valueType": "STRING"
+    },
+    "operating_hours_close": {
+      "defaultValue": {
+        "value": "23:30"
+      },
+      "description": "Daily closing time in HH:mm 24-hour format (Madurai night)",
+      "valueType": "STRING"
+    },
+    "operating_hours_timezone": {
+      "defaultValue": {
+        "value": "Asia/Kolkata"
+      },
+      "description": "Timezone for operating hours evaluation",
+      "valueType": "STRING"
+    },
+    "rain_surge_active": {
+      "defaultValue": {
+        "value": "false"
+      },
+      "description": "Whether monsoon rain surge and rider safety bonus are active",
+      "valueType": "BOOLEAN"
+    },
+    "rain_surge_multiplier": {
+      "defaultValue": {
+        "value": "1.25"
+      },
+      "description": "Multiplier for delivery fee during rain surge",
+      "valueType": "NUMBER"
+    },
+    "rider_safety_bonus_paise": {
+      "defaultValue": {
+        "value": "2000"
+      },
+      "description": "Direct bonus paid to riders per delivery during rain (paise)",
+      "valueType": "NUMBER"
+    },
+    "min_supported_version": {
+      "defaultValue": {
+        "value": "1.0.0"
+      },
+      "description": "Minimum client app version supported",
+      "valueType": "STRING"
+    },
+    "food_rescue_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Feature flag for hyper-local food rescue marketplace",
+      "valueType": "BOOLEAN"
+    },
+    "morning_drops_enabled": {
+      "defaultValue": {
+        "value": "true"
+      },
+      "description": "Feature flag for 6 AM breakfast & subscription morning drops",
+      "valueType": "BOOLEAN"
+    }
+  },
+  "version": {
+    "versionNumber": "1",
+    "description": "Initial DFC Madurai Remote Config Template"
+  }
+}

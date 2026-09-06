@@ -55,5 +55,6 @@ export * from './ingredient-bom';
 export * from './ads-auction';
 export * from './subscriptions';
 export * from './transliteration';
+export * from './platform-config';
 
 export * as tokens from './tokens';

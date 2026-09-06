@@ -9,7 +9,7 @@ import * as React from 'react';
 import { Alert, Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInUp } from 'react-native-reanimated';
-import { ChevronRight, IndianRupee, Settings, ShieldAlert, ShoppingBag } from 'lucide-react-native';
+import { ChevronRight, CloudRain, IndianRupee, Moon, Settings, ShieldAlert, ShoppingBag } from 'lucide-react-native';
 
 import {
   COPY,
@@ -23,6 +23,7 @@ import {
 } from '@dfc/core';
 
 import { useAuth } from '@/providers/auth';
+import { usePlatformStatus } from '@/hooks/usePlatformStatus';
 import { setRiderOnline, subscribeRiderProfile, subscribeRiderTasks } from '@/lib/orders';
 import { Badge, Button, Card, Empty, Loading, Num, Screen, T, Ta } from '@/ui';
 
@@ -101,6 +102,7 @@ export default function RiderQueue() {
   const [history, setHistory] = React.useState<Order[]>([]);
   const [rider, setRider] = React.useState<Rider | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const platform = usePlatformStatus();
 
   React.useEffect(() => {
     if (!user?.uid) return;
@@ -222,6 +224,32 @@ export default function RiderQueue() {
       </View>
 
       <ScrollView className="flex-1 bg-surface" contentContainerClassName="gap-3 px-4 py-4">
+        {platform.status === 'sleep' ? (
+          <View className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 gap-1.5">
+            <View className="flex-row items-center gap-2">
+              <Moon size={15} color="#F59E0B" />
+              <T className="text-xs font-bold text-amber-500">Night Curfew · இரவு ஓய்வு</T>
+            </View>
+            <T className="text-[11.5px] leading-relaxed text-zinc-300">
+              Dispatch is resting for the night. First morning breakfast drop runs begin at {platform.nextOpenTime ?? '6:00 AM'}.
+            </T>
+          </View>
+        ) : null}
+
+        {platform.rainSurge.active ? (
+          <View className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-3.5 gap-1.5">
+            <View className="flex-row items-center gap-2">
+              <CloudRain size={15} color="#60A5FA" />
+              <T className="text-xs font-bold text-blue-400">
+                Monsoon Rain Safety Bonus Active
+              </T>
+            </View>
+            <T className="text-[11.5px] leading-relaxed text-zinc-300">
+              Earn an extra ₹{Math.round(platform.rainSurge.riderSafetyBonusPaise / 100)} per delivery order during heavy rains. Ride safely!
+            </T>
+          </View>
+        ) : null}
+
         {!activeTask ? (
           <View className="pt-16">
             <Empty

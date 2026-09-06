@@ -6,10 +6,27 @@
  */
 
 import * as React from 'react';
-import { Bike, Boxes, Flame, Layers, LogOut, Package, Plus, Route, Search, Sparkles, UtensilsCrossed } from 'lucide-react';
+import {
+  AlertTriangle,
+  Bike,
+  Boxes,
+  CloudRain,
+  Flame,
+  Layers,
+  LogOut,
+  Moon,
+  Package,
+  Plus,
+  Route,
+  Search,
+  Sliders,
+  Sparkles,
+  UtensilsCrossed,
+} from 'lucide-react';
 import Link from 'next/link';
 
 import { COPY, type Category } from '@dfc/core';
+import { mockStore } from '@/lib/mock-store';
 import { Button, Input, Kbd } from '@/components/ui/primitives';
 import { cn, initials } from '@/lib/utils';
 import type { CategoryFilter, Density } from '@/hooks/useBoard';
@@ -30,6 +47,7 @@ export function TopBar({
   onOpenRiders,
   onOpenFoodRescue,
   onOpenBatching,
+  onOpenAutomations,
 }: {
   search: string;
   onSearch: (v: string) => void;
@@ -39,8 +57,16 @@ export function TopBar({
   onOpenRiders?: () => void;
   onOpenFoodRescue?: () => void;
   onOpenBatching?: () => void;
+  onOpenAutomations?: () => void;
 }) {
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const [config, setConfig] = React.useState(() => mockStore.getPlatformConfig());
+
+  React.useEffect(() => {
+    return mockStore.subscribe(() => {
+      setConfig(mockStore.getPlatformConfig());
+    });
+  }, []);
 
   // ⌘K / Ctrl-K focuses search. An admin lives in this field.
   React.useEffect(() => {
@@ -134,6 +160,16 @@ export function TopBar({
             </button>
           ) : null}
 
+          {onOpenAutomations && (
+            <button
+              onClick={onOpenAutomations}
+              className="flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-[11.5px] font-medium text-primary transition-colors hover:bg-primary/20"
+            >
+              <Sliders className="size-3.5" />
+              Ops &amp; Automations
+            </button>
+          )}
+
           {[
             { href: '/live', icon: Boxes, label: '3D Live Map' },
             { href: '/kds', icon: UtensilsCrossed, label: 'Kitchen KDS' },
@@ -151,12 +187,46 @@ export function TopBar({
             </Link>
           ))}
         </nav>
-        <span className="flex items-center gap-1.5 rounded-full border border-grocery-border bg-grocery-tint px-2.5 py-1">
-          <span className="size-1.5 rounded-full bg-grocery animate-dfc-pulse" />
-          <span className="text-[11.5px] font-semibold text-grocery-fg">
-            {liveCount} {COPY.live.en}
-          </span>
-        </span>
+
+        {config.status === 'sleep' ? (
+          <button
+            onClick={onOpenAutomations}
+            title="Madurai Sleep Mode Active - Click to change"
+            className="flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/15 px-2.5 py-1 text-amber-600 dark:text-amber-400 hover:bg-amber-500/25 transition-colors"
+          >
+            <Moon className="size-3.5" />
+            <span className="text-[11.5px] font-bold">SLEEP MODE</span>
+          </button>
+        ) : config.status === 'emergency_pause' ? (
+          <button
+            onClick={onOpenAutomations}
+            title="Emergency Rain Pause Active - Click to change"
+            className="flex items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/15 px-2.5 py-1 text-red-600 dark:text-red-400 hover:bg-red-500/25 transition-colors"
+          >
+            <AlertTriangle className="size-3.5" />
+            <span className="text-[11.5px] font-bold">RAIN PAUSE</span>
+          </button>
+        ) : config.rainSurge.active ? (
+          <button
+            onClick={onOpenAutomations}
+            title="Monsoon Rain Surge Active - Click to configure"
+            className="flex items-center gap-1.5 rounded-full border border-blue-500/40 bg-blue-500/15 px-2.5 py-1 text-blue-600 dark:text-blue-400 hover:bg-blue-500/25 transition-colors"
+          >
+            <CloudRain className="size-3.5" />
+            <span className="text-[11.5px] font-bold">RAIN SURGE 1.25x</span>
+          </button>
+        ) : (
+          <button
+            onClick={onOpenAutomations}
+            title="Live Operations - Click to manage"
+            className="flex items-center gap-1.5 rounded-full border border-grocery-border bg-grocery-tint px-2.5 py-1 hover:bg-grocery/20 transition-colors"
+          >
+            <span className="size-1.5 rounded-full bg-grocery animate-dfc-pulse" />
+            <span className="text-[11.5px] font-semibold text-grocery-fg">
+              {liveCount} {COPY.live.en}
+            </span>
+          </button>
+        )}
         <span className="tnum hidden text-[11.5px] text-placeholder xl:inline">{now}</span>
         <button
           onClick={onSignOut}

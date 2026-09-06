@@ -17,6 +17,7 @@ import { BatchingVisualizer } from '@/components/sheets/batching-visualizer';
 import { CreateOrderDialog } from '@/components/sheets/create-order-dialog';
 import { FoodRescueDialog } from '@/components/sheets/food-rescue-dialog';
 import { OrderSheet } from '@/components/sheets/order-sheet';
+import { PlatformAutomationsDialog } from '@/components/sheets/platform-automations-dialog';
 import { RiderManagementDialog } from '@/components/sheets/rider-management-dialog';
 import { useAuth } from '@/lib/auth';
 import { moveOrder } from '@/lib/orders';
@@ -33,6 +34,7 @@ export default function BoardPage() {
   const [ridersModalOpen, setRidersModalOpen] = React.useState(false);
   const [foodRescueOpen, setFoodRescueOpen] = React.useState(false);
   const [batchingOpen, setBatchingOpen] = React.useState(false);
+  const [automationsOpen, setAutomationsOpen] = React.useState(false);
   const [toast, setToast] = React.useState<string | null>(null);
   const [soundOn, setSoundOn] = React.useState(true);
 
@@ -95,6 +97,7 @@ export default function BoardPage() {
         onOpenRiders={() => setRidersModalOpen(true)}
         onOpenFoodRescue={() => setFoodRescueOpen(true)}
         onOpenBatching={() => setBatchingOpen(true)}
+        onOpenAutomations={() => setAutomationsOpen(true)}
       />
       <FilterBar
         filter={filter}
@@ -219,6 +222,11 @@ export default function BoardPage() {
       <BatchingVisualizer
         open={batchingOpen}
         onOpenChange={setBatchingOpen}
+      />
+
+      <PlatformAutomationsDialog
+        open={automationsOpen}
+        onClose={() => setAutomationsOpen(false)}
       />
 
       {toast ? (

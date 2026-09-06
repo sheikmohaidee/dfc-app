@@ -31,6 +31,8 @@ import { Camera, Check, ChevronDown, Flame, MapPin, Mic, Sparkles, Sun, User, Us
 
 import { COPY, formatInr, isTerminal, localityById, predictContextualCart, type Order } from '@dfc/core';
 import { ArDishModal } from '@/ui/ar-dish-modal';
+import { usePlatformStatus } from '@/hooks/usePlatformStatus';
+import { SleepModeBanner, RainSurgeBanner } from '@/ui/sleep-mode-sheet';
 
 import { useAuth } from '@/providers/auth';
 import { extractOrder, fallbackExtraction } from '@/lib/ai';
@@ -202,6 +204,9 @@ export default function Chat() {
   const [arModalVisible, setArModalVisible] = React.useState(false);
   const [arDishKey, setArDishKey] = React.useState('bun-parotta');
   const [dietaryFilter, setDietaryFilter] = React.useState<string | null>(null);
+  const platform = usePlatformStatus();
+  const [sleepBannerDismissed, setSleepBannerDismissed] = React.useState(false);
+  const [rainBannerDismissed, setRainBannerDismissed] = React.useState(false);
 
   const scrollRef = React.useRef<ScrollView>(null);
 
@@ -498,6 +503,24 @@ export default function Chat() {
           );
         })}
       </ScrollView>
+
+      {/* Platform Sleep Mode Banner */}
+      {platform.status === 'sleep' && !sleepBannerDismissed ? (
+        <SleepModeBanner
+          nextOpenTime={platform.nextOpenTime}
+          onPreOrderPress={() => router.push('/subscriptions' as never)}
+          onDismiss={() => setSleepBannerDismissed(true)}
+        />
+      ) : null}
+
+      {/* Monsoon Rain Surge Banner */}
+      {platform.rainSurge.active && !rainBannerDismissed ? (
+        <RainSurgeBanner
+          bonusAmount={`₹${Math.round(platform.rainSurge.riderSafetyBonusPaise / 100)}`}
+          multiplier={`${platform.rainSurge.multiplier}x`}
+          onDismiss={() => setRainBannerDismissed(true)}
+        />
+      ) : null}
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
