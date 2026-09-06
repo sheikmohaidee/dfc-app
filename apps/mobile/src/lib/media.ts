@@ -12,7 +12,7 @@ import { Audio } from 'expo-av';
 import { ref, uploadBytes } from 'firebase/storage';
 
 import { uploadPath } from '@dfc/core';
-import { storage } from './firebase';
+import { isConfigured, storage } from './firebase';
 
 export interface Capture {
   uri: string;
@@ -153,8 +153,15 @@ export async function cancelRecording(): Promise<void> {
  */
 export async function uploadCapture(uid: string, capture: Capture): Promise<string> {
   const path = uploadPath(uid, rid(), capture.ext);
-  const res = await fetch(capture.uri);
-  const blob = await res.blob();
-  await uploadBytes(ref(storage(), path), blob, { contentType: capture.mimeType });
-  return path;
+  if (!isConfigured) {
+    return path;
+  }
+  try {
+    const res = await fetch(capture.uri);
+    const blob = await res.blob();
+    await uploadBytes(ref(storage(), path), blob, { contentType: capture.mimeType });
+    return path;
+  } catch {
+    return path;
+  }
 }

@@ -21,12 +21,13 @@ import {
   where,
   type Unsubscribe,
 } from 'firebase/firestore';
-import { Linking, Platform } from 'react-native';
+import { Alert, Linking, Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 
 import {
   COL,
+  SEED_ORDERS,
   buildInvoice,
   withStatus,
   buildUpiUrl,
@@ -45,7 +46,7 @@ import {
   orderPaymentStatus,
 } from '@dfc/core';
 
-import { app, db } from './firebase';
+import { app, db, isConfigured } from './firebase';
 
 // ---------------------------------------------------------------------------
 // Reads
@@ -55,6 +56,10 @@ export function subscribePayment(
   orderId: string,
   onData: (p: Payment | null) => void,
 ): Unsubscribe {
+  if (!isConfigured) {
+    onData(null);
+    return () => {};
+  }
   const q = query(
     collection(db(), COL.payments),
     where('orderId', '==', orderId),
@@ -71,8 +76,10 @@ export function subscribeInvoice(
   orderId: string,
   onData: (inv: Invoice | null) => void,
 ): Unsubscribe {
-  // One invoice per order, keyed by orderId — a second one would break the
-  // GST sequence.
+  if (!isConfigured) {
+    onData(null);
+    return () => {};
+  }
   return onSnapshot(
     doc(db(), COL.invoices, orderId),
     (s) => onData(s.exists() ? (s.data() as Invoice) : null),
@@ -81,6 +88,10 @@ export function subscribeInvoice(
 }
 
 async function readOrder(orderId: string): Promise<Order> {
+  if (!isConfigured) {
+    const seed = SEED_ORDERS.find((o) => o.id === orderId);
+    if (seed) return seed;
+  }
   const snap = await getDoc(doc(db(), COL.orders, orderId));
   if (!snap.exists()) throw new Error('That order no longer exists.');
   return { ...(snap.data() as Order), id: snap.id };
@@ -99,11 +110,6 @@ export async function startPayment(
   method: PaymentMethod,
 ): Promise<Payment> {
   const id = `${order.id}_${method}`;
-  const ref = doc(db(), COL.payments, id);
-
-  const existing = await getDoc(ref);
-  if (existing.exists()) return { ...(existing.data() as Payment), id };
-
   const payment = newPayment({
     id,
     orderId: order.id,
@@ -112,6 +118,14 @@ export async function startPayment(
     method,
     amountPaise: order.pricing.totalPaise,
   });
+
+  if (!isConfigured) {
+    return payment;
+  }
+
+  const ref = doc(db(), COL.payments, id);
+  const existing = await getDoc(ref);
+  if (existing.exists()) return { ...(existing.data() as Payment), id };
 
   await setDoc(ref, payment);
   return payment;
@@ -173,6 +187,9 @@ export async function openUpiApp(payment: Payment, app: UpiApp): Promise<void> {
  * the payment in front of a human with the reference to match against.
  */
 export async function claimUpiPaid(payment: Payment, utr?: string): Promise<void> {
+  if (!isConfigured) {
+    return;
+  }
   await updateDoc(doc(db(), COL.payments, payment.id), {
     ...withPaymentState(payment, 'awaiting_confirmation', {
       ...(utr ? { utr: utr.trim() } : {}),
@@ -200,6 +217,10 @@ export async function claimUpiPaid(payment: Payment, utr?: string): Promise<void
  */
 export async function chooseCashOnDelivery(order: Order, uid: string): Promise<Payment> {
   const payment = await startPayment(order, 'cash');
+
+  if (!isConfigured) {
+    return payment;
+  }
 
   if (order.status === 'awaiting_payment') {
     await updateDoc(doc(db(), COL.orders, order.id), {
@@ -236,6 +257,14 @@ export class GatewayUnavailableError extends Error {
  * always "checking", never "paid".
  */
 export async function payWithGateway(orderId: string): Promise<void> {
+  if (!isConfigured) {
+    Alert.alert(
+      'Demo Checkout',
+      'Online gateway is in demo mode. Choose UPI or Cash on Delivery to test order fulfilment end-to-end.',
+    );
+    return;
+  }
+
   const call = httpsCallable<{ orderId: string }, { url: string; amountPaise: number }>(
     getFunctions(app(), 'asia-south1'),
     'createPaymentLink',
