@@ -9,7 +9,7 @@
 import * as ImagePicker from 'expo-image-picker';
 import { File } from 'expo-file-system';
 import { Audio } from 'expo-av';
-import { ref, uploadBytes } from 'firebase/storage';
+import { ref, uploadString } from 'firebase/storage';
 
 import { uploadPath } from '@dfc/core';
 import { isConfigured, storage } from './firebase';
@@ -150,6 +150,14 @@ export async function cancelRecording(): Promise<void> {
  * The model call does NOT wait on this — the base64 already went straight to
  * Gemini. The upload exists so an admin can look at what the customer actually
  * sent when the model gets it wrong.
+ *
+ * Uploads the base64 we are already holding rather than re-reading the file.
+ * The obvious `fetch(capture.uri).blob()` reads well but leans on React
+ * Native's `file://` + Blob support, which is solid on iOS and patchy across
+ * Android OEM builds; when it broke it threw, got swallowed by the catch
+ * below, and returned a path with nothing behind it — so the admin opening a
+ * misread prescription found a dead link and no clue why. `uploadString` goes
+ * through the same XHR on both platforms and touches no filesystem bridge.
  */
 export async function uploadCapture(uid: string, capture: Capture): Promise<string> {
   const path = uploadPath(uid, rid(), capture.ext);
@@ -157,11 +165,12 @@ export async function uploadCapture(uid: string, capture: Capture): Promise<stri
     return path;
   }
   try {
-    const res = await fetch(capture.uri);
-    const blob = await res.blob();
-    await uploadBytes(ref(storage(), path), blob, { contentType: capture.mimeType });
-    return path;
+    await uploadString(ref(storage(), path), capture.base64, 'base64', {
+      contentType: capture.mimeType,
+    });
   } catch {
-    return path;
+    // Best effort by design: this is an audit copy, and failing it must never
+    // cost the customer the order they are in the middle of placing.
   }
+  return path;
 }

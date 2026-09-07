@@ -21,7 +21,7 @@ import {
   where,
   type Unsubscribe,
 } from 'firebase/firestore';
-import { Alert, Linking, Platform } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 
@@ -47,6 +47,7 @@ import {
 } from '@dfc/core';
 
 import { app, db, isConfigured } from './firebase';
+import { openFirstAvailable } from './linking';
 
 // ---------------------------------------------------------------------------
 // Reads
@@ -143,7 +144,7 @@ export class UpiUnavailableError extends Error {
  *
  * Android resolves `upi://` to a system chooser, so the generic link is the
  * better experience there. iOS has no chooser, so we try the specific app's
- * scheme and fall back.
+ * scheme first and fall back to the generic one.
  *
  * Returns nothing useful on purpose — whatever the UPI app reports back cannot
  * be trusted, so the caller's next step is always "ask the customer to
@@ -162,24 +163,18 @@ export async function openUpiApp(payment: Payment, app: UpiApp): Promise<void> {
     orderCode: payment.orderCode,
   });
 
-  const url = Platform.OS === 'ios' ? upiUrlFor(app, base) : base;
+  // Most specific first. Android goes straight to the generic link because
+  // the system chooser handles the picking, and naming one app there would
+  // only take that choice away.
+  const opened = await openFirstAvailable(
+    Platform.OS === 'ios' && app.iosScheme ? [upiUrlFor(app, base), base] : [base],
+  );
 
-  const can = await Linking.canOpenURL(url).catch(() => false);
-  if (!can) {
-    // On iOS a missing app is a hard no; on Android the chooser handles it.
-    if (Platform.OS === 'ios' && app.iosScheme) {
-      const fallback = await Linking.canOpenURL(base).catch(() => false);
-      if (fallback) {
-        await Linking.openURL(base);
-        return;
-      }
-    }
+  if (!opened) {
     throw new UpiUnavailableError(
       `${app.name} is not installed. Try another UPI app, or pay cash on delivery.`,
     );
   }
-
-  await Linking.openURL(url);
 }
 
 /**

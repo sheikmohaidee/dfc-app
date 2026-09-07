@@ -18,10 +18,11 @@
  */
 
 import * as React from 'react';
-import { Linking, Platform, Pressable, View } from 'react-native';
+import { Platform, Pressable, View } from 'react-native';
 import { Crosshair, Navigation } from 'lucide-react-native';
 
 import { LOCALITIES, haversineKm, type LocalityGeo } from '@dfc/core';
+import { openFirstAvailable } from '@/lib/linking';
 import { Num, T } from './index';
 import { RouteMap } from './route-map';
 
@@ -125,16 +126,27 @@ export function LiveMap({
     return () => clearTimeout(id);
   }, [fit]);
 
+  /**
+   * Hands the rider to a real navigation app.
+   *
+   * Tried in order, first one that opens wins. The https link is last and is
+   * the only one guaranteed to resolve — every phone has a browser, and
+   * Google Maps claims that URL when it is installed. `two_wheeler` matters:
+   * it is the mode that routes down the lanes a Madurai delivery actually
+   * uses, and the one the rider would have picked themselves.
+   */
   function navigate() {
     const dest = `${to.lat},${to.lng}`;
-    const url = Platform.select({
-      ios: `maps://app?daddr=${dest}&dirflg=d`,
-      default: `google.navigation:q=${dest}&mode=d`,
-    });
-    void Linking.openURL(url!).catch(() =>
-      Linking.openURL(
-        `https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=two_wheeler`,
-      ),
+    const web = `https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=two_wheeler`;
+
+    void openFirstAvailable(
+      Platform.OS === 'ios'
+        ? [
+            `comgooglemaps://?daddr=${dest}&directionsmode=driving`,
+            `maps://?daddr=${dest}&dirflg=d`,
+            web,
+          ]
+        : [`google.navigation:q=${dest}&mode=d`, `geo:${dest}?q=${dest}`, web],
     );
   }
 
@@ -159,7 +171,10 @@ export function LiveMap({
         ref={mapRef}
         style={{ flex: 1 }}
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-        customMapStyle={MAP_STYLE}
+        // Google-flavoured styling JSON, and Apple Maps ignores it. Passing it
+        // only where it does something keeps the iOS/Android difference stated
+        // rather than looking like it should have worked.
+        customMapStyle={Platform.OS === 'android' ? MAP_STYLE : undefined}
         initialRegion={{
           latitude: (from.lat + to.lat) / 2,
           longitude: (from.lng + to.lng) / 2,
