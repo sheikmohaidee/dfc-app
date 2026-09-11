@@ -10,7 +10,7 @@ import * as React from 'react';
 import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInUp } from 'react-native-reanimated';
-import { AlertTriangle, Boxes, Receipt, SlidersHorizontal } from 'lucide-react-native';
+import { AlertTriangle, Boxes, Moon, Receipt, SlidersHorizontal } from 'lucide-react-native';
 
 import {
   COPY,
@@ -22,6 +22,7 @@ import {
 } from '@dfc/core';
 
 import { useAuth } from '@/providers/auth';
+import { usePlatformStatus } from '@/hooks/usePlatformStatus';
 import { subscribeStoreOrders, vendorAccept, vendorReject } from '@/lib/orders';
 import { Badge, Button, Card, Divider, Empty, Loading, Money, Num, Screen, T, Ta } from '@/ui';
 import { mockMenuRepository } from '@/demo/repositories/menu.repository';
@@ -69,7 +70,7 @@ function IncomingCard({ order, onOpen }: { order: Order; onOpen: () => void }) {
                 <Num className="text-[13px] font-semibold">#{order.code}</Num>
                 <Badge
                   label={order.paymentMode === 'prepaid' ? 'PREPAID' : 'COD'}
-                  tone={order.paymentMode === 'prepaid' ? 'pharmacy' : 'grocery'}
+                  tone={order.paymentMode === 'prepaid' ? 'neutral' : 'grocery'}
                 />
               </View>
               <T className="text-[12px] leading-[18px] text-muted-foreground" numberOfLines={2}>
@@ -173,6 +174,7 @@ export default function VendorInbox() {
   const [orders, setOrders] = React.useState<Order[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [online, setOnline] = React.useState(true);
+  const platform = usePlatformStatus();
 
   const [menuVersion, setMenuVersion] = React.useState(0);
   React.useEffect(() => mockMenuRepository.subscribe(() => setMenuVersion(v => v+1)), []);
@@ -214,8 +216,8 @@ export default function VendorInbox() {
       {/* Store header */}
       <View className="border-b border-border">
         <View className="flex-row items-center gap-3 px-4 pb-3 pt-3.5">
-          <View className="size-9 items-center justify-center rounded-[10px] border border-pharmacy-border bg-pharmacy-tint">
-            <Boxes size={18} color="#2563EB" strokeWidth={2} />
+          <View className="size-9 items-center justify-center rounded-[10px] border border-border bg-surface">
+            <Boxes size={18} color="#18181B" strokeWidth={2} />
           </View>
           <View className="flex-1">
             <T className="text-[15px] font-semibold tracking-[-0.2px]" numberOfLines={1}>
@@ -262,6 +264,18 @@ export default function VendorInbox() {
         contentContainerClassName="gap-3 px-4 py-4"
         refreshControl={<RefreshControl refreshing={false} onRefresh={() => {}} />}
       >
+        {platform.status === 'sleep' ? (
+          <View className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 gap-1.5 mb-1">
+            <View className="flex-row items-center gap-2">
+              <Moon size={15} color="#F59E0B" />
+              <T className="text-xs font-bold text-amber-500">Kitchen Resting · இரவு ஓய்வு</T>
+            </View>
+            <T className="text-[11.5px] leading-relaxed text-zinc-300">
+              Live orders paused until {platform.nextOpenTime ?? '6:00 AM'}. Breakfast drops pre-orders will land at 5:30 AM for morning preparation.
+            </T>
+          </View>
+        ) : null}
+
         <View className="flex-row items-center gap-2">
           <View className={`size-[7px] rounded-full ${incoming.length ? 'bg-destructive' : 'bg-disabled'}`} />
           <T className="text-xs font-semibold tracking-tight">{COPY.newRequest.en}</T>
@@ -334,12 +348,13 @@ export default function VendorInbox() {
       <View className="flex-row border-t border-border bg-background px-2 pb-5 pt-2">
         {[
           { icon: Boxes, label: 'Orders', on: true, go: null },
+          { icon: Boxes, label: 'Menu / Stock', on: false, go: '/(vendor)/menu' as const },
           { icon: Receipt, label: 'Payouts', on: false, go: '/(vendor)/payouts' as const },
           { icon: SlidersHorizontal, label: 'Account', on: false, go: '/(vendor)/settings' as const },
         ].map(({ icon: Icon, label, on, go }) => (
           <Pressable
             key={label}
-            onPress={() => go && router.push(go)}
+            onPress={() => go && router.push(go as never)}
             accessibilityRole="button"
             accessibilityLabel={label}
             className="h-[52px] flex-1 items-center justify-center gap-1"

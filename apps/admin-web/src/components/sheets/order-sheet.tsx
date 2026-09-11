@@ -338,6 +338,56 @@ function Totals({ order }: { order: Order }) {
   );
 }
 
+function TimingAndDelays({ order }: { order: Order }) {
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border bg-surface p-3">
+      <div className="flex items-center justify-between">
+        <Label>PREPARATION &amp; DELIVERY TIMING</Label>
+        {order.delayMinutes ? (
+          <Badge tone="verify">+{order.delayMinutes}m DELAY REPORTED</Badge>
+        ) : null}
+      </div>
+
+      {order.delayMinutes && order.delayReason ? (
+        <div className="rounded border border-verify-border bg-verify-tint p-2 text-xs text-verify-fg">
+          <span className="font-semibold">Delay Note: </span>
+          {order.delayReason}
+        </div>
+      ) : null}
+
+      <div className="grid grid-cols-2 gap-2 text-xs">
+        <div className="flex flex-col gap-0.5 rounded border bg-background p-2">
+          <span className="text-[10px] font-bold text-placeholder">PREPARATION</span>
+          <span className="font-semibold text-body-strong">
+            {order.actualPrepMinutes
+              ? `${order.actualPrepMinutes} mins`
+              : order.prepStartedAt
+                ? `In progress (${Math.max(1, Math.round((Date.now() - order.prepStartedAt) / 60000))}m)`
+                : 'Not started'}
+          </span>
+          {order.prepCompletedAt ? (
+            <span className="tnum text-[10.5px] text-placeholder">{ago(order.prepCompletedAt)} ago</span>
+          ) : null}
+        </div>
+
+        <div className="flex flex-col gap-0.5 rounded border bg-background p-2">
+          <span className="text-[10px] font-bold text-placeholder">DELIVERY / TRANSIT</span>
+          <span className="font-semibold text-body-strong">
+            {order.actualDeliveryMinutes
+              ? `${order.actualDeliveryMinutes} mins`
+              : order.dispatchedAt
+                ? `En route (${Math.max(1, Math.round((Date.now() - order.dispatchedAt) / 60000))}m)`
+                : 'Waiting for pickup'}
+          </span>
+          {order.deliveredAt ? (
+            <span className="tnum text-[10.5px] text-placeholder">{ago(order.deliveredAt)} ago</span>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function RiderPicker({
   order,
   riders,
@@ -347,58 +397,74 @@ function RiderPicker({
   riders: Rider[];
   adminUid: string;
 }) {
-  const [open, setOpen] = React.useState(false);
+  const eligible = riders.filter((r) => !r.isOfflineDueToCancellations);
 
   return (
     <div className="flex flex-col gap-2">
-      <Label>{COPY.assignRider.en.toUpperCase()}</Label>
-      <Button variant="outline" className="w-full justify-start font-semibold text-[13px]" onClick={() => setOpen(true)}>
-        {order.riderUid ? 'CHANGE CAPTAIN' : 'ASSIGN CAPTAIN'}
-      </Button>
+      <div className="flex items-center justify-between">
+        <Label>MANUAL RIDER ASSIGNMENT</Label>
+        {order.riderName ? (
+          <span className="text-xs font-semibold text-grocery">
+            Current: {order.riderName}
+          </span>
+        ) : null}
+      </div>
 
-      {open && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-sm rounded-xl bg-background p-5 shadow-lg border">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold tracking-tight">Assign Captain</h3>
-              <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground">
-                <X className="size-5" />
-              </button>
-            </div>
-            <div className="flex flex-col gap-2">
-              {riders.map((r) => {
-                const mine = order.riderUid === r.uid;
-                const isOnline = r.status === 'ONLINE' || r.isOnline;
-                return (
-                  <button
-                    key={r.uid}
-                    onClick={() => {
-                      void dispatchToRider(order.id, r, adminUid);
-                      setOpen(false);
-                    }}
+      <div className="flex flex-col gap-1.5">
+        {eligible.length === 0 ? (
+          <span className="text-[12px] text-placeholder">No eligible captain is online right now.</span>
+        ) : null}
+        {eligible.map((r) => {
+          const mine = order.riderUid === r.uid;
+          const strikes = r.cancellationsToday ?? 0;
+          const isOnline = r.status === 'ONLINE' || r.isOnline;
+          return (
+            <button
+              key={r.uid}
+              onClick={() => void dispatchToRider(order.id, r, adminUid)}
+              className={cn(
+                'flex items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left transition-colors',
+                mine
+                  ? 'border-primary bg-primary/5 shadow-subtle'
+                  : 'hover:bg-muted/80',
+              )}
+            >
+              <span className="grid size-7 shrink-0 place-items-center rounded-full border bg-muted text-[10px] font-semibold text-icon">
+                {initials(r.name)}
+              </span>
+              <div className="flex flex-1 flex-col">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[13px] font-medium">{r.name}</span>
+                  <span
                     className={cn(
-                      'flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors',
-                      mine ? 'border-ring bg-muted' : 'hover:bg-muted',
+                      'size-1.5 rounded-full',
+                      isOnline ? 'bg-grocery' : 'bg-placeholder',
                     )}
-                  >
-                    <span className="grid size-8 shrink-0 place-items-center rounded-full border bg-muted text-[11px] font-semibold text-icon">
-                      {initials(r.name)}
+                  />
+                  {strikes > 0 ? (
+                    <span className="tnum text-[10px] font-bold text-destructive">
+                      ({strikes}/2 cancels)
                     </span>
-                    <span className="flex flex-1 flex-col">
-                      <span className="text-[13.5px] font-medium">{r.name}</span>
-                      <span className="tnum text-[11px] text-placeholder">{r.phone}</span>
-                    </span>
-                    <Badge tone={isOnline ? 'grocery' : 'neutral'}>
-                      {r.status || (isOnline ? 'ONLINE' : 'OFFLINE')}
-                    </Badge>
-                    {mine ? <Check className="size-4 text-grocery" strokeWidth={3} /> : null}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
+                  ) : null}
+                </div>
+                <span className="tnum text-[10.5px] text-placeholder">
+                  {r.phone} {r.activeOrderId && r.activeOrderId !== order.id ? '· 1 active job' : '· Available'}
+                </span>
+              </div>
+              {mine ? (
+                <span className="flex items-center gap-1 text-xs font-bold text-grocery">
+                  <Check className="size-3.5" strokeWidth={3} />
+                  ASSIGNED
+                </span>
+              ) : (
+                <span className="rounded border px-2 py-0.5 text-[11px] font-medium text-body-strong hover:bg-muted">
+                  Assign
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -559,14 +625,13 @@ export function OrderSheet({
           <Totals order={order} />
 
           <Separator />
+          <TimingAndDelays order={order} />
+
+          <Separator />
           <PaymentPanel order={order} payment={payment} adminUid={adminUid} />
 
-          {order.status === 'ready_for_pickup' || order.riderUid ? (
-            <>
-              <Separator />
-              <RiderPicker order={order} riders={riders} adminUid={adminUid} />
-            </>
-          ) : null}
+          <Separator />
+          <RiderPicker order={order} riders={riders} adminUid={adminUid} />
 
           <Separator />
           <div className="flex flex-col gap-2">

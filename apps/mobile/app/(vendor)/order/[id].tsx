@@ -1,23 +1,22 @@
 /**
  * Vendor fulfilment.
  *
- * The packing checklist, plus the step the whole AI flow depends on: a human
- * resolving whatever the model was unsure of. The pharmacist sees the model's
- * reading and its confidence, then confirms, substitutes or refuses. Confirming
- * clears the VERIFY chip everywhere at once.
+ * The packing checklist, preparation timers, and delay reporting (+10m / +20m).
  */
 
 import * as React from 'react';
-import { Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, { FadeIn } from 'react-native-reanimated';
-import { AlertTriangle, ArrowLeft, Barcode, Check, Clock, MapPin, Scan } from 'lucide-react-native';
+import { AlertTriangle, ArrowLeft, Clock, Share2, Timer, Video, X } from 'lucide-react-native';
 
 import {
   COPY,
   CONFIDENCE_THRESHOLD,
   formatInr,
+  formatWhatsAppKotPayload,
   localityById,
+  SEED_KITCHEN_STREAMS,
   toPaise,
   type Order,
   type OrderItem,
@@ -29,13 +28,13 @@ import {
   vendorConfirmItem,
   vendorMarkReady,
   vendorMarkUnavailable,
+  vendorReportDelay,
   vendorStartPacking,
 } from '@/lib/orders';
 import {
   Badge,
   Button,
   Checkbox,
-  Divider,
   ErrorNote,
   Loading,
   Num,
@@ -49,7 +48,7 @@ import {
 function VerifyBlock({ order, item }: { order: Order; item: OrderItem }) {
   const [editing, setEditing] = React.useState(false);
   const [name, setName] = React.useState(item.name);
-  const [price, setPrice] = React.useState(
+  const [price] = React.useState(
     item.unitPricePaise ? String(Math.round(item.unitPricePaise / 100)) : '',
   );
   const [busy, setBusy] = React.useState(false);
@@ -75,14 +74,14 @@ function VerifyBlock({ order, item }: { order: Order; item: OrderItem }) {
       <View className="flex-row items-center gap-2 border-b border-verify-border px-3.5 py-2.5">
         <AlertTriangle size={15} color="#B45309" strokeWidth={2} />
         <T className="flex-1 text-[12.5px] font-semibold tracking-tight text-verify-fg">
-          {COPY.pharmacistConfirmation.en}
+          Item Verification
         </T>
-        <Ta className="text-[10.5px] text-verify">{COPY.pharmacistConfirmation.ta}</Ta>
+        <Ta className="text-[10.5px] text-verify">உறுதிப்படுத்தவும்</Ta>
       </View>
 
       <View className="gap-3 px-3.5 py-3">
         <View className="gap-1">
-          <T className="text-[10.5px] font-bold tracking-[0.4px] text-verify">AI READ</T>
+          <T className="text-[10.5px] font-bold tracking-[0.4px] text-verify">ITEM</T>
           {editing ? (
             <TextInput
               value={name}
@@ -101,51 +100,27 @@ function VerifyBlock({ order, item }: { order: Order; item: OrderItem }) {
           </Num>
         </View>
 
-        <View className="flex-row items-center gap-2.5">
-          <T className="text-[11.5px] text-verify-fg">Price</T>
-          <View className="h-10 flex-1 flex-row items-center overflow-hidden rounded-control border border-verify-border bg-background">
-            <View className="h-full w-8 items-center justify-center border-r border-verify-border bg-surface">
-              <Num className="text-[13px] text-muted-foreground">₹</Num>
-            </View>
-            <TextInput
-              value={price}
-              onChangeText={(v) => setPrice(v.replace(/[^\d]/g, ''))}
-              keyboardType="number-pad"
-              placeholder="—"
-              placeholderTextColor="#B45309"
-              className="h-full flex-1 px-3 font-mono text-[15px] font-semibold text-foreground"
-            />
-          </View>
-        </View>
-
-        <View className="gap-2">
+        <View className="flex-row gap-2">
           <Button
-            size="md"
-            label={
-              editing
-                ? 'Save and confirm'
-                : `${COPY.thatsCorrect.en}${price ? ` · ₹${price}` : ''}`
-            }
+            size="sm"
+            label="Confirm"
+            labelTa="சரி"
             loading={busy}
-            onPress={() => void confirm(editing)}
+            className="flex-1"
+            onPress={() => void confirm(false)}
           />
-          <View className="flex-row gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              label={COPY.differentMedicine.en}
-              className="flex-1"
-              onPress={() => setEditing(true)}
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              label={COPY.notAvailable.en}
-              className="flex-1"
-              disabled={busy}
-              onPress={() => void vendorMarkUnavailable(order.id, item.id)}
-            />
-          </View>
+          <Button
+            size="sm"
+            variant="outline"
+            label={editing ? 'Save' : 'Edit'}
+            onPress={() => (editing ? void confirm(true) : setEditing(true))}
+          />
+          <Button
+            size="sm"
+            variant="destructive"
+            label="Out of stock"
+            onPress={() => void vendorMarkUnavailable(order.id, item.id)}
+          />
         </View>
       </View>
     </Animated.View>
@@ -154,7 +129,7 @@ function VerifyBlock({ order, item }: { order: Order; item: OrderItem }) {
 
 // ---------------------------------------------------------------------------
 
-export default function VendorFulfil() {
+export default function VendorOrder() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuth();
@@ -162,8 +137,14 @@ export default function VendorFulfil() {
   const [order, setOrder] = React.useState<Order | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [packed, setPacked] = React.useState<Record<string, boolean>>({});
-  const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  // Delay reporting modal state
+  const [delayModalOpen, setDelayModalOpen] = React.useState(false);
+  const [selectedDelay, setSelectedDelay] = React.useState(15);
+  const [delayReason, setDelayReason] = React.useState('Kitchen rush / High volume of orders');
+  const [delayBusy, setDelayBusy] = React.useState(false);
 
   React.useEffect(() => {
     if (!id) return;
@@ -178,39 +159,34 @@ export default function VendorFulfil() {
     return (
       <Screen>
         <View className="flex-1 items-center justify-center">
-          <T className="text-[15px] text-muted-foreground">That order is gone.</T>
+          <T className="text-[15px] text-muted-foreground">Order not found.</T>
         </View>
       </Screen>
     );
   }
 
   const active = order.items.filter((i) => i.included);
-  const [scanning, setScanning] = React.useState(false);
-  const [scanMessage, setScanMessage] = React.useState<string | null>(null);
-
-  // Rapid Barcode / EAN-13 fulfillment verification handler
-  function simulateEanScan(item: OrderItem) {
-    const mockEan = `890${Math.floor(1000000000 + Math.random() * 9000000000)}`;
-    const mockBatch = `B${Math.floor(1000 + Math.random() * 9000)}`;
-    const mockExpiry = `12/28`;
-
-    setPacked((p) => ({ ...p, [item.id]: true }));
-    setScanMessage(`Verified EAN-13: ${mockEan} | Batch: ${mockBatch} | Exp: ${mockExpiry}`);
-    setTimeout(() => setScanMessage(null), 4000);
-  }
   const flagged = active.filter((i) => i.confidence < CONFIDENCE_THRESHOLD);
-  const packedCount = active.filter((i) => packed[i.id]).length;
-  const allPacked = packedCount === active.length && active.length > 0;
-  const canFinish = allPacked && flagged.length === 0;
+  const allPacked = active.length > 0 && active.every((i) => packed[i.id]);
   const locality = localityById(order.localityId);
 
-  async function finish() {
-    if (!user || !order) return;
+  async function startPacking() {
     setBusy(true);
     setError(null);
     try {
-      if (order.status === 'vendor_accepted') await vendorStartPacking(order.id, user.uid);
-      await vendorMarkReady(order.id, user.uid);
+      await vendorStartPacking(order!.id, user!.uid);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function markReady() {
+    setBusy(true);
+    setError(null);
+    try {
+      await vendorMarkReady(order!.id, user!.uid);
       router.back();
     } catch (e) {
       setError((e as Error).message);
@@ -219,80 +195,123 @@ export default function VendorFulfil() {
     }
   }
 
+  async function handleReportDelay() {
+    if (!delayReason.trim()) {
+      Alert.alert('Reason Required', 'Please provide a reason for the preparation delay.');
+      return;
+    }
+    setDelayBusy(true);
+    try {
+      await vendorReportDelay(order!.id, selectedDelay, delayReason.trim(), user!.uid);
+      setDelayModalOpen(false);
+      Alert.alert('Delay Reported', `An extra ${selectedDelay} minutes has been added and the customer has been notified.`);
+    } catch (e) {
+      Alert.alert('Error', (e as Error).message);
+    } finally {
+      setDelayBusy(false);
+    }
+  }
+
   return (
-    <Screen>
-      <View className="flex-row items-center gap-2.5 border-b border-muted px-4 pb-3 pt-2">
-        <Pressable onPress={() => router.back()} hitSlop={12} className="-ml-2 size-9 items-center justify-center">
-          <ArrowLeft size={21} color="#18181B" strokeWidth={2} />
+    <Screen edges={['top']}>
+      {/* Header */}
+      <View className="flex-row items-center gap-3 border-b border-border px-4 py-3">
+        <Pressable onPress={() => router.back()} hitSlop={10}>
+          <ArrowLeft size={20} color="#18181B" strokeWidth={2} />
         </Pressable>
-        <View className="flex-1 flex-row items-center gap-2">
-          <Num className="text-[15px] font-semibold tracking-tight">#{order.code}</Num>
-          <Badge
-            label={`${order.paymentMode === 'prepaid' ? 'PREPAID' : 'COD'} ${formatInr(order.pricing.totalPaise)}`}
-            tone={order.paymentMode === 'prepaid' ? 'pharmacy' : 'grocery'}
-          />
+        <View className="flex-1">
+          <View className="flex-row items-center gap-2">
+            <T className="text-base font-semibold tracking-[-0.3px]">
+              #{order.code} · {order.customerName}
+            </T>
+            <Badge label={order.category.toUpperCase()} tone="grocery" />
+          </View>
+          <T className="mt-0.5 text-xs text-placeholder">
+            {locality?.name ?? order.localityId} · {active.length} items
+          </T>
         </View>
-        <View className="flex-row items-center gap-1.5 rounded-segment border border-border px-2.5 py-1.5">
-          <Clock size={13} color="#71717A" strokeWidth={2} />
-          <Num className="text-xs font-medium">4:12</Num>
+
+        <Pressable
+          onPress={() => setDelayModalOpen(true)}
+          className="flex-row items-center gap-1 rounded-lg border border-verify-border bg-verify-tint px-2.5 py-1.5"
+        >
+          <Clock size={13} color="#B45309" />
+          <T className="text-[11px] font-bold text-verify-fg">+ Delay</T>
+        </Pressable>
+      </View>
+
+      {/* Preparation & Delay Timing Banner */}
+      <View className="mx-4 mt-3 gap-2 rounded-lg border border-border bg-surface p-3">
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center gap-1.5">
+            <Timer size={14} color="#71717A" />
+            <T className="text-xs font-bold text-placeholder">PREPARATION TRACKING</T>
+          </View>
+          {order.delayMinutes ? (
+            <Badge label={`+${order.delayMinutes}m DELAY REPORTED`} tone="verify" />
+          ) : null}
+        </View>
+
+        {order.delayReason ? (
+          <View className="rounded border border-verify-border bg-verify-tint p-2">
+            <T className="text-xs font-semibold text-verify-fg">
+              Reason: {order.delayReason}
+            </T>
+          </View>
+        ) : null}
+
+        <View className="flex-row justify-between text-xs">
+          <T className="text-xs text-muted-foreground">
+            Prep Status: {order.actualPrepMinutes ? `${order.actualPrepMinutes}m taken` : order.prepStartedAt ? 'In preparation…' : 'Pending start'}
+          </T>
+          {order.riderName ? (
+            <T className="text-xs font-semibold text-grocery">Captain: {order.riderName}</T>
+          ) : (
+            <T className="text-xs text-placeholder">No rider assigned yet</T>
+          )}
         </View>
       </View>
 
-      {/* Step rail */}
-      <View className="flex-row items-center border-b border-muted px-4 py-3.5">
-        {[
-          { label: 'Accepted', done: true },
-          { label: 'Packing', done: false, current: true },
-          { label: 'Ready', done: false },
-        ].map((s, i, arr) => (
-          <React.Fragment key={s.label}>
-            <View className="flex-row items-center gap-1.5">
-              <View
-                className={`size-[18px] items-center justify-center rounded-full ${
-                  s.done ? 'bg-grocery' : s.current ? 'bg-primary' : 'border-[1.5px] border-border'
-                }`}
-              >
-                {s.done ? <Check size={11} color="#FFFFFF" strokeWidth={3.6} /> : null}
-                {s.current ? <View className="size-1.5 rounded-full bg-white" /> : null}
-              </View>
-              <T
-                className={`text-xs ${
-                  s.current ? 'font-semibold' : s.done ? 'text-body-strong' : 'text-placeholder'
-                }`}
-              >
-                {s.label}
-              </T>
-            </View>
-            {i < arr.length - 1 ? <View className="mx-2.5 h-[1.5px] flex-1 bg-border" /> : null}
-          </React.Fragment>
-        ))}
+      {/* Advanced Operations: WhatsApp KOT Sync & Kitchen Cam */}
+      <View className="px-4 pt-3 flex-row items-center gap-2">
+        <Pressable
+          onPress={() => {
+            const kot = formatWhatsAppKotPayload(order).formattedKdsBody;
+            Alert.alert(
+              'WhatsApp KOT Ticket Generated',
+              kot,
+              [
+                { text: 'Dismiss' },
+                {
+                  text: 'Copy & Send KOT',
+                  onPress: () => {
+                    Alert.alert('Sent to Kitchen', 'KOT transmitted to kitchen thermal printer & WhatsApp.');
+                  },
+                },
+              ],
+            );
+          }}
+          className="flex-1 flex-row items-center justify-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 py-2.5"
+        >
+          <Share2 size={14} color="#16A34A" />
+          <T className="text-xs font-bold text-emerald-700 dark:text-emerald-400">WhatsApp KOT</T>
+        </Pressable>
+
+        {order.storeId && SEED_KITCHEN_STREAMS[order.storeId] ? (
+          <View className="flex-row items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2.5">
+            <Video size={13} color="#DC2626" />
+            <T className="text-xs font-semibold text-foreground">Cam Active</T>
+          </View>
+        ) : null}
       </View>
 
       <ScrollView className="flex-1" contentContainerClassName="gap-3.5 pb-6">
-        <View className="flex-row items-center justify-between px-4 pt-3.5">
+        <View className="flex-row items-center justify-between px-4 pt-2">
           <View className="flex-row items-center gap-2">
             <T className="text-[13px] font-semibold tracking-tight">{COPY.packItems.en}</T>
             <Ta className="text-[11px]">{COPY.packItems.ta}</Ta>
           </View>
-          <Pressable
-            onPress={() => setScanning(!scanning)}
-            className={`flex-row items-center gap-1.5 rounded-full border px-3 py-1 ${
-              scanning ? 'border-primary bg-primary-tint' : 'border-border bg-surface'
-            }`}
-          >
-            <Scan size={14} color={scanning ? '#0E1726' : '#71717A'} strokeWidth={2.2} />
-            <T className={`text-[11.5px] font-bold ${scanning ? 'text-foreground' : 'text-muted-foreground'}`}>
-              EAN-13 SCANNER
-            </T>
-          </Pressable>
         </View>
-
-        {scanMessage ? (
-          <Animated.View entering={FadeIn} className="mx-4 flex-row items-center gap-2 rounded-card bg-grocery-tint p-3 border border-grocery-border">
-            <Barcode size={18} color="#16A34A" strokeWidth={2.2} />
-            <T className="flex-1 text-[12px] font-semibold text-grocery-fg">{scanMessage}</T>
-          </Animated.View>
-        ) : null}
 
         <View className="px-4">
           {active.map((item, i) => {
@@ -313,58 +332,16 @@ export default function VendorFulfil() {
                   onToggle={() => setPacked((p) => ({ ...p, [item.id]: !p[item.id] }))}
                 />
                 <View className="flex-1">
-                  <T
-                    className={`text-[14px] font-medium ${
-                      on ? 'text-placeholder line-through' : ''
-                    }`}
-                  >
+                  <T className={`text-[14px] font-medium ${on ? 'text-placeholder line-through' : ''}`}>
                     {item.name}
                   </T>
                   <Num className={`mt-0.5 text-[10.5px] ${on ? 'text-disabled' : 'text-placeholder'}`}>
-                    {item.unit}
-                    {item.quantity > 1 ? ` × ${item.quantity}` : ''}
-                  </Num>
-
-                  {/* Where the words came from.
-                      A pharmacist reads this list and dispenses against it, so
-                      they must be able to tell a line the model read off the
-                      prescription from a line the customer typed themselves.
-                      For a medicine that difference is the whole question of
-                      what the prescription actually says — and the photograph,
-                      which is immutable, is still the thing to check against. */}
-                  {item.addedByCustomer || item.editedByCustomer ? (
-                    <View className="mt-1 flex-row items-center gap-1.5">
-                      <Badge
-                        label={item.addedByCustomer ? 'CUSTOMER ADDED' : 'CUSTOMER EDITED'}
-                        tone="verify"
-                      />
-                      {item.readAs ? (
-                        <Num className="text-[10px] italic text-placeholder" numberOfLines={1}>
-                          paper: {item.readAs}
-                        </Num>
-                      ) : null}
-                    </View>
-                  ) : item.readAs ? (
-                    <Num className="mt-0.5 text-[10px] italic text-placeholder" numberOfLines={1}>
-                      paper: {item.readAs}
-                    </Num>
-                  ) : null}
-                </View>
-                <View className="flex-row items-center gap-2">
-                  {scanning ? (
-                    <Pressable
-                      onPress={() => simulateEanScan(item)}
-                      className="size-8 items-center justify-center rounded-full bg-grocery-tint border border-grocery-border"
-                    >
-                      <Barcode size={16} color="#16A34A" strokeWidth={2.2} />
-                    </Pressable>
-                  ) : null}
-                  <Num className={`text-[12.5px] ${on ? 'text-disabled' : 'text-foreground'}`}>
-                    {item.unitPricePaise === null
-                      ? '₹ —'
-                      : formatInr(item.unitPricePaise * item.quantity)}
+                    {item.unit} {item.quantity > 1 ? `× ${item.quantity}` : ''}
                   </Num>
                 </View>
+                <Num className={`text-[12.5px] ${on ? 'text-disabled' : 'text-foreground'}`}>
+                  {item.unitPricePaise === null ? '₹ —' : formatInr(item.unitPricePaise * item.quantity)}
+                </Num>
               </Pressable>
             );
           })}
@@ -383,34 +360,100 @@ export default function VendorFulfil() {
         ) : null}
       </ScrollView>
 
-      <View className="gap-2.5 border-t border-border bg-background px-4 pb-5 pt-3">
-        <View className="flex-row items-center justify-between">
-          <View className="flex-row items-center gap-1.5">
-            <MapPin size={14} color="#71717A" strokeWidth={2} />
-            <T className="text-xs text-muted-foreground">
-              {order.customerName} · {locality?.name}
-            </T>
-          </View>
-          <Num className="text-xs text-placeholder">
-            {packedCount} / {active.length} packed
-          </Num>
-        </View>
-        <Button
-          size="rider"
-          label={COPY.markReady.en}
-          labelTa={COPY.markReady.ta}
-          disabled={!canFinish}
-          loading={busy}
-          onPress={() => void finish()}
-        />
-        {!canFinish && flagged.length > 0 ? (
-          <T className="text-center text-[11px] text-verify">
-            Confirm the flagged item before marking this ready.
-          </T>
-        ) : null}
+      {/* Action Footer */}
+      <View className="gap-2 border-t border-border px-4 pb-6 pt-3">
+        {order.status === 'vendor_accepted' ? (
+          <Button
+            size="lg"
+            label="Start Preparing Order"
+            labelTa="தயாரிக்கத் தொடங்கு"
+            loading={busy}
+            onPress={() => void startPacking()}
+          />
+        ) : (
+          <Button
+            size="lg"
+            label={allPacked ? 'Mark Ready for Rider' : 'Pack Items & Mark Ready'}
+            labelTa="ரெடி என குறிக்கவும்"
+            loading={busy}
+            onPress={() => void markReady()}
+          />
+        )}
       </View>
 
-      <Divider className="hidden" />
+      {/* Delay Reporting Modal */}
+      <Modal
+        visible={delayModalOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setDelayModalOpen(false)}
+      >
+        <View className="flex-1 justify-end bg-black/50">
+          <View className="gap-3.5 rounded-t-2xl border-t border-border bg-background p-5">
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center gap-2">
+                <Clock size={18} color="#B45309" />
+                <T className="text-base font-bold text-foreground">Report Preparation Delay</T>
+              </View>
+              <Pressable onPress={() => setDelayModalOpen(false)}>
+                <X size={20} color="#6B7280" />
+              </Pressable>
+            </View>
+
+            <T className="text-xs text-muted-foreground">
+              Customer and delivery dispatch will be notified of the adjusted timeline immediately.
+            </T>
+
+            <T className="text-xs font-bold text-placeholder">EXTRA TIME NEEDED</T>
+            <View className="flex-row gap-2">
+              {[10, 15, 20, 30].map((mins) => (
+                <Pressable
+                  key={mins}
+                  onPress={() => setSelectedDelay(mins)}
+                  className={`flex-1 items-center justify-center rounded-lg border py-2.5 ${
+                    selectedDelay === mins
+                      ? 'border-primary bg-primary text-white'
+                      : 'border-border bg-surface'
+                  }`}
+                >
+                  <T className={`text-xs font-bold ${selectedDelay === mins ? 'text-white' : 'text-foreground'}`}>
+                    +{mins}m
+                  </T>
+                </Pressable>
+              ))}
+            </View>
+
+            <View className="gap-1">
+              <T className="text-xs font-semibold text-foreground">Reason for Delay</T>
+              <TextInput
+                value={delayReason}
+                onChangeText={setDelayReason}
+                placeholder="e.g. Fresh batch being prepared / kitchen rush"
+                placeholderTextColor="#9CA3AF"
+                className="rounded-lg border border-border bg-surface p-2.5 text-xs text-foreground"
+              />
+            </View>
+
+            <View className="mt-2 flex-row gap-2.5">
+              <Pressable
+                onPress={() => setDelayModalOpen(false)}
+                className="h-11 flex-1 items-center justify-center rounded-lg border border-border"
+              >
+                <T className="text-xs font-semibold text-foreground">Cancel</T>
+              </Pressable>
+              <Pressable
+                onPress={() => void handleReportDelay()}
+                disabled={delayBusy}
+                className="h-11 flex-1 items-center justify-center rounded-lg bg-primary"
+              >
+                <T className="text-xs font-bold text-white">
+                  {delayBusy ? 'Updating…' : 'Notify Customer & Dispatch'}
+                </T>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }

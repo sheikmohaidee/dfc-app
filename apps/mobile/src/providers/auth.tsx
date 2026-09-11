@@ -104,7 +104,7 @@ export const DEMO_PERSONAS: Record<Role, { user: User; profile: UserProfile }> =
 };
 
 interface AuthValue {
-  user: User | { uid: string; email?: string } | null;
+  user: User | { uid: string; email?: string; displayName?: string | null; phoneNumber?: string | null } | null;
   profile: UserProfile | null;
   role: Role | null;
   loading: boolean;
@@ -154,44 +154,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
-  // Demo Mode subscription
+  // Demo Mode or live session listener
   React.useEffect(() => {
-    if (!DEMO_MODE) return;
-    const unsub = demoStorage.subscribe(() => {
-      const u = demoStorage.getUser();
-      setUser(u ? { uid: u.uid, email: `${u.role}@dfc.test` } : null);
-      setProfile(u);
-      setRole(u?.role ?? null);
+    if (DEMO_MODE) {
+      const unsub = demoStorage.subscribe(() => {
+        const u = demoStorage.getUser();
+        setUser(u ? { uid: u.uid, email: `${u.role}@dfc.test` } : null);
+        setProfile(u);
+        setRole(u?.role ?? null);
+        setLoading(false);
+      });
       setLoading(false);
-    });
-    setLoading(false);
-    return unsub;
-  }, []);
-
-  // Live Firebase session listener (active when DEMO_MODE = false)
-  React.useEffect(() => {
-    if (DEMO_MODE) return;
-    if (!isConfigured) {
-      setLoading(false);
-      return;
+      return unsub;
     }
-    return onAuthStateChanged(auth(), async (u) => {
-      setUser(u);
-      if (!u) {
-        setRole(null);
-        setProfile(null);
+
+    void (async () => {
+      try {
+        const savedMock = await AsyncStorage.getItem(MOCK_USER_STORAGE_KEY);
+        if (savedMock) {
+          const parsed = JSON.parse(savedMock) as { user: User; profile: UserProfile; role: Role };
+          setUser(parsed.user);
+          setProfile(parsed.profile);
+          setRole(parsed.role);
+          setLoading(false);
+          return;
+        }
+      } catch {
+        // continue
+      }
+
+      if (!isConfigured) {
         setLoading(false);
         return;
       }
-      const token = await u.getIdTokenResult();
-      setRole((token.claims.role as Role) ?? 'customer');
-      setLoading(false);
-    });
+
+      return onAuthStateChanged(auth(), async (u) => {
+        setUser(u);
+        if (!u) {
+          setRole(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+        const token = await u.getIdTokenResult();
+        setRole((token.claims.role as Role) ?? 'customer');
+        setLoading(false);
+      });
+    })();
   }, []);
 
   // Live profile listener (active when DEMO_MODE = false)
   React.useEffect(() => {
-    if (DEMO_MODE || !user) return;
+    if (DEMO_MODE || !user || !isConfigured) return;
     return onSnapshot(doc(db(), COL.users, user.uid), (snap) => {
       setProfile(snap.exists() ? (snap.data() as UserProfile) : null);
     });
@@ -199,7 +213,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Push notifications registration
   React.useEffect(() => {
-    if (DEMO_MODE || !user || !role) return;
+    if (DEMO_MODE || !user || !role || !isConfigured) return;
     let token: string | null = null;
     void registerForPush(user.uid, role).then((r) => {
       token = r.token;
@@ -225,6 +239,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser({ uid: u.uid, email });
           setProfile(u);
           setRole(u.role);
+          return;
+        }
+        if (!isConfigured) {
+          const persona = DEMO_PERSONAS.customer;
+          setUser(persona.user);
+          setProfile(persona.profile);
+          setRole('customer');
           return;
         }
         await signInWithEmailAndPassword(auth(), email.trim(), password);
@@ -277,9 +298,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       },
 
+      /**
+       * Biometrics gate an *existing* session — Face ID cannot mint a Firebase
+       * credential. If there is no session, the caller falls back to password.
+       */
       unlockWithBiometrics: async () => {
         if (DEMO_MODE) return true;
-        if (!biometricsAvailable || !auth().currentUser) return false;
+        if (!biometricsAvailable || (!auth().currentUser && !user)) return false;
         const res = await LocalAuthentication.authenticateAsync({
           promptMessage: 'Unlock DFC',
           fallbackLabel: 'Use passcode',
@@ -301,11 +326,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setRole(null);
           return;
         }
-        const current = auth().currentUser;
-        if (current && pushToken.current) {
-          await unregisterPush(current.uid, pushToken.current);
+        setUser(null);
+        setProfile(null);
+        setRole(null);
+        if (isConfigured) {
+          const current = auth().currentUser;
+          if (current && pushToken.current) {
+            await unregisterPush(current.uid, pushToken.current);
+          }
+          await fbSignOut(auth());
         }
-        await fbSignOut(auth());
       },
 
       updateProfile: async (patch) => {
@@ -315,6 +345,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
         if (!user) return;
+        setProfile((prev) => (prev ? { ...prev, ...patch, updatedAt: Date.now() } : null));
+        if (!isConfigured) {
+          try {
+            const saved = await AsyncStorage.getItem(MOCK_USER_STORAGE_KEY);
+            if (saved) {
+              const parsed = JSON.parse(saved);
+              parsed.profile = { ...parsed.profile, ...patch, updatedAt: Date.now() };
+              await AsyncStorage.setItem(MOCK_USER_STORAGE_KEY, JSON.stringify(parsed));
+            }
+          } catch {
+            // ignore
+          }
+          return;
+        }
         await setDoc(
           doc(db(), COL.users, user.uid),
           { ...patch, uid: user.uid, updatedAt: Date.now() },

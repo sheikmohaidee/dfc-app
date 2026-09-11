@@ -69,7 +69,7 @@ export function useRiderTracking(uid: string | null, active: boolean) {
         return;
       }
 
-      sub = await Location.watchPositionAsync(
+      const started = await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.Balanced,
           distanceInterval: DISTANCE_INTERVAL_M,
@@ -106,11 +106,24 @@ export function useRiderTracking(uid: string | null, active: boolean) {
           void updateDoc(doc(db(), COL.riders, uid), { lastSeen: next }).catch(() => {});
         },
       );
+
+      // The permission prompt and the GPS warm-up are both slow enough that a
+      // rider can finish the task, or back out of the screen, before this
+      // resolves. Cleanup has already run by then and had nothing to cancel,
+      // so without this the watcher outlives the screen and holds the radio
+      // open for the rest of the shift — the exact battery cost the throttling
+      // above exists to avoid.
+      if (cancelled) {
+        started.remove();
+        return;
+      }
+      sub = started;
     })();
 
     return () => {
       cancelled = true;
       sub?.remove();
+      sub = null;
     };
   }, [uid, active]);
 

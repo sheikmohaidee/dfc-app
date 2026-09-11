@@ -65,8 +65,11 @@ export default function RootLayout() {
 
   if (!loaded && !error) return null;
 
-  // RNGH 3's root view already fills its parent; its props type no longer
-  // accepts `style`, so there is nothing to pass here.
+  // The previous note here said RNGH 3 no longer accepts `style` on this view.
+  // The app is on gesture-handler 2.28, where it does — the component takes
+  // ViewProps and falls back to `flex: 1` when style is omitted. Same result
+  // either way; stating the fill explicitly just means the next person can
+  // change it without first disproving the comment.
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider style={{ flex: 1 }}>

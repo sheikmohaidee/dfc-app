@@ -36,7 +36,14 @@ type AuthView = 'phone' | 'otp' | 'success' | 'staff';
 
 export default function SignIn() {
   const router = useRouter();
-  const { signIn } = useAuth();
+  const {
+    signIn,
+    loginAsDemoPersona,
+    unlockWithBiometrics,
+    biometricsAvailable,
+    user,
+    updateProfile,
+  } = useAuth();
 
   const [currentView, setCurrentView] = React.useState<AuthView>('phone');
   const [phone, setPhone] = React.useState('');

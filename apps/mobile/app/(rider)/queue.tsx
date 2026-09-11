@@ -1,15 +1,15 @@
 /**
  * Rider queue.
  *
- * Usually one card. The online switch is the only setting a rider needs, and
- * it is the biggest control on the screen after the task itself.
+ * Displays active task card, daily earnings, online/offline toggle, and
+ * cancellation limit status banner (>2 cancellations lockout).
  */
 
 import * as React from 'react';
-import { Pressable, ScrollView, View, Alert, Modal, TextInput } from 'react-native';
+import { Alert, Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInUp } from 'react-native-reanimated';
-import { ChevronRight, IndianRupee, Pill, ShoppingBag, Settings } from 'lucide-react-native';
+import { ChevronRight, CloudRain, IndianRupee, Moon, Settings, ShieldAlert, ShoppingBag } from 'lucide-react-native';
 
 import {
   COPY,
@@ -19,15 +19,15 @@ import {
   routeKm,
   storeById,
   type Order,
+  type Rider,
 } from '@dfc/core';
 
 import { useAuth } from '@/providers/auth';
-import { setRiderOnline, subscribeRiderOrders } from '@/lib/orders';
+import { usePlatformStatus } from '@/hooks/usePlatformStatus';
+import { setRiderOnline, subscribeRiderProfile, subscribeRiderTasks } from '@/lib/orders';
 import { Badge, Button, Card, Empty, Loading, Num, Screen, T, Ta } from '@/ui';
-import { mockOrderRepository } from '@/demo/repositories/order.repository';
-import { mockCaptainRepository } from '@/demo/repositories/captain.repository';
 
-function TaskCard({ order, onPress, onAccept, onReject }: { order: Order; onPress: () => void; onAccept: () => void; onReject: () => void }) {
+function TaskCard({ order, onPress }: { order: Order; onPress: () => void }) {
   const cod = order.paymentMode === 'cod';
   const store = storeById(order.storeId);
   const drop = localityById(order.localityId);
@@ -37,21 +37,13 @@ function TaskCard({ order, onPress, onAccept, onReject }: { order: Order; onPres
     <Animated.View entering={FadeInUp.duration(240)}>
       <Pressable onPress={onPress}>
         <Card className="overflow-hidden">
-          <View
-            className={`flex-row items-center gap-2.5 px-3.5 py-2.5 ${
-              cod ? 'bg-grocery' : 'bg-pharmacy'
-            }`}
-          >
-            {cod ? (
-              <ShoppingBag size={15} color="#FFFFFF" strokeWidth={2.2} />
-            ) : (
-              <Pill size={15} color="#FFFFFF" strokeWidth={2.2} />
-            )}
+          <View className="flex-row items-center gap-2.5 bg-primary px-3.5 py-2.5">
+            <ShoppingBag size={15} color="#FFFFFF" strokeWidth={2.2} />
             <T
               style={{ fontSize: 11.5, fontWeight: '700', letterSpacing: 0.7 }}
               className="flex-1 text-white"
             >
-              {cod ? 'CASH ON DELIVERY' : 'PRE-PAID'}
+              {order.category.toUpperCase()} · {cod ? 'CASH ON DELIVERY' : 'PRE-PAID'}
             </T>
             <Num className="text-[12.5px] font-semibold text-white">#{order.code}</Num>
           </View>
@@ -81,37 +73,20 @@ function TaskCard({ order, onPress, onAccept, onReject }: { order: Order; onPres
                     <Badge label="COLLECT" tone="grocery" />
                   </>
                 ) : (
-                  <Badge label="NOTHING TO COLLECT" tone="pharmacy" />
+                  <Badge label="PREPAID" tone="neutral" />
                 )}
               </View>
             </View>
 
             <View className="flex-row items-center justify-between border-t border-muted pt-2.5">
               <T className="text-[12px] text-muted-foreground">
-                {STATUS_LABEL[order.status]?.en ?? order.status}
+                {STATUS_LABEL[order.status].en}
               </T>
               <View className="flex-row items-center gap-1">
                 <T className="text-[12.5px] font-semibold">Open task</T>
                 <ChevronRight size={15} color="#18181B" strokeWidth={2.4} />
               </View>
             </View>
-            
-            {order.assignmentStatus === 'ASSIGNED' && (
-              <View className="flex-row gap-2 border-t border-muted pt-3">
-                <Button
-                  variant="outline"
-                  label="Reject"
-                  className="flex-1"
-                  onPress={onReject}
-                />
-                <Button
-                  variant="primary"
-                  label="Accept"
-                  className="flex-1"
-                  onPress={onAccept}
-                />
-              </View>
-            )}
           </View>
         </Card>
       </Pressable>
@@ -123,63 +98,52 @@ export default function RiderQueue() {
   const router = useRouter();
   const { user, profile } = useAuth();
 
-  const [orders, setOrders] = React.useState<Order[]>([]);
+  const [activeTask, setActiveTask] = React.useState<Order | null>(null);
+  const [history, setHistory] = React.useState<Order[]>([]);
+  const [rider, setRider] = React.useState<Rider | null>(null);
   const [loading, setLoading] = React.useState(true);
-  const [online, setOnline] = React.useState(true);
-  
-  const [explanation, setExplanation] = React.useState('');
-  const [cancelModalOrderId, setCancelModalOrderId] = React.useState<string | null>(null);
-
-  const loadOrders = () => {
-    const all = (mockOrderRepository as any).getAll?.() ?? mockOrderRepository.getOrders();
-    const filtered = all.filter((o: Order) => o.captainUid === 'captain_002' || o.assignmentStatus === 'ASSIGNED');
-    setOrders(filtered);
-  };
+  const platform = usePlatformStatus();
 
   React.useEffect(() => {
-    loadOrders();
-    setLoading(false);
-  }, []);
+    if (!user?.uid) return;
+    const unsubRider = subscribeRiderProfile(user.uid, (r) => {
+      setRider(r);
+    });
+    const unsubTasks = subscribeRiderTasks(user.uid, (act, hist) => {
+      setActiveTask(act);
+      setHistory(hist);
+      setLoading(false);
+    });
+    return () => {
+      unsubRider();
+      unsubTasks();
+    };
+  }, [user]);
+
+  const strikes = rider?.cancellationsToday ?? 0;
+  const isLockedOut = Boolean(rider?.isOfflineDueToCancellations || strikes > 2);
+  const online = Boolean(rider?.isOnline && !isLockedOut);
 
   async function toggleOnline() {
-    setOnline(!online);
+    if (!user) return;
+    if (isLockedOut) {
+      Alert.alert(
+        'Account Locked (Offline)',
+        'You have cancelled more than 2 orders today. Please contact Admin with an explanation to reactivate your account.',
+      );
+      return;
+    }
+    const next = !online;
+    try {
+      await setRiderOnline(user.uid, next);
+    } catch (e) {
+      Alert.alert('Error', (e as Error).message);
+    }
   }
-
-  const handleAccept = async (orderId: string) => {
-    await mockOrderRepository.captainAccept(orderId, 'captain_002');
-    loadOrders();
-  };
-
-  const handleCancelClick = (orderId: string) => {
-    const captain = mockCaptainRepository.getCaptainById('captain_002');
-    if (captain && captain.cancellationCount >= 2) {
-      setCancelModalOrderId(orderId);
-      setExplanation('');
-    } else {
-      handleConfirmCancel(orderId);
-    }
-  };
-
-  const handleConfirmCancel = async (orderId: string, expl?: string) => {
-    const res = await mockOrderRepository.captainCancel({
-      orderId,
-      captainId: 'captain_002',
-      reason: 'Rider rejected',
-      explanation: expl
-    });
-    
-    if (res.wentOffline) {
-      Alert.alert("Offline", "You have been moved offline due to cancellation limit.");
-      setOnline(false);
-    }
-    
-    setCancelModalOrderId(null);
-    loadOrders();
-  };
 
   if (loading) return <Screen><Loading /></Screen>;
 
-  const earned = orders.reduce((s, o) => s + o.pricing.deliveryPaise, 0);
+  const earned = history.reduce((s, o) => s + (o.pricing.deliveryPaise || 0), 0);
 
   return (
     <Screen>
@@ -187,15 +151,24 @@ export default function RiderQueue() {
         <View className="flex-row items-center gap-3 px-4 pb-3 pt-3.5">
           <View className="size-9 items-center justify-center rounded-full bg-muted">
             <T className="text-[13px] font-semibold text-icon">
-              {(profile?.name ?? 'Arun').slice(0, 2).toUpperCase()}
+              {(profile?.name ?? 'R').slice(0, 2).toUpperCase()}
             </T>
           </View>
           <View className="flex-1">
-            <T className="text-[15px] font-semibold tracking-[-0.2px]">
-              {profile?.name ?? 'Captain Arun'}
-            </T>
+            <View className="flex-row items-center gap-2">
+              <T className="text-[15px] font-semibold tracking-[-0.2px]">
+                {profile?.name ?? 'Captain'}
+              </T>
+              {isLockedOut ? (
+                <Badge label="LIMIT EXCEEDED" tone="destructive" />
+              ) : strikes > 0 ? (
+                <Badge label={`${strikes}/2 CANCELS`} tone="verify" />
+              ) : (
+                <Badge label="0/2 CANCELS" tone="grocery" />
+              )}
+            </View>
             <T className="mt-0.5 text-[11px] text-placeholder">
-              {localityById(profile?.localityId)?.name ?? 'Madurai'} · DFC rider
+              {localityById(profile?.localityId)?.name ?? 'Madurai'} · DFC Captain
             </T>
           </View>
           <Pressable onPress={() => void toggleOnline()} className="items-end gap-1">
@@ -216,11 +189,31 @@ export default function RiderQueue() {
           </Pressable>
         </View>
 
+        {/* Lockout Banner */}
+        {isLockedOut ? (
+          <View className="mx-4 mb-3 gap-1.5 rounded-lg border border-destructive-border bg-destructive-tint p-3">
+            <View className="flex-row items-center gap-2">
+              <ShieldAlert size={16} color="#DC2626" />
+              <T className="text-xs font-bold text-destructive-fg">
+                Account Locked to Offline ({strikes} cancellations today)
+              </T>
+            </View>
+            <T className="text-[11.5px] leading-relaxed text-destructive-fg">
+              You exceeded the maximum 2 allowed order cancellations. Admin must review your explanation and reactivate your account.
+            </T>
+            {rider?.explanationGiven ? (
+              <T className="text-[11px] italic text-destructive-fg">
+                Explanation logged: “{rider.explanationGiven}”
+              </T>
+            ) : null}
+          </View>
+        ) : null}
+
         <View className="flex-row border-t border-muted">
           {[
-            { v: String(orders.length), l: 'Active' },
+            { v: activeTask ? '1' : '0', l: 'Active' },
             { v: formatInr(earned), l: 'Earnings today' },
-            { v: '12', l: 'Trips' },
+            { v: String(history.length), l: 'Completed' },
           ].map((s) => (
             <View key={s.l} className="flex-1 gap-0.5 px-4 py-2.5">
               <Num className="text-[15px] font-semibold tracking-tight">{s.v}</Num>
@@ -231,28 +224,51 @@ export default function RiderQueue() {
       </View>
 
       <ScrollView className="flex-1 bg-surface" contentContainerClassName="gap-3 px-4 py-4">
-        {orders.length === 0 ? (
+        {platform.status === 'sleep' ? (
+          <View className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 gap-1.5">
+            <View className="flex-row items-center gap-2">
+              <Moon size={15} color="#F59E0B" />
+              <T className="text-xs font-bold text-amber-500">Night Curfew · இரவு ஓய்வு</T>
+            </View>
+            <T className="text-[11.5px] leading-relaxed text-zinc-300">
+              Dispatch is resting for the night. First morning breakfast drop runs begin at {platform.nextOpenTime ?? '6:00 AM'}.
+            </T>
+          </View>
+        ) : null}
+
+        {platform.rainSurge.active ? (
+          <View className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-3.5 gap-1.5">
+            <View className="flex-row items-center gap-2">
+              <CloudRain size={15} color="#60A5FA" />
+              <T className="text-xs font-bold text-blue-400">
+                Monsoon Rain Safety Bonus Active
+              </T>
+            </View>
+            <T className="text-[11.5px] leading-relaxed text-zinc-300">
+              Earn an extra ₹{Math.round(platform.rainSurge.riderSafetyBonusPaise / 100)} per delivery order during heavy rains. Ride safely!
+            </T>
+          </View>
+        ) : null}
+
+        {!activeTask ? (
           <View className="pt-16">
             <Empty
-              title={online ? COPY.noTasks.en : 'You are offline'}
+              title={online ? COPY.noTasks.en : isLockedOut ? 'Account Offline (Limit Exceeded)' : 'You are offline'}
               subtitle={
                 online
                   ? 'Stay online — the next Madurai run will land here.'
-                  : 'Go online to start receiving deliveries.'
+                  : isLockedOut
+                    ? 'Wait for admin review & reactivation.'
+                    : 'Go online to start receiving deliveries.'
               }
             />
             <Ta className="mt-2 text-center text-[13px]">{COPY.noTasks.ta}</Ta>
           </View>
         ) : (
-          orders.map((o) => (
-            <TaskCard 
-              key={o.id} 
-              order={o} 
-              onPress={() => router.push(`/(rider)/task/${o.id}`)}
-              onAccept={() => handleAccept(o.id)}
-              onReject={() => handleCancelClick(o.id)}
-            />
-          ))
+          <TaskCard
+            order={activeTask}
+            onPress={() => router.push(`/(rider)/task/${activeTask.id}`)}
+          />
         )}
       </ScrollView>
 
@@ -276,54 +292,16 @@ export default function RiderQueue() {
             onPress={() => router.push('/(rider)/settings')}
           />
         </View>
-        <Button
-          variant={online ? 'outline' : 'primary'}
-          size="md"
-          label={online ? COPY.goOffline.en : COPY.goOnline.en}
-          labelTa={online ? COPY.goOffline.ta : COPY.goOnline.ta}
-          onPress={() => void toggleOnline()}
-        />
+        {!isLockedOut ? (
+          <Button
+            variant={online ? 'outline' : 'primary'}
+            size="md"
+            label={online ? COPY.goOffline.en : COPY.goOnline.en}
+            labelTa={online ? COPY.goOffline.ta : COPY.goOnline.ta}
+            onPress={() => void toggleOnline()}
+          />
+        ) : null}
       </View>
-      
-      <Modal
-        visible={!!cancelModalOrderId}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setCancelModalOrderId(null)}
-      >
-        <View className="flex-1 items-center justify-center bg-black/50 p-4">
-          <View className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-lg">
-            <T className="text-lg font-bold text-dark">Cancellation Explanation Required</T>
-            <T className="mt-2 text-sm text-muted-foreground">
-              You have reached the cancellation limit. Please provide an explanation.
-            </T>
-            
-            <TextInput
-              className="mt-4 min-h-[100px] rounded-xl border border-border p-3 text-base"
-              multiline
-              textAlignVertical="top"
-              placeholder="Why are you rejecting this order?"
-              value={explanation}
-              onChangeText={setExplanation}
-            />
-            
-            <View className="mt-5 gap-3">
-              <Button
-                variant="primary"
-                label="Submit & Cancel Order"
-                disabled={!explanation.trim()}
-                onPress={() => cancelModalOrderId && handleConfirmCancel(cancelModalOrderId, explanation)}
-              />
-              <Button
-                variant="outline"
-                label="Go Back"
-                onPress={() => setCancelModalOrderId(null)}
-              />
-            </View>
-          </View>
-        </View>
-      </Modal>
     </Screen>
   );
 }
-
