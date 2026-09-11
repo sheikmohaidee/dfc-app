@@ -7,6 +7,13 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
+import {
+  Archivo_400Regular,
+  Archivo_500Medium,
+  Archivo_600SemiBold,
+  Archivo_700Bold,
+  Archivo_800ExtraBold,
+} from '@expo-google-fonts/archivo';
 import { Geist_400Regular, Geist_500Medium, Geist_600SemiBold, Geist_700Bold } from '@expo-google-fonts/geist';
 import { GeistMono_400Regular, GeistMono_500Medium, GeistMono_600SemiBold } from '@expo-google-fonts/geist-mono';
 import {
@@ -16,6 +23,7 @@ import {
 } from '@expo-google-fonts/hind-madurai';
 
 import { AuthProvider } from '@/providers/auth';
+import { CartProvider } from '@/providers/cart';
 import { onNotificationTap } from '@/lib/push';
 import { ErrorBoundary } from '@/ui/error-boundary';
 import { LanguageProvider } from '@/providers/language';
@@ -32,6 +40,11 @@ export default function RootLayout() {
   );
 
   const [loaded, error] = useFonts({
+    Archivo: Archivo_400Regular,
+    ArchivoMedium: Archivo_500Medium,
+    ArchivoSemiBold: Archivo_600SemiBold,
+    ArchivoBold: Archivo_700Bold,
+    ArchivoExtraBold: Archivo_800ExtraBold,
     Geist: Geist_400Regular,
     GeistMedium: Geist_500Medium,
     GeistSemiBold: Geist_600SemiBold,
@@ -55,29 +68,31 @@ export default function RootLayout() {
   // RNGH 3's root view already fills its parent; its props type no longer
   // accepts `style`, so there is nothing to pass here.
   return (
-    <GestureHandlerRootView>
-      <SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider style={{ flex: 1 }}>
         <AuthProvider>
           <LanguageProvider>
-          {/* Wraps the whole navigator: one bad render anywhere is otherwise a
-              white screen and a force-quit, which is costly on a rider's phone
-              at somebody's door. */}
-          <ErrorBoundary>
-          <StatusBar style="dark" />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: '#FFFFFF' },
-              animation: 'slide_from_right',
-            }}
-          >
-            <Stack.Screen name="index" options={{ animation: 'none' }} />
-            <Stack.Screen name="(auth)" options={{ animation: 'fade' }} />
-            <Stack.Screen name="(customer)" />
-            <Stack.Screen name="(vendor)" />
-            <Stack.Screen name="(rider)" />
-          </Stack>
-          </ErrorBoundary>
+            <CartProvider>
+              {/* Wraps the whole navigator: one bad render anywhere is otherwise a
+                  white screen and a force-quit, which is costly on a rider's phone
+                  at somebody's door. */}
+              <ErrorBoundary>
+                <StatusBar style="dark" />
+                <Stack
+                  screenOptions={{
+                    headerShown: false,
+                    contentStyle: { backgroundColor: '#F7F8F9' },
+                    animation: 'slide_from_right',
+                  }}
+                >
+                  <Stack.Screen name="index" options={{ animation: 'none' }} />
+                  <Stack.Screen name="(auth)" options={{ animation: 'fade' }} />
+                  <Stack.Screen name="(customer)" />
+                  <Stack.Screen name="(vendor)" />
+                  <Stack.Screen name="(rider)" />
+                </Stack>
+              </ErrorBoundary>
+            </CartProvider>
           </LanguageProvider>
         </AuthProvider>
       </SafeAreaProvider>

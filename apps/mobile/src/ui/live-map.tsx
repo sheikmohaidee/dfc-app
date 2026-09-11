@@ -30,8 +30,8 @@ import { RouteMap } from './route-map';
 type MapsModule = typeof import('react-native-maps');
 let Maps: MapsModule | null = null;
 try {
-   
-  Maps = require('react-native-maps') as MapsModule;
+  const m = require('react-native-maps') as MapsModule;
+  Maps = m?.default ? m : null;
 } catch {
   Maps = null;
 }

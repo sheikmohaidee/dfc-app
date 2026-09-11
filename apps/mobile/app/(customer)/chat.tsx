@@ -1,8 +1,7 @@
 /**
  * The customer app.
  *
- * There is no tab bar and no catalogue. The thread is the product: you speak,
- * photograph or type, and the model answers with a card you can pay from.
+ * Conversational thread with AI parser + Quick Service Hub + Locality Selector
  */
 
 import * as React from 'react';
@@ -27,11 +26,14 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { Camera, Check, ChevronDown, MapPin, Mic, User } from 'lucide-react-native';
+import { Camera, Check, ChevronDown, ChevronRight, MapPin, Mic, User } from 'lucide-react-native';
 
 import { COPY, formatInr, isTerminal, localityById, type Order } from '@dfc/core';
 
 import { useAuth } from '@/providers/auth';
+import { useCartsSummary } from '@/providers/cart';
+import { mockLocationRepository } from '@/demo/repositories/location.repository';
+import { DEMO_LOCALITIES } from '@/demo/data/localities';
 import { extractOrder, fallbackExtraction } from '@/lib/ai';
 import {
   cancelRecording,
@@ -54,26 +56,27 @@ import { Badge, Chip, ErrorNote, Num, Screen, T, Ta } from '@/ui';
 import { PressableScale, PulseDot } from '@/ui/glass';
 import { OrderTemplateCard } from '@/ui/order-card';
 import { OrderReviewCard } from '@/ui/review-card';
+import { DFCBottomNav } from '@/ui/bottom-nav';
+import { ServiceHub } from '@/ui/service-hub';
 
 type Turn =
   | { id: string; kind: 'bot-text'; text: string; textTa?: string }
   | { id: string; kind: 'user-photo'; uri: string; label: string }
   | { id: string; kind: 'user-voice'; durationMs: number; transcript?: string }
   | { id: string; kind: 'user-text'; text: string }
-  | { id: string; kind: 'status'; text: string; tone: 'ok' | 'working' }
-  | { id: string; kind: 'order'; orderId: string; variant: 'template' | 'review' };
+  | { id: string; kind: 'order'; orderId: string; variant: 'template' | 'review' }
+  | { id: string; kind: 'status'; text: string; tone: 'working' | 'ok' };
 
 const rid = () => Math.random().toString(36).slice(2, 10);
 
 // ---------------------------------------------------------------------------
 
-function Header() {
-  const { profile } = useAuth();
+function Header({ onOpenLocality }: { onOpenLocality: () => void }) {
   const router = useRouter();
-  const locality = localityById(profile?.localityId);
+  const currentLocality = mockLocationRepository.getCurrentLocality();
 
   return (
-    <View className="flex-row items-center gap-2.5 border-b border-muted px-4 pb-3 pt-3.5">
+    <View className="flex-row items-center gap-2.5 border-b border-muted bg-background px-4 pb-3 pt-3.5">
       <View className="size-[30px] items-center justify-center rounded-[9px] bg-primary">
         <T className="text-[13px] font-semibold tracking-tight text-primary-foreground">D</T>
       </View>
@@ -82,16 +85,16 @@ function Header() {
         <Ta className="text-[10.5px]">{COPY.appName.ta}</Ta>
       </View>
       <Pressable
-        onPress={() => router.push('/(customer)/account/addresses')}
-        className="flex-row items-center gap-1.5 rounded-full border border-border px-2.5 py-1.5"
+        onPress={onOpenLocality}
+        className="flex-row items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1.5"
       >
-        <MapPin size={13} color="#71717A" strokeWidth={2} />
-        <T className="text-xs font-medium text-body-strong">{locality?.name ?? 'Set area'}</T>
+        <MapPin size={13} color="#16A34A" strokeWidth={2.5} />
+        <T className="text-xs font-medium text-body-strong">{currentLocality.name}</T>
         <ChevronDown size={12} color="#A1A1AA" strokeWidth={2.2} />
       </Pressable>
 
       <Pressable
-        onPress={() => router.push('/(customer)/account')}
+        onPress={() => router.push('/(customer)/account' as any)}
         hitSlop={8}
         accessibilityRole="button"
         accessibilityLabel="Account"
@@ -108,21 +111,46 @@ function Waveform({ active }: { active?: boolean }) {
   return (
     <View className="h-[26px] flex-row items-center gap-[3px]">
       {bars.map((h, i) => (
-        <View
-          key={i}
-          style={{ height: active ? h : h * 0.7 }}
-          className={`w-[3px] rounded-full ${i % 3 === 0 ? 'bg-white/50' : 'bg-white'}`}
-        />
+        <AnimatedBar key={i} baseHeight={h} active={active} delay={i * 60} />
       ))}
     </View>
   );
 }
 
-/**
- * The mic. It grows and pulses while recording, because a press-and-hold
- * gesture with no feedback is a gesture people do not trust — they let go
- * early and lose the recording.
- */
+function AnimatedBar({
+  baseHeight,
+  active,
+  delay,
+}: {
+  baseHeight: number;
+  active?: boolean;
+  delay: number;
+}) {
+  const scale = useSharedValue(1);
+
+  React.useEffect(() => {
+    if (!active) {
+      scale.value = 1;
+      return;
+    }
+    const timeout = setTimeout(() => {
+      scale.value = withRepeat(withTiming(1.6, { duration: 320 }), -1, true);
+    }, delay);
+    return () => clearTimeout(timeout);
+  }, [active, delay, scale]);
+
+  const style = useAnimatedStyle(() => ({
+    height: baseHeight * scale.value,
+  }));
+
+  return (
+    <Animated.View
+      style={style}
+      className="w-[2.5px] rounded-full bg-primary-foreground/80"
+    />
+  );
+}
+
 function MicButton({
   recording,
   disabled,
@@ -135,54 +163,33 @@ function MicButton({
   onUp: () => void;
 }) {
   const scale = useSharedValue(1);
-  const halo = useSharedValue(0);
 
-  React.useEffect(() => {
-    if (recording) {
-      scale.value = withSpring(1.12, { damping: 12, stiffness: 200 });
-      halo.value = withRepeat(withTiming(1, { duration: 900 }), -1, false);
-    } else {
-      scale.value = withSpring(1, { damping: 15, stiffness: 240 });
-      halo.value = withTiming(0, { duration: 180 });
-    }
-  }, [recording, scale, halo]);
-
-  const body = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-  const ring = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 + halo.value * 0.85 }],
-    opacity: (1 - halo.value) * 0.35,
+  const style = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
   }));
 
   return (
-    <View className="size-[54px] items-center justify-center">
-      {recording ? (
-        <Animated.View
-          style={ring}
-          className="absolute size-[54px] rounded-full bg-destructive"
-        />
-      ) : null}
-      <Animated.View style={body}>
-        <Pressable
-          onPressIn={onDown}
-          onPressOut={onUp}
-          disabled={disabled}
-          accessibilityRole="button"
-          accessibilityLabel={recording ? 'Recording, release to send' : 'Hold to speak'}
-          className={`size-[54px] items-center justify-center rounded-full ${
-            recording ? 'bg-destructive' : 'bg-primary'
-          }`}
-          style={{
-            shadowColor: recording ? '#DC2626' : '#09090B',
-            shadowOpacity: recording ? 0.4 : 0.24,
-            shadowRadius: recording ? 14 : 9,
-            shadowOffset: { width: 0, height: 3 },
-            elevation: 6,
-          }}
-        >
-          <Mic size={23} color="#FAFAFA" strokeWidth={1.9} />
-        </Pressable>
-      </Animated.View>
-    </View>
+    <Animated.View style={style}>
+      <Pressable
+        onPressIn={() => {
+          if (disabled) return;
+          scale.value = withSpring(1.12);
+          onDown();
+        }}
+        onPressOut={() => {
+          scale.value = withSpring(1);
+          onUp();
+        }}
+        disabled={disabled}
+        accessibilityRole="button"
+        accessibilityLabel="Hold to speak"
+        className={`size-[46px] items-center justify-center rounded-[12px] ${
+          recording ? 'bg-destructive' : 'bg-primary'
+        }`}
+      >
+        <Mic size={22} color="#FFFFFF" strokeWidth={2.2} />
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -190,7 +197,8 @@ function MicButton({
 
 export default function Chat() {
   const router = useRouter();
-  const { user, profile } = useAuth();
+  const { user, profile, updateProfile } = useAuth();
+  const summary = useCartsSummary();
 
   const [turns, setTurns] = React.useState<Turn[]>([]);
   const [orders, setOrders] = React.useState<Record<string, Order>>({});
@@ -198,12 +206,16 @@ export default function Chat() {
   const [thinking, setThinking] = React.useState(false);
   const [recording, setRecording] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [showLocalityModal, setShowLocalityModal] = React.useState(false);
 
   const scrollRef = React.useRef<ScrollView>(null);
 
-  // Live view of my orders. This drives two things: a card already in the
-  // thread updates when an admin prices it, and — on a cold start — the thread
-  // is rebuilt from them, so closing the app does not lose the conversation.
+  // Completed and cancelled orders drop out of this count automatically.
+  const activeOrderCount = React.useMemo(
+    () => Object.values(orders).filter((o) => !isTerminal(o.status)).length,
+    [orders],
+  );
+
   const restored = React.useRef(false);
 
   React.useEffect(() => {
@@ -211,8 +223,6 @@ export default function Chat() {
     return subscribeMyOrders(user.uid, (list) => {
       setOrders(Object.fromEntries(list.map((o) => [o.id, o])));
 
-      // Rebuild once, from the most recent orders, oldest first so the thread
-      // reads in the order it happened.
       if (restored.current || list.length === 0) return;
       restored.current = true;
 
@@ -230,10 +240,6 @@ export default function Chat() {
             id: `ord_${o.id}`,
             kind: 'order',
             orderId: o.id,
-            // A settled order is history: read-only. Still `incoming` means
-            // the customer may edit it — the Firestore rule allows `items`
-            // writes only in that window, so the card has to stop offering
-            // them at exactly the same point the rule stops permitting them.
             variant: isTerminal(o.status) || o.status !== 'incoming' ? 'template' : 'review',
           },
         ]),
@@ -258,8 +264,6 @@ export default function Chat() {
     setTurns((prev) => [...prev, t]);
     requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
   }, []);
-
-  // -------------------------------------------------------------------------
 
   const run = React.useCallback(
     async (args: {
@@ -292,8 +296,6 @@ export default function Chat() {
           model: 'fallback',
         }));
 
-        // The upload is for the admin's benefit, not the model's — do not make
-        // the customer wait on it.
         const uploadPromise = args.capture
           ? uploadCapture(user.uid, args.capture).catch(() => undefined)
           : Promise.resolve(undefined);
@@ -358,9 +360,6 @@ export default function Chat() {
         uri: capture.uri,
         label: `prescription.jpg · ${(capture.sizeBytes / 1_000_000).toFixed(1)} MB`,
       });
-      // A photograph produces the REVIEW card, not a read-only summary.
-      // OCR on a handwritten prescription gets names wrong, and the customer
-      // is the only person who can fix that without a phone call.
       await run({ kind: 'photo', capture, variant: 'review' });
     } catch (e) {
       setError((e as Error).message);
@@ -386,7 +385,6 @@ export default function Chat() {
       return;
     }
     push({ id: rid(), kind: 'user-voice', durationMs: capture.durationMs });
-    // Voice is looser than a prescription — give people the editable list.
     await run({ kind: 'voice', capture, variant: 'review' });
   }
 
@@ -398,11 +396,6 @@ export default function Chat() {
     await run({ kind: 'text', text: body, variant: 'review' });
   }
 
-  /**
-   * Confirming does not take money — it hands off to the payment screen, which
-   * is where cash and UPI actually diverge. Charging from a chat bubble would
-   * mean duplicating that whole flow inline.
-   */
   function onConfirm(order: Order) {
     if (!user) return;
     push({
@@ -410,14 +403,15 @@ export default function Chat() {
       kind: 'bot-text',
       text: `Confirmed. ${formatInr(order.pricing.totalPaise)} — choose how you would like to pay.`,
     });
-    router.push(`/(customer)/pay/${order.id}`);
+    router.push(`/(customer)/pay/${order.id}` as any);
   }
 
   // -------------------------------------------------------------------------
 
   return (
     <Screen edges={['top']}>
-      <Header />
+      <Header onOpenLocality={() => setShowLocalityModal(true)} />
+      <ServiceHub />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -427,7 +421,7 @@ export default function Chat() {
         <ScrollView
           ref={scrollRef}
           className="flex-1"
-          contentContainerClassName="gap-4 px-4 py-4"
+          contentContainerClassName="gap-4 px-4 py-4 pb-20"
           keyboardShouldPersistTaps="handled"
           onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
         >
@@ -448,10 +442,8 @@ export default function Chat() {
                     entering={FadeInUp.duration(220)}
                     className="items-end"
                   >
-                    <View className="max-w-[80%] rounded-2xl rounded-br-md bg-primary px-3.5 py-2.5">
-                      <T className="text-[14.5px] leading-5 text-primary-foreground">
-                        {turn.text}
-                      </T>
+                    <View className="max-w-[80%] rounded-[18px] rounded-br-[4px] bg-primary px-4 py-2.5">
+                      <T className="text-[14.5px] text-primary-foreground">{turn.text}</T>
                     </View>
                   </Animated.View>
                 );
@@ -463,15 +455,18 @@ export default function Chat() {
                     entering={FadeInUp.duration(220)}
                     className="items-end gap-1.5"
                   >
-                    <View className="w-[150px] overflow-hidden rounded-card border border-border">
+                    <View className="overflow-hidden rounded-[18px] rounded-br-[4px] border border-border bg-background">
                       <Image
                         source={{ uri: turn.uri }}
-                        style={{ width: 150, height: 132 }}
                         contentFit="cover"
-                        transition={180}
+                        className="h-[180px] w-[220px]"
                       />
+                      <View className="px-3 py-1.5">
+                        <T className="font-mono text-[11px] text-muted-foreground">
+                          {turn.label}
+                        </T>
+                      </View>
                     </View>
-                    <Num className="text-[10.5px] text-placeholder">{turn.label}</Num>
                   </Animated.View>
                 );
 
@@ -480,14 +475,19 @@ export default function Chat() {
                   <Animated.View
                     key={turn.id}
                     entering={FadeInUp.duration(220)}
-                    className="items-end"
+                    className="items-end gap-1"
                   >
-                    <View className="flex-row items-center gap-3 rounded-2xl rounded-br-md bg-primary px-3.5 py-3">
-                      <Waveform />
-                      <Num className="text-[11px] text-placeholder">
-                        0:{String(Math.round(turn.durationMs / 1000)).padStart(2, '0')}
+                    <View className="flex-row items-center gap-3 rounded-[18px] rounded-br-[4px] bg-foreground px-4 py-2.5">
+                      <Waveform active />
+                      <Num className="text-[12px] font-medium text-background">
+                        {(turn.durationMs / 1000).toFixed(1)}s
                       </Num>
                     </View>
+                    {turn.transcript ? (
+                      <T className="max-w-[80%] text-right text-[12px] italic text-muted-foreground">
+                        “{turn.transcript}”
+                      </T>
+                    ) : null}
                   </Animated.View>
                 );
 
@@ -495,49 +495,48 @@ export default function Chat() {
                 return (
                   <Animated.View
                     key={turn.id}
-                    entering={FadeIn}
-                    layout={Layout.springify()}
+                    entering={FadeIn.duration(180)}
                     className="flex-row items-center gap-2"
                   >
                     {turn.tone === 'working' ? (
-                      <PulseDot color="#A1A1AA" size={7} />
+                      <PulseDot color="#2563EB" size={7} />
                     ) : (
-                      <Check size={13} color="#16A34A" strokeWidth={3} />
+                      <View className="size-4 items-center justify-center rounded-full bg-grocery-tint">
+                        <Check size={11} color="#15803D" strokeWidth={3} />
+                      </View>
                     )}
-                    <Num className="text-[11px] text-muted-foreground">{turn.text}</Num>
+                    <T className="font-mono text-[12px] text-muted-foreground">{turn.text}</T>
                   </Animated.View>
                 );
 
               case 'order': {
-                const order = orders[turn.orderId];
-                if (!order) return null;
+                const o = orders[turn.orderId];
+                if (!o) return null;
                 return (
-                  <Animated.View key={turn.id} entering={FadeInUp.duration(260)}>
-                    {turn.variant === 'template' ? (
-                      <OrderTemplateCard
-                        order={order}
-                        onConfirm={() => onConfirm(order)}
+                  <View key={turn.id} className="gap-2">
+                    {turn.variant === 'review' ? (
+                      <OrderReviewCard
+                        order={o}
+                        onToggle={(itemId) => void toggleItem(o.id, itemId)}
+                        onQuantity={(itemId, q) => void setQuantity(o.id, itemId, q)}
+                        onEdit={(itemId, patch) => void editItem(o.id, itemId, patch)}
+                        onAdd={(input) => void addItem(o.id, input)}
+                        onRemove={(itemId) => void removeItem(o.id, itemId)}
+                        onConfirm={() => onConfirm(o)}
                       />
                     ) : (
-                      <OrderReviewCard
-                        order={order}
-                        onToggle={(itemId) => void toggleItem(order.id, itemId)}
-                        onQuantity={(itemId, q) => void setQuantity(order.id, itemId, q)}
-                        onEdit={(itemId, patch) => void editItem(order.id, itemId, patch)}
-                        onAdd={(input) => void addItem(order.id, input)}
-                        onRemove={(itemId) => void removeItem(order.id, itemId)}
-                        onConfirm={() => onConfirm(order)}
+                      <OrderTemplateCard
+                        order={o}
+                        onConfirm={() => onConfirm(o)}
                       />
                     )}
                     <Pressable
-                      onPress={() => router.push(`/(customer)/order/${order.id}`)}
-                      className="mt-2 h-9 items-center justify-center"
+                      onPress={() => router.push(`/(customer)/order/${o.id}` as any)}
+                      className="items-center py-1"
                     >
-                      <T className="text-[12.5px] font-medium text-muted-foreground">
-                        Track this order
-                      </T>
+                      <T className="text-[12px] font-semibold text-primary">Track this order →</T>
                     </Pressable>
-                  </Animated.View>
+                  </View>
                 );
               }
             }
@@ -546,8 +545,53 @@ export default function Chat() {
           {error ? <ErrorNote message={error} /> : null}
         </ScrollView>
 
-        {/* Bottom dock: camera, text, mic — the three ways in. */}
-        <View className="gap-2.5 border-t border-muted px-4 pb-5 pt-2.5">
+        {/* Current order area: Active Orders tag + floating cart indicator */}
+        {activeOrderCount > 0 ? (
+          <View className="px-4 pb-2">
+            <PressableScale
+              to={0.96}
+              onPress={() => router.push('/(customer)/active-orders' as any)}
+              className="flex-row items-center justify-between rounded-xl border border-border bg-background px-4 py-2.5 shadow-md"
+            >
+              <View className="flex-row items-center gap-2">
+                <PulseDot color="#2563EB" size={8} />
+                <T className="text-[12.5px] font-bold text-foreground">
+                  ACTIVE ORDERS ({activeOrderCount})
+                </T>
+              </View>
+              <View className="flex-row items-center gap-1.5">
+                <T className="text-[11px] font-medium text-muted-foreground">Tap to view</T>
+                <ChevronRight size={14} color="#A1A1AA" strokeWidth={2.4} />
+              </View>
+            </PressableScale>
+          </View>
+        ) : null}
+
+        {/* Floating Cart Indicator */}
+        {summary.itemCount > 0 ? (
+          <View className="px-4 pb-2">
+            <PressableScale
+              to={0.96}
+              onPress={() =>
+                router.push(
+                  `/(customer)/cart?service=${summary.serviceWithItems ?? 'food'}` as any,
+                )
+              }
+              className="flex-row items-center justify-between rounded-xl bg-primary px-4 py-2.5 shadow-md"
+            >
+              <T className="text-[12.5px] font-bold text-primary-foreground">
+                🛒 {summary.itemCount} {summary.itemCount === 1 ? 'ITEM' : 'ITEMS'} IN CART
+              </T>
+              <View className="flex-row items-center gap-2">
+                <Num className="text-[14px] font-bold text-primary-foreground">{formatInr(summary.totalPaise)}</Num>
+                <T className="text-[11px] font-bold text-white/90">VIEW →</T>
+              </View>
+            </PressableScale>
+          </View>
+        ) : null}
+
+        {/* Bottom dock: camera, text, mic */}
+        <View className="gap-2.5 border-t border-muted bg-background px-4 pb-5 pt-2.5">
           {recording ? (
             <Animated.View
               entering={FadeIn}
@@ -561,9 +605,15 @@ export default function Chat() {
             </Animated.View>
           ) : (
             <View className="flex-row gap-2">
-              <Chip label={COPY.pharmacy.en} />
-              <Chip label={COPY.grocery.en} />
-              <Chip label={COPY.concierge.en} />
+              <Pressable onPress={() => router.push('/(customer)/medicine' as any)}>
+                <Chip label={COPY.pharmacy.en} />
+              </Pressable>
+              <Pressable onPress={() => router.push('/(customer)/grocery' as any)}>
+                <Chip label={COPY.grocery.en} />
+              </Pressable>
+              <Pressable onPress={() => router.push('/(customer)/genie' as any)}>
+                <Chip label={COPY.concierge.en} />
+              </Pressable>
             </View>
           )}
 
@@ -603,10 +653,57 @@ export default function Chat() {
         </View>
       </KeyboardAvoidingView>
 
-      {/* Hidden badge import keeps the design-system surface obvious. */}
+      {/* Locality Selector Modal */}
+      {showLocalityModal ? (
+        <View className="absolute inset-0 z-50 justify-end bg-black/50">
+          <View className="max-h-[75%] gap-3 rounded-t-[24px] bg-background p-5">
+            <View className="flex-row items-center justify-between border-b border-muted pb-3">
+              <View>
+                <T className="text-[16px] font-bold text-foreground">Select Madurai Locality</T>
+                <T className="text-[11.5px] text-muted-foreground">Sets delivery hub & restaurant filtering</T>
+              </View>
+              <Pressable onPress={() => setShowLocalityModal(false)} className="p-1">
+                <T className="text-[13px] font-bold text-primary">Done</T>
+              </Pressable>
+            </View>
+
+            <ScrollView className="gap-2">
+              {DEMO_LOCALITIES.map((loc) => {
+                const currentLocId = mockLocationRepository.getCurrentLocality().id;
+                const isSelected = currentLocId === loc.id;
+                return (
+                  <Pressable
+                    key={loc.id}
+                    onPress={() => {
+                      void mockLocationRepository.setLocality(loc.id);
+                      void updateProfile({ localityId: loc.id });
+                      setShowLocalityModal(false);
+                    }}
+                    className={`flex-row items-center justify-between rounded-xl border p-3 ${
+                      isSelected ? 'border-primary bg-primary-tint' : 'border-border bg-surface'
+                    }`}
+                  >
+                    <View className="flex-1">
+                      <View className="flex-row items-center gap-2">
+                        <T className="text-[14px] font-bold text-foreground">{loc.name}</T>
+                        <Ta className="text-[11px] text-muted-foreground">{loc.nameTa}</Ta>
+                      </View>
+                      <T className="text-[11px] text-muted-foreground">{loc.tagline}</T>
+                    </View>
+                    {isSelected ? <Check size={16} color="#2563EB" strokeWidth={3} /> : null}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      ) : null}
+
       <View className="hidden">
         <Badge label="DFC" />
       </View>
+
+      <DFCBottomNav activeTab="home" />
     </Screen>
   );
 }

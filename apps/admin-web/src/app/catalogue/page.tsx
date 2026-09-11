@@ -44,6 +44,9 @@ const TONE_BY_CATEGORY: Record<Category, 'pharmacy' | 'grocery' | 'food' | 'conc
   grocery: 'grocery',
   food: 'food',
   concierge: 'concierge',
+  print: 'pharmacy',
+  pickup_drop: 'food',
+  buy_deliver: 'grocery',
 };
 
 function StockStepper({ product }: { product: Product }) {

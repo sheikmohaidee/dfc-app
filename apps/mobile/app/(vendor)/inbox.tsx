@@ -24,6 +24,8 @@ import {
 import { useAuth } from '@/providers/auth';
 import { subscribeStoreOrders, vendorAccept, vendorReject } from '@/lib/orders';
 import { Badge, Button, Card, Divider, Empty, Loading, Money, Num, Screen, T, Ta } from '@/ui';
+import { mockMenuRepository } from '@/demo/repositories/menu.repository';
+import { mockOrderRepository } from '@/demo/repositories/order.repository';
 
 /** Seconds a store has to answer before ops reassigns the order. */
 const ACCEPT_WINDOW_S = 180;
@@ -147,14 +149,20 @@ function ActiveRow({ order, onPress }: { order: Order; onPress: () => void }) {
       <View className="flex-1">
         <View className="flex-row items-center gap-2">
           <Num className="text-[12.5px] font-semibold">#{order.code}</Num>
-          <T className="text-[12.5px] text-body-strong">{STATUS_LABEL[order.status].en}</T>
+          <T className="text-[12.5px] text-body-strong">{STATUS_LABEL[order.status]?.en || order.status}</T>
         </View>
         <T className="mt-0.5 text-[10.5px] text-placeholder">
           {order.items.filter((i) => i.included).length} items ·{' '}
           {localityById(order.localityId)?.name}
         </T>
       </View>
-      <Num className="text-[12.5px] font-medium">{formatInr(order.pricing.totalPaise)}</Num>
+      {order.status === 'vendor_accepted' ? (
+        <Button size="sm" label="Start Prep" onPress={(e) => { e?.stopPropagation?.(); mockOrderRepository.startPreparation(order.id); }} />
+      ) : order.status === 'packing' ? (
+        <Button size="sm" label="Mark Ready" onPress={(e) => { e?.stopPropagation?.(); mockOrderRepository.completePreparation(order.id); }} />
+      ) : (
+        <Num className="text-[12.5px] font-medium">{formatInr(order.pricing.totalPaise)}</Num>
+      )}
     </Pressable>
   );
 }
@@ -165,6 +173,10 @@ export default function VendorInbox() {
   const [orders, setOrders] = React.useState<Order[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [online, setOnline] = React.useState(true);
+
+  const [menuVersion, setMenuVersion] = React.useState(0);
+  React.useEffect(() => mockMenuRepository.subscribe(() => setMenuVersion(v => v+1)), []);
+  const menuItems = mockMenuRepository.getMenuByVendor('rest-amma-mess');
 
   React.useEffect(() => {
     if (!profile?.storeId) {
@@ -289,6 +301,33 @@ export default function VendorInbox() {
               </React.Fragment>
             ))
           )}
+        </Card>
+
+        <View className="mt-4 flex-row items-center gap-2">
+          <T className="text-xs font-semibold tracking-tight">Menu Management</T>
+          <Badge label="Manage" />
+        </View>
+
+        <Card className="overflow-hidden">
+          {menuItems.map((item, i) => (
+            <React.Fragment key={item.id}>
+              {i > 0 ? <Divider className="bg-muted" /> : null}
+              <View className="flex-row items-center justify-between px-3.5 py-3">
+                <View className="flex-1">
+                  <T className="text-[13px] font-bold">{item.name}</T>
+                  <Num className="mt-0.5 text-[12px] text-placeholder">{formatInr(item.pricePaise)}</Num>
+                </View>
+                <Pressable
+                  onPress={() => mockMenuRepository.toggleItemAvailability(item.id)}
+                  className={`h-6 w-10 flex-row rounded-full p-0.5 ${
+                    item.isAvailable ? 'justify-end bg-grocery' : 'justify-start bg-border'
+                  }`}
+                >
+                  <View className="size-5 rounded-full bg-white" />
+                </Pressable>
+              </View>
+            </React.Fragment>
+          ))}
         </Card>
       </ScrollView>
 

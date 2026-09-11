@@ -14,6 +14,8 @@ import type { Category } from './types';
 // Products and stock
 // ---------------------------------------------------------------------------
 
+export type DietaryTag = 'pure_veg' | 'halal' | 'jain' | 'fssai_5star';
+
 export interface Product {
   id: string;
   storeId: string;
@@ -31,6 +33,7 @@ export interface Product {
   lowStockAt: number;
   /** Pharmacy items that legally need a prescription on file. */
   prescriptionOnly?: boolean;
+  dietary?: DietaryTag[];
   isActive: boolean;
   updatedAt: number;
 }
@@ -90,6 +93,53 @@ export function matchProduct(items: Product[], name: string, unit?: string): Pro
     if (byUnit.length === 1) return byUnit[0]!;
   }
   return null;
+}
+
+export interface CreateProductInput {
+  id?: string;
+  storeId: string;
+  name: string;
+  nameTa?: string;
+  category: Category;
+  unit: string;
+  mrpPaise: number;
+  sellPaise: number;
+  stockQty?: number;
+  lowStockAt?: number;
+  isActive?: boolean;
+}
+
+export function createProduct(input: CreateProductInput): Product {
+  const now = Date.now();
+  const id =
+    input.id ??
+    `${input.storeId}__${input.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}_${Math.random().toString(36).slice(2, 6)}`;
+  return {
+    id,
+    storeId: input.storeId,
+    name: input.name.trim(),
+    ...(input.nameTa ? { nameTa: input.nameTa.trim() } : {}),
+    category: input.category,
+    unit: input.unit.trim(),
+    mrpPaise: input.mrpPaise,
+    sellPaise: input.sellPaise,
+    stockQty: input.stockQty ?? 20,
+    lowStockAt: input.lowStockAt ?? 5,
+    isActive: input.isActive ?? true,
+    updatedAt: now,
+  };
+}
+
+export function toggleProductActive(product: Product, isActive?: boolean): Product {
+  return {
+    ...product,
+    isActive: isActive !== undefined ? isActive : !product.isActive,
+    updatedAt: Date.now(),
+  };
+}
+
+export function deleteProductFromList(products: Product[], productId: string): Product[] {
+  return products.filter((p) => p.id !== productId);
 }
 
 // ---------------------------------------------------------------------------

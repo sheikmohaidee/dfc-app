@@ -37,22 +37,90 @@ export interface UserProfile {
   updatedAt: number;
 }
 
+export interface RiderCancellationRecord {
+  orderId: string;
+  orderCode: number | string;
+  reason: string;
+  explanation?: string;
+  timestamp: number;
+}
+
 export interface Rider {
   uid: string;
   name: string;
   phone: string;
   isOnline: boolean;
+  status?: 'ONLINE' | 'OFFLINE' | 'BUSY';
+  offlineReason?: string;
+  cancellationCount?: number;
+  maxFreeCancellations?: number;
+  vehicle?: string;
+  rating?: number;
   /** At most one live task at a time in v1. */
   activeOrderId: string | null;
   /** Coarse last-known position, updated while a task is live. */
   lastSeen?: { lat: number; lng: number; at: number };
+  /** Daily cancellation count (max 2 per day before forced offline). */
+  cancellationsToday?: number;
+  /** Limit of allowed cancellations per day (default: 2). */
+  maxDailyCancellations?: number;
+  /** True when forced offline due to exceeding the cancellation limit. */
+  isOfflineDueToCancellations?: boolean;
+  /** Explanations/history of cancelled orders. */
+  cancellationHistory?: RiderCancellationRecord[];
+  /** Last explanation provided to admin after exceeding cancellation limit. */
+  explanationGiven?: string;
+}
+
+export interface Captain {
+  id: string;
+  name: string;
+  phone: string;
+  status: 'ONLINE' | 'OFFLINE' | 'BUSY';
+  offlineReason?: string;
+  cancellationCount: number;
+  maxFreeCancellations: number;
+  vehicle: string;
+  rating: number;
+  activeOrderId: string | null;
+}
+
+export interface OrderCancellation {
+  id: string;
+  captainId: string;
+  captainName: string;
+  orderId: string;
+  orderCode: number | string;
+  reason: string;
+  explanation?: string;
+  createdAt: number;
+  adminReviewStatus: 'pending' | 'reviewed' | 'penalized' | 'waived';
+  reviewedAt?: number;
+  reviewedBy?: string;
 }
 
 // ---------------------------------------------------------------------------
 // Catalogue
 // ---------------------------------------------------------------------------
 
-export type Category = 'pharmacy' | 'grocery' | 'food' | 'concierge';
+export type Category =
+  | 'food'
+  | 'grocery'
+  | 'print'
+  | 'concierge'
+  | 'pickup_drop'
+  | 'buy_deliver'
+  /** @deprecated Pharmacy removed by client requirement. Kept in union for legacy migration safety. */
+  | 'pharmacy';
+
+export const ACTIVE_CATEGORIES: Category[] = [
+  'food' as Category,
+  'grocery' as Category,
+  'print' as Category,
+  'concierge' as Category,
+  'pickup_drop' as Category,
+  'buy_deliver' as Category,
+];
 
 export interface Store {
   id: string;
@@ -109,6 +177,19 @@ export interface OrderSource {
   transcript?: string;
   /** Photo: MIME type we handed to the model. */
   mimeType?: string;
+}
+
+export type GateInstructionTag =
+  | 'no_bell'
+  | 'leave_with_guard'
+  | 'pet_inside'
+  | 'call_before';
+
+export interface DeliveryInstructions {
+  tags: GateInstructionTag[];
+  audioMemoUrl?: string;
+  audioDurationSeconds?: number;
+  textNote?: string;
 }
 
 export interface AiTrace {
@@ -205,6 +286,7 @@ export interface TimelineEvent {
   /** uid, or 'system' for automated transitions. */
   by: string;
   note?: string;
+  delayMinutes?: number;
 }
 
 export interface Order {
@@ -231,6 +313,46 @@ export interface Order {
   riderUid: string | null;
   riderName: string | null;
 
+  /** Client Requirement: Manual Captain Assignment & Status */
+  captainUid?: string | null;
+  captainName?: string | null;
+  captainPhone?: string | null;
+  assignmentStatus?: 'UNASSIGNED' | 'ASSIGNED' | 'ACCEPTED' | 'REJECTED';
+  assignmentHistory?: Array<{
+    captainId: string;
+    captainName: string;
+    assignedAt: number;
+    assignedBy?: string;
+    status: string;
+  }>;
+
+  /** Client Requirement: Preparation and Delivery Timing */
+  acceptedAt?: number;
+  preparationStartedAt?: number;
+  preparationCompletedAt?: number;
+  preparationDurationMinutes?: number;
+  captainAssignedAt?: number;
+  pickedUpAt?: number;
+  deliveryStartedAt?: number;
+  deliveredAt?: number;
+  deliveryDurationMinutes?: number;
+  totalOrderDurationMinutes?: number;
+
+  // --- Timing & Delays from Reference ---
+  prepStartedAt?: number;
+  prepCompletedAt?: number;
+  actualPrepMinutes?: number;
+  dispatchedAt?: number;
+  actualDeliveryMinutes?: number;
+  delayMinutes?: number;
+  delayReason?: string;
+  delayReportedAt?: number;
+
+  // --- Cancellation Auditing ---
+  cancellationReason?: string;
+  cancelledByRole?: Role;
+  cancelledByUid?: string;
+
   pricing: Pricing;
   paymentMode: PaymentMode;
   paymentStatus: PaymentStatus;
@@ -247,6 +369,11 @@ export interface Order {
 
   /** Six-digit code the rider asks for at the door. */
   deliveryOtp: string;
+
+  /** Final 100m gate instructions and optional 15s voice memo. */
+  instructions?: DeliveryInstructions;
+  /** 100% rider tip in paise. */
+  riderTipPaise?: number;
 
   timeline: TimelineEvent[];
   createdAt: number;

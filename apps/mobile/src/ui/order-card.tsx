@@ -15,7 +15,7 @@
 
 import * as React from 'react';
 import { View } from 'react-native';
-import { AlertTriangle, Pill, ShoppingBag, UtensilsCrossed, Navigation } from 'lucide-react-native';
+import { AlertTriangle, Pill, ShoppingBag, UtensilsCrossed, Navigation, Printer, Package, Truck } from 'lucide-react-native';
 
 import {
   CATEGORY_LABEL,
@@ -33,6 +33,9 @@ const ICON: Record<Category, typeof Pill> = {
   grocery: ShoppingBag,
   food: UtensilsCrossed,
   concierge: Navigation,
+  print: Printer,
+  pickup_drop: Package,
+  buy_deliver: Truck,
 };
 
 const HEAD: Record<Category, { bg: string; border: string; solid: string; fg: string }> = {
@@ -40,6 +43,9 @@ const HEAD: Record<Category, { bg: string; border: string; solid: string; fg: st
   grocery: { bg: 'bg-grocery-tint', border: 'border-grocery-border', solid: 'bg-grocery', fg: 'text-grocery-fg' },
   food: { bg: 'bg-food-tint', border: 'border-food-border', solid: 'bg-food', fg: 'text-food-fg' },
   concierge: { bg: 'bg-concierge-tint', border: 'border-concierge-border', solid: 'bg-concierge', fg: 'text-concierge-fg' },
+  print: { bg: 'bg-pharmacy-tint', border: 'border-pharmacy-border', solid: 'bg-pharmacy', fg: 'text-pharmacy-fg' },
+  pickup_drop: { bg: 'bg-food-tint', border: 'border-food-border', solid: 'bg-food', fg: 'text-food-fg' },
+  buy_deliver: { bg: 'bg-grocery-tint', border: 'border-grocery-border', solid: 'bg-grocery', fg: 'text-grocery-fg' },
 };
 
 function Header({ order }: { order: Order }) {

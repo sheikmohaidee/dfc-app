@@ -1,9 +1,14 @@
 /**
- * The mobile UI kit — the shadcn vocabulary, translated to React Native.
+ * The mobile UI kit — DFC Stitch Design System.
  *
- * Same tokens as the web app, same anatomy, same names. Everything here obeys
- * two rules from the Foundations sheet: 44px minimum touch targets, and Tamil
- * sits under English at 0.78x in placeholder grey.
+ * Centralized theme colors:
+ * Primary: #7A1F3D (DFC Burgundy)
+ * Deep: #5E1730
+ * Soft: #FDF2F5
+ * Background: #F7F8F9
+ * Surface: #FFFFFF
+ * Border: #E5E7EB
+ * Text: #111827
  */
 
 import * as React from 'react';
@@ -23,28 +28,45 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-na
 
 import { formatInr, tokens, type Category } from '@dfc/core';
 
+export * from './buttons';
+
 const TAMIL_SCALE = tokens.TAMIL_SCALE;
-
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
-/** One spring for every press in the app, so it all moves with one hand. */
-const PRESS_SPRING = { damping: 15, stiffness: 240, mass: 0.5 } as const;
+const PRESS_SPRING = { damping: 16, stiffness: 240, mass: 0.5 } as const;
 
 // ---------------------------------------------------------------------------
 // Text
 // ---------------------------------------------------------------------------
 
-export function T({ className = '', ...props }: TextProps & { className?: string }) {
-  return <Text className={`text-foreground ${className}`} {...props} />;
+export function T({ className = '', style, ...props }: TextProps & { className?: string }) {
+  return (
+    <Text
+      style={[{ color: '#111827' }, style]}
+      className={`text-foreground ${className}`}
+      {...props}
+    />
+  );
 }
 
 /** Monospace, tabular — every figure in the product. */
-export function Num({ className = '', ...props }: TextProps & { className?: string }) {
-  return <Text className={`font-mono text-foreground ${className}`} {...props} />;
+export function Num({ className = '', style, ...props }: TextProps & { className?: string }) {
+  return (
+    <Text
+      style={[{ color: '#111827' }, style]}
+      className={`font-mono text-foreground ${className}`}
+      {...props}
+    />
+  );
 }
 
-export function Ta({ className = '', ...props }: TextProps & { className?: string }) {
-  return <Text className={`font-tamil text-placeholder ${className}`} {...props} />;
+export function Ta({ className = '', style, ...props }: TextProps & { className?: string }) {
+  return (
+    <Text
+      style={[{ color: '#9CA3AF' }, style]}
+      className={`font-tamil text-placeholder ${className}`}
+      {...props}
+    />
+  );
 }
 
 /** The bilingual pairing rule, as a component. */
@@ -68,13 +90,13 @@ export function BiText({
   return (
     <View className={className}>
       <Text
-        style={{ fontSize: size, fontWeight: weight, letterSpacing: -size * 0.012 }}
+        style={{ fontSize: size, fontWeight: weight, letterSpacing: -size * 0.012, color: '#111827' }}
         className={tone}
       >
         {en}
       </Text>
       <Text
-        style={{ fontSize: Math.round(size * TAMIL_SCALE * 10) / 10, marginTop: 1 }}
+        style={{ fontSize: Math.round(size * TAMIL_SCALE * 10) / 10, marginTop: 1, color: '#9CA3AF' }}
         className={`font-tamil ${taTone}`}
       >
         {ta}
@@ -90,14 +112,20 @@ export function BiText({
 export function Screen({
   children,
   className = '',
+  style,
   edges = ['top', 'bottom'],
 }: {
   children: React.ReactNode;
   className?: string;
+  style?: ViewProps['style'];
   edges?: Edge[];
 }) {
   return (
-    <SafeAreaView edges={edges} className={`flex-1 bg-background ${className}`}>
+    <SafeAreaView
+      edges={edges}
+      style={[{ backgroundColor: '#F7F8F9' }, style]}
+      className={`flex-1 bg-background ${className}`}
+    >
       {children}
     </SafeAreaView>
   );
@@ -110,23 +138,6 @@ export function Screen({
 type Variant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive' | 'success';
 type Size = 'sm' | 'md' | 'lg' | 'rider';
 
-const VARIANT: Record<Variant, { box: string; label: string }> = {
-  primary: { box: 'bg-primary', label: 'text-primary-foreground' },
-  secondary: { box: 'bg-muted', label: 'text-foreground' },
-  outline: { box: 'bg-background border border-border', label: 'text-body-strong' },
-  ghost: { box: 'bg-transparent', label: 'text-body-strong' },
-  destructive: { box: 'bg-destructive', label: 'text-white' },
-  success: { box: 'bg-grocery', label: 'text-white' },
-};
-
-const SIZE: Record<Size, { box: string; text: number }> = {
-  sm: { box: 'h-11 px-4 rounded-control', text: 13.5 },
-  md: { box: 'h-12 px-5 rounded-control', text: 14.5 },
-  lg: { box: 'h-[52px] px-5 rounded-control', text: 15.5 },
-  // 70px, because it is pressed with a thumb, in sun, on a parked bike.
-  rider: { box: 'h-[70px] px-6 rounded-[13px]', text: 19 },
-};
-
 export interface ButtonProps extends Omit<PressableProps, 'children'> {
   label: string;
   labelTa?: string;
@@ -136,7 +147,6 @@ export interface ButtonProps extends Omit<PressableProps, 'children'> {
   left?: React.ReactNode;
   right?: React.ReactNode;
   className?: string;
-  /** Fires a haptic tick on press. On by default for primary actions. */
   haptic?: boolean;
 }
 
@@ -149,22 +159,70 @@ export function Button({
   left,
   right,
   className = '',
+  style,
   disabled,
   haptic = true,
   onPress,
   ...rest
 }: ButtonProps) {
-  const v = VARIANT[variant];
-  const s = SIZE[size];
   const off = disabled || loading;
-
-  // Spring physics rather than an opacity flash. This is the single change
-  // that separates a button that feels native from one that feels like a web
-  // page, and it lives here so every screen gets it for free.
   const scale = useSharedValue(1);
   const animated = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
-  const glossy = variant === 'primary' || variant === 'destructive' || variant === 'success';
+  const heights = {
+    sm: 'h-11 px-4 rounded-[10px]',
+    md: 'h-12 px-5 rounded-[12px]',
+    lg: 'h-[52px] px-6 rounded-[14px]',
+    rider: 'h-[70px] px-6 rounded-[16px]',
+  };
+
+  const fontSizes = {
+    sm: 13.5,
+    md: 15,
+    lg: 16,
+    rider: 18.5,
+  };
+
+  const variantStyles = {
+    primary: {
+      bg: '#7A1F3D',
+      text: '#FFFFFF',
+      border: 'transparent',
+      shadow: '#5E1730',
+    },
+    secondary: {
+      bg: '#FDF2F5',
+      text: '#7A1F3D',
+      border: '#FCE7F3',
+      shadow: 'transparent',
+    },
+    outline: {
+      bg: '#FFFFFF',
+      text: '#111827',
+      border: '#E5E7EB',
+      shadow: 'transparent',
+    },
+    ghost: {
+      bg: 'transparent',
+      text: '#7A1F3D',
+      border: 'transparent',
+      shadow: 'transparent',
+    },
+    destructive: {
+      bg: '#DC2626',
+      text: '#FFFFFF',
+      border: 'transparent',
+      shadow: '#DC2626',
+    },
+    success: {
+      bg: '#0A6A32',
+      text: '#FFFFFF',
+      border: 'transparent',
+      shadow: '#0A6A32',
+    },
+  };
+
+  const currentVariant = variantStyles[variant];
 
   return (
     <AnimatedPressable
@@ -179,8 +237,6 @@ export function Button({
       }}
       onPress={(e) => {
         if (haptic) {
-          // A heavier tick for the rider's 70px buttons — they are pressed
-          // through a glove, at arm's length, next to a running engine.
           void Haptics.impactAsync(
             size === 'rider'
               ? Haptics.ImpactFeedbackStyle.Medium
@@ -191,50 +247,57 @@ export function Button({
       }}
       style={[
         animated,
-        glossy && !off
-          ? {
-              shadowColor: '#09090B',
-              shadowOpacity: 0.22,
-              shadowRadius: 12,
-              shadowOffset: { width: 0, height: 4 },
-              elevation: 5,
-            }
-          : null,
+        {
+          backgroundColor: off ? '#D1D5DB' : currentVariant.bg,
+          borderColor: currentVariant.border,
+          borderWidth: variant === 'outline' || variant === 'secondary' ? 1.5 : 0,
+        },
+        !off && variant === 'primary' && {
+          shadowColor: currentVariant.shadow,
+          shadowOpacity: 0.25,
+          shadowRadius: 10,
+          shadowOffset: { width: 0, height: 3 },
+          elevation: 4,
+        },
+        style as any,
       ]}
-      className={`overflow-hidden ${s.box} ${off ? 'bg-disabled' : v.box} ${className}`}
+      className={`overflow-hidden justify-center items-center ${heights[size]} ${className}`}
       {...rest}
     >
-      {/* A sheen along the top edge — the whole of "glossy" in one gradient. */}
-      {glossy && !off ? (
+      {variant === 'primary' && !off ? (
         <LinearGradient
-          colors={['rgba(255,255,255,0.16)', 'rgba(255,255,255,0.02)', 'rgba(255,255,255,0)']}
+          colors={['rgba(255,255,255,0.18)', 'rgba(255,255,255,0.03)', 'rgba(0,0,0,0.08)']}
           start={{ x: 0, y: 0 }}
-          end={{ x: 0.25, y: 1 }}
+          end={{ x: 0.3, y: 1 }}
           style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }}
         />
       ) : null}
 
-      <View className="h-full flex-row items-center justify-center gap-2">
+      <View className="flex-row items-center justify-center gap-2">
         {loading ? (
-          <ActivityIndicator size="small" color={variant === 'outline' ? '#3F3F46' : '#FAFAFA'} />
+          <ActivityIndicator size="small" color={variant === 'outline' || variant === 'secondary' ? '#7A1F3D' : '#FFFFFF'} />
         ) : (
           <>
             {left}
             <View className="items-center">
               <Text
-                style={{ fontSize: s.text, fontWeight: size === 'rider' ? '700' : '600' }}
-                className={off ? 'text-white' : v.label}
+                style={{
+                  fontSize: fontSizes[size],
+                  fontWeight: size === 'rider' ? '700' : '600',
+                  color: off ? '#9CA3AF' : currentVariant.text,
+                  letterSpacing: -0.2,
+                }}
               >
                 {label}
               </Text>
               {labelTa ? (
                 <Text
-                  style={{ fontSize: Math.round(s.text * TAMIL_SCALE * 0.85) }}
-                  className={`font-tamil ${
-                    variant === 'primary' || variant === 'destructive' || variant === 'success'
-                      ? 'text-white/60'
-                      : 'text-placeholder'
-                  }`}
+                  style={{
+                    fontSize: fontSizes[size] * 0.76,
+                    color: off ? '#9CA3AF' : variant === 'primary' || variant === 'destructive' || variant === 'success' ? 'rgba(255,255,255,0.75)' : '#9CA3AF',
+                    marginTop: 1,
+                  }}
+                  className="font-tamil"
                 >
                   {labelTa}
                 </Text>
@@ -252,58 +315,62 @@ export function Button({
 // Surfaces
 // ---------------------------------------------------------------------------
 
-export function Card({ className = '', ...props }: ViewProps & { className?: string }) {
+export function Card({ className = '', style, ...props }: ViewProps & { className?: string }) {
   return (
     <View
-      className={`rounded-card border border-border bg-background ${className}`}
-      style={{
-        shadowColor: '#09090B',
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-        shadowOffset: { width: 0, height: 1 },
-        elevation: 1,
-      }}
+      style={[
+        {
+          backgroundColor: '#FFFFFF',
+          borderColor: '#E5E7EB',
+          borderWidth: 1,
+          borderRadius: 14,
+          shadowColor: '#000000',
+          shadowOpacity: 0.05,
+          shadowRadius: 4,
+          shadowOffset: { width: 0, height: 1 },
+          elevation: 1,
+        },
+        style,
+      ]}
+      className={`rounded-card border border-border bg-surface ${className}`}
       {...props}
     />
   );
 }
 
-export function Divider({ className = '' }: { className?: string }) {
-  return <View className={`h-px bg-border ${className}`} />;
+export function Divider({ className = '', style }: { className?: string; style?: ViewProps['style'] }) {
+  return <View style={[{ height: 1, backgroundColor: '#E5E7EB' }, style]} className={`h-px bg-border ${className}`} />;
 }
 
 // ---------------------------------------------------------------------------
 // Badge
 // ---------------------------------------------------------------------------
 
-type Tone = Category | 'verify' | 'destructive' | 'neutral';
+type Tone = Category | 'verify' | 'destructive' | 'neutral' | 'success';
 
-const TONE: Record<Tone, string> = {
-  pharmacy: 'bg-pharmacy-tint border-pharmacy-border',
-  grocery: 'bg-grocery-tint border-grocery-border',
-  food: 'bg-food-tint border-food-border',
-  concierge: 'bg-concierge-tint border-concierge-border',
-  verify: 'bg-verify-tint border-verify-border',
-  destructive: 'bg-destructive-tint border-destructive-border',
-  neutral: 'bg-muted border-border',
-};
-
-const TONE_TEXT: Record<Tone, string> = {
-  pharmacy: 'text-pharmacy-fg',
-  grocery: 'text-grocery-fg',
-  food: 'text-food-fg',
-  concierge: 'text-concierge-fg',
-  verify: 'text-verify-fg',
-  destructive: 'text-destructive-fg',
-  neutral: 'text-muted-foreground',
+const TONE: Record<Tone, { bg: string; border: string; text: string }> = {
+  pharmacy: { bg: '#EFF6FF', border: '#DBEAFE', text: '#1D4ED8' },
+  grocery: { bg: '#ECFDF5', border: '#A7F3D0', text: '#065F46' },
+  food: { bg: '#FFF7ED', border: '#FED7AA', text: '#C2410C' },
+  concierge: { bg: '#FDF2F5', border: '#FCE7F3', text: '#7A1F3D' },
+  print: { bg: '#F5F3FF', border: '#DDD6FE', text: '#6D28D9' },
+  pickup_drop: { bg: '#FFF1F2', border: '#FECDD3', text: '#BE123C' },
+  buy_deliver: { bg: '#ECFEFF', border: '#A5F3FC', text: '#0E7490' },
+  verify: { bg: '#FFFBEB', border: '#FDE68A', text: '#B45309' },
+  destructive: { bg: '#FEF2F2', border: '#FECACA', text: '#B91C1C' },
+  success: { bg: '#ECFDF5', border: '#A7F3D0', text: '#065F46' },
+  neutral: { bg: '#F3F4F6', border: '#E5E7EB', text: '#6B7280' },
 };
 
 export function Badge({ label, tone = 'neutral' }: { label: string; tone?: Tone }) {
+  const t = TONE[tone] || TONE.neutral;
   return (
-    <View className={`rounded-chip border px-1.5 py-0.5 ${TONE[tone]}`}>
+    <View
+      style={{ backgroundColor: t.bg, borderColor: t.border, borderWidth: 1, borderRadius: 6 }}
+      className="px-2 py-0.5"
+    >
       <Text
-        style={{ fontSize: 9.5, fontWeight: '700', letterSpacing: 0.4 }}
-        className={TONE_TEXT[tone]}
+        style={{ fontSize: 10, fontWeight: '700', letterSpacing: 0.3, color: t.text }}
       >
         {label}
       </Text>
@@ -320,19 +387,27 @@ export function Money({
   size = 14,
   className = '',
   muted,
+  style,
 }: {
   paise: number | null;
   size?: number;
   className?: string;
   muted?: boolean;
+  style?: TextProps['style'];
 }) {
   const unpriced = paise === null || paise === 0;
   return (
     <Text
-      style={{ fontSize: size, fontWeight: '600', letterSpacing: -size * 0.022 }}
-      className={`font-mono ${
-        unpriced ? 'text-verify' : muted ? 'text-placeholder' : 'text-foreground'
-      } ${className}`}
+      style={[
+        {
+          fontSize: size,
+          fontWeight: '600',
+          letterSpacing: -size * 0.02,
+          color: unpriced ? '#D97706' : muted ? '#9CA3AF' : '#111827',
+        },
+        style,
+      ]}
+      className={`font-mono ${className}`}
     >
       {unpriced ? '₹ —' : formatInr(paise)}
     </Text>
@@ -360,15 +435,19 @@ export function Checkbox({
         void Haptics.selectionAsync();
         onToggle();
       }}
-      // Padded to a 44px target without a 44px box.
       hitSlop={12}
-      style={{ width: size, height: size, borderRadius: 5 }}
-      className={`items-center justify-center border ${
-        checked ? 'border-primary bg-primary' : 'border-[1.5px] border-disabled bg-background'
-      }`}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: 6,
+        backgroundColor: checked ? '#7A1F3D' : '#FFFFFF',
+        borderColor: checked ? '#7A1F3D' : '#D1D5DB',
+        borderWidth: 1.5,
+      }}
+      className="items-center justify-center"
     >
       {checked ? (
-        <Text style={{ fontSize: size * 0.6, lineHeight: size * 0.75 }} className="text-white">
+        <Text style={{ fontSize: size * 0.65, lineHeight: size * 0.8, color: '#FFFFFF', fontWeight: 'bold' }}>
           ✓
         </Text>
       ) : null}
@@ -394,15 +473,18 @@ export function Stepper({
     onChange(next);
   };
   return (
-    <View className="h-[30px] flex-row items-center overflow-hidden rounded-segment border border-border bg-background">
-      <Pressable onPress={() => step(-1)} hitSlop={8} className="h-full w-7 items-center justify-center">
-        <Text className="text-[15px] leading-[16px] text-muted-foreground">−</Text>
+    <View
+      style={{ borderColor: '#E5E7EB', borderWidth: 1, backgroundColor: '#FFFFFF', borderRadius: 8 }}
+      className="h-[32px] flex-row items-center overflow-hidden"
+    >
+      <Pressable onPress={() => step(-1)} hitSlop={8} className="h-full w-8 items-center justify-center">
+        <Text style={{ fontSize: 16, color: '#6B7280', fontWeight: '600' }}>−</Text>
       </Pressable>
-      <View className="h-full w-[26px] items-center justify-center border-x border-border">
-        <Num style={{ fontSize: 12, fontWeight: '500' }}>{value}</Num>
+      <View style={{ borderLeftWidth: 1, borderRightWidth: 1, borderColor: '#E5E7EB' }} className="h-full w-8 items-center justify-center">
+        <Num style={{ fontSize: 13, fontWeight: '700', color: '#111827' }}>{value}</Num>
       </View>
-      <Pressable onPress={() => step(1)} hitSlop={8} className="h-full w-7 items-center justify-center">
-        <Text className="text-[15px] leading-[16px] text-muted-foreground">+</Text>
+      <Pressable onPress={() => step(1)} hitSlop={8} className="h-full w-8 items-center justify-center">
+        <Text style={{ fontSize: 16, color: '#7A1F3D', fontWeight: '700' }}>+</Text>
       </Pressable>
     </View>
   );
@@ -420,13 +502,19 @@ export function Chip({
   return (
     <Pressable
       onPress={onPress}
-      className={`h-9 justify-center rounded-full border px-3 ${
-        active ? 'border-primary bg-primary' : 'border-border bg-background'
-      }`}
+      style={{
+        backgroundColor: active ? '#7A1F3D' : '#FFFFFF',
+        borderColor: active ? '#7A1F3D' : '#E5E7EB',
+        borderWidth: 1.5,
+      }}
+      className="h-9 justify-center rounded-full px-3.5 shadow-2xs"
     >
       <Text
-        style={{ fontSize: 11.5, fontWeight: '500' }}
-        className={active ? 'text-primary-foreground' : 'text-body-strong'}
+        style={{
+          fontSize: 12,
+          fontWeight: active ? '700' : '500',
+          color: active ? '#FFFFFF' : '#374151',
+        }}
       >
         {label}
       </Text>
@@ -441,9 +529,9 @@ export function Chip({
 export function Empty({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <View className="flex-1 items-center justify-center gap-1.5 px-8">
-      <T className="text-[15px] font-semibold tracking-tight">{title}</T>
+      <T style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>{title}</T>
       {subtitle ? (
-        <T className="text-center text-[13px] leading-5 text-muted-foreground">{subtitle}</T>
+        <T style={{ color: '#6B7280', textAlign: 'center', fontSize: 13, lineHeight: 19 }}>{subtitle}</T>
       ) : null}
     </View>
   );
@@ -452,15 +540,18 @@ export function Empty({ title, subtitle }: { title: string; subtitle?: string })
 export function Loading() {
   return (
     <View className="flex-1 items-center justify-center">
-      <ActivityIndicator color="#18181B" />
+      <ActivityIndicator color="#7A1F3D" size="large" />
     </View>
   );
 }
 
 export function ErrorNote({ message }: { message: string }) {
   return (
-    <View className="rounded-control border border-destructive-border bg-destructive-tint px-3 py-2.5">
-      <T className="text-[12.5px] leading-[18px] text-destructive-fg">{message}</T>
+    <View
+      style={{ backgroundColor: '#FEF2F2', borderColor: '#FECACA', borderWidth: 1, borderRadius: 10 }}
+      className="px-3.5 py-3"
+    >
+      <T style={{ fontSize: 12.5, color: '#DC2626', lineHeight: 18, fontWeight: '500' }}>{message}</T>
     </View>
   );
 }

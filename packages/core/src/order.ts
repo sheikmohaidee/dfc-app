@@ -10,11 +10,14 @@ import { routeKm, suggestStore, storeById } from './madurai';
 import { minConfidence, toConciergeStops, toOrderItems, type AiExtraction } from './schema';
 import type {
   AiTrace,
+  Category,
   Order,
   OrderItem,
   OrderSource,
   OrderStatus,
+  PaymentMode,
   Pricing,
+  Rider,
   Role,
   TimelineEvent,
   UserProfile,
@@ -139,6 +142,75 @@ export function blankOrder(id: string, code: number, customer: UserProfile): Ord
   };
 }
 
+export interface ManualOrderInput {
+  id: string;
+  code: number;
+  customerName: string;
+  customerPhone: string;
+  localityId: string;
+  addressLine?: string;
+  category?: Category;
+  storeId?: string | null;
+  items: OrderItem[];
+  deliveryFeePaise?: number;
+  paymentMode?: PaymentMode;
+  notes?: string;
+  adminUid: string;
+}
+
+/** Full manual order creation by an admin with custom items and customer info */
+export function createManualAdminOrder(input: ManualOrderInput): Order {
+  const now = Date.now();
+  const store = input.storeId ? storeById(input.storeId) : null;
+  const km = store ? routeKm(store.localityId, input.localityId) : 3;
+  const deliveryPaise =
+    input.deliveryFeePaise !== undefined
+      ? input.deliveryFeePaise
+      : suggestDeliveryPaise(km, Math.max(1, input.items.length));
+
+  const pricing = computePricing({
+    items: input.items,
+    deliveryPaise,
+    servicePaise: input.category === 'concierge' ? 2500 : 0,
+  });
+
+  return {
+    id: input.id,
+    code: input.code,
+    customerUid: `manual-cust-${input.code}`,
+    customerName: input.customerName.trim(),
+    customerPhone: input.customerPhone.trim(),
+    localityId: input.localityId,
+    addressLine: input.addressLine?.trim() ?? '',
+    category: input.category ?? (store?.category ?? 'grocery'),
+    status: 'admin_review',
+    items: input.items,
+    storeId: store?.id ?? null,
+    storeName: store?.name ?? null,
+    riderUid: null,
+    riderName: null,
+    pricing,
+    paymentMode: input.paymentMode ?? 'cod',
+    paymentStatus: 'unpaid',
+    source: {
+      kind: 'text',
+      transcript: input.notes ? `Admin created: ${input.notes}` : 'Manual order created by admin',
+    },
+    ai: null,
+    deliveryOtp: newOtp(),
+    timeline: [
+      {
+        status: 'admin_review',
+        at: now,
+        by: input.adminUid,
+        note: input.notes ? `Created: ${input.notes}` : 'Manual order created by staff',
+      },
+    ],
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Mutations
 // ---------------------------------------------------------------------------
@@ -152,11 +224,36 @@ export function withStatus(
   note?: string,
 ): Partial<Order> {
   const event = transition(order.status, to, role, by, note);
-  return {
+  const patch: Partial<Order> = {
     status: to,
     timeline: [...order.timeline, event],
     updatedAt: event.at,
   };
+
+  // Preparation timing tracking
+  if ((to === 'vendor_accepted' || to === 'packing') && !order.prepStartedAt) {
+    patch.prepStartedAt = event.at;
+  }
+  if (to === 'ready_for_pickup' && !order.prepCompletedAt) {
+    patch.prepCompletedAt = event.at;
+    const start = order.prepStartedAt ?? order.createdAt;
+    patch.actualPrepMinutes = Math.max(1, Math.round((event.at - start) / 60000));
+  }
+
+  // Delivery timing tracking
+  if (to === 'dispatched' && !order.dispatchedAt) {
+    patch.dispatchedAt = event.at;
+  }
+  if (to === 'picked_up' && !order.pickedUpAt) {
+    patch.pickedUpAt = event.at;
+  }
+  if (to === 'delivered' && !order.deliveredAt) {
+    patch.deliveredAt = event.at;
+    const start = order.pickedUpAt ?? order.dispatchedAt ?? order.createdAt;
+    patch.actualDeliveryMinutes = Math.max(1, Math.round((event.at - start) / 60000));
+  }
+
+  return patch;
 }
 
 export function withItems(order: Order, items: OrderItem[]): Partial<Order> {
@@ -331,6 +428,109 @@ export function markItemUnavailable(order: Order, itemId: string): Partial<Order
   );
 }
 
+export function reportOrderDelay(
+  order: Order,
+  delayMinutes: number,
+  reason: string,
+  by: string,
+): Partial<Order> {
+  const now = Date.now();
+  const event: TimelineEvent = {
+    status: order.status,
+    at: now,
+    by,
+    note: `Vendor reported +${delayMinutes}m delay: ${reason}`,
+    delayMinutes,
+  };
+  return {
+    delayMinutes: (order.delayMinutes ?? 0) + delayMinutes,
+    delayReason: reason,
+    delayReportedAt: now,
+    timeline: [...order.timeline, event],
+    updatedAt: now,
+  };
+}
+
+export function cancelOrderWithReason(
+  order: Order,
+  role: Role,
+  by: string,
+  reason: string,
+): Partial<Order> {
+  const event = transition(order.status, 'cancelled', role, by, reason);
+  return {
+    status: 'cancelled',
+    cancellationReason: reason,
+    cancelledByRole: role,
+    cancelledByUid: by,
+    timeline: [...order.timeline, event],
+    updatedAt: event.at,
+  };
+}
+
+/**
+ * Records a rider's cancellation, increments their daily count, and if they
+ * exceed the 2-cancellation limit, automatically switches their status to Offline.
+ */
+export function recordRiderCancellation(
+  rider: Rider,
+  order: Order,
+  reason: string,
+  explanation?: string,
+): { rider: Rider; orderPatch: Partial<Order>; autoOffline: boolean } {
+  const now = Date.now();
+  const maxAllowed = rider.maxDailyCancellations ?? 2;
+  const nextCount = (rider.cancellationsToday ?? 0) + 1;
+  const autoOffline = nextCount > maxAllowed;
+
+  const cancellationRecord = {
+    orderId: order.id,
+    orderCode: order.code,
+    reason,
+    explanation,
+    timestamp: now,
+  };
+
+  const updatedRider: Rider = {
+    ...rider,
+    cancellationsToday: nextCount,
+    activeOrderId: null,
+    isOnline: autoOffline ? false : rider.isOnline,
+    isOfflineDueToCancellations: autoOffline ? true : (rider.isOfflineDueToCancellations ?? false),
+    cancellationHistory: [...(rider.cancellationHistory ?? []), cancellationRecord],
+    explanationGiven: explanation ?? rider.explanationGiven,
+  };
+
+  const event: TimelineEvent = {
+    status: 'ready_for_pickup',
+    at: now,
+    by: rider.uid,
+    note: `Rider ${rider.name} cancelled (${reason})${explanation ? ` - ${explanation}` : ''}`,
+  };
+
+  const orderPatch: Partial<Order> = {
+    riderUid: null,
+    riderName: null,
+    status: 'ready_for_pickup',
+    timeline: [...order.timeline, event],
+    updatedAt: now,
+  };
+
+  return { rider: updatedRider, orderPatch, autoOffline };
+}
+
+/**
+ * Admin action to clear cancellation strikes and reactivate a rider.
+ */
+export function reactivateRider(rider: Rider): Rider {
+  return {
+    ...rider,
+    cancellationsToday: 0,
+    isOfflineDueToCancellations: false,
+    isOnline: true,
+  };
+}
+
 export function assignStore(order: Order, storeId: string): Partial<Order> {
   const store = storeById(storeId);
   return {
@@ -357,13 +557,14 @@ export const hasFlagged = (o: Order): boolean => flaggedItems(o).length > 0;
 
 export const orderConfidence = (o: Order): number => minConfidence(o.items);
 
-/** Minutes the customer is told to expect, from prep time plus travel. */
+/** Minutes the customer is told to expect, from prep time plus travel plus any reported delay. */
 export function etaMinutes(o: Order): number {
   const store = storeById(o.storeId);
   const prep = store?.avgPrepMinutes ?? 10;
   const km = store ? routeKm(store.localityId, o.localityId) : 3;
+  const extraDelay = o.delayMinutes ?? 0;
   // ~18 km/h through Madurai traffic, plus a 4-minute handoff buffer.
-  return Math.round(prep + (km / 18) * 60 + 4);
+  return Math.round(prep + (km / 18) * 60 + 4 + extraDelay);
 }
 
 export const shortCode = (o: Order): string => `#${o.code}`;

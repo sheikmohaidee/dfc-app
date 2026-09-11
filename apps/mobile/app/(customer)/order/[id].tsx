@@ -1,72 +1,46 @@
 /**
- * Order tracking.
- *
- * A progress rail, the live status, and the delivery OTP the rider will ask
- * for at the door. Nothing else — this screen is checked at a glance while
- * waiting, usually with one hand.
+ * DFC Live Order & Medicine Tracking Screen - Full Stitch Design Implementation
+ * Map View Section with Route Nodes, Pull-up Sheet, 6-Stage Timeline, Captain Info Card, and Delivery OTP.
  */
 
 import * as React from 'react';
-import { Alert, Pressable, ScrollView, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import Animated, { FadeIn } from 'react-native-reanimated';
-import { ArrowLeft, Check, Phone } from 'lucide-react-native';
-
 import {
-  COPY,
-  STATUS_LABEL,
-  etaMinutes,
-  formatInr,
-  isTerminal,
-  localityById,
-  nextStatuses,
-  storeById,
-  type Order,
-  type OrderStatus,
-} from '@dfc/core';
+  Alert,
+  Linking,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import {
+  ArrowLeft,
+  Check,
+  Clock,
+  Home,
+  KeyRound,
+  MessageSquare,
+  Phone,
+  Pill,
+  Sparkles,
+  Star,
+  Utensils,
+} from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 
-import { cancelOrder, subscribeOrder } from '@/lib/orders';
-import { useAuth } from '@/providers/auth';
-import { subscribeRiderPosition } from '@/lib/riders';
-import { LiveMap } from '@/ui/live-map';
-import { Status3D } from '@/ui/status-3d';
-import { AuroraField } from '@/ui/glass';
-import { Badge, Button, Card, Divider, Loading, Money, Num, Screen, T, Ta } from '@/ui';
+import { formatInr, isTerminal, type Order } from '@dfc/core';
+import { subscribeOrder } from '@/lib/orders';
+import { DEMO_MODE } from '@/demo/config';
+import { mockOrderRepository } from '@/demo/repositories/order.repository';
+import { Screen } from '@/ui';
+import { DFCBottomNav } from '@/ui/bottom-nav';
 
-/** The five beats a customer actually cares about. */
-const RAIL: { status: OrderStatus; en: string; ta: string }[] = [
-  { status: 'paid', en: 'Confirmed', ta: 'உறுதி செய்யப்பட்டது' },
-  { status: 'vendor_accepted', en: 'Store accepted', ta: 'கடை ஏற்றுக்கொண்டது' },
-  { status: 'ready_for_pickup', en: 'Ready', ta: 'தயார்' },
-  { status: 'out_for_delivery', en: 'On the way', ta: 'வழியில்' },
-  { status: 'delivered', en: 'Delivered', ta: 'வழங்கப்பட்டது' },
-];
-
-const ORDER_OF: OrderStatus[] = [
-  'incoming',
-  'admin_review',
-  'awaiting_payment',
-  'paid',
-  'vendor_accepted',
-  'packing',
-  'ready_for_pickup',
-  'dispatched',
-  'picked_up',
-  'out_for_delivery',
-  'delivered',
-];
-
-const reached = (current: OrderStatus, target: OrderStatus) =>
-  ORDER_OF.indexOf(current) >= ORDER_OF.indexOf(target);
-
-export default function TrackOrder() {
+export default function OrderTrackingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [order, setOrder] = React.useState<Order | null>(null);
   const [loading, setLoading] = React.useState(true);
-  const [riderAt, setRiderAt] = React.useState<{ lat: number; lng: number } | null>(null);
-  const [cancelling, setCancelling] = React.useState(false);
-  const { user } = useAuth();
+  const [advancing, setAdvancing] = React.useState(false);
 
   React.useEffect(() => {
     if (!id) return;
@@ -76,265 +50,585 @@ export default function TrackOrder() {
     });
   }, [id]);
 
-  // Watch the rider only while there is something to watch.
-  React.useEffect(() => {
-    if (!order?.riderUid) return;
-    if (!['dispatched', 'picked_up', 'out_for_delivery'].includes(order.status)) return;
-    return subscribeRiderPosition(order.riderUid, setRiderAt);
-  }, [order?.riderUid, order?.status]);
+  const handleAdvanceStage = async () => {
+    if (!order) return;
+    setAdvancing(true);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const updated = mockOrderRepository.advanceStatus(order.id);
+      if (updated) setOrder(updated);
+    } finally {
+      setAdvancing(false);
+    }
+  };
 
-  if (loading) return <Screen><Loading /></Screen>;
-  if (!order) {
+  if (!order && !loading) {
     return (
-      <Screen>
-        <View className="flex-1 items-center justify-center">
-          <T className="text-[15px] text-muted-foreground">That order is gone.</T>
+      <Screen edges={['top']}>
+        <View className="flex-1 items-center justify-center gap-3 px-6">
+          <Text style={{ fontFamily: 'Archivo', fontSize: 16, fontWeight: '700', color: '#141B2B' }}>
+            Order not found
+          </Text>
+          <Pressable
+            onPress={() => router.replace('/(customer)/orders')}
+            style={{ backgroundColor: '#7A1F3D', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}
+          >
+            <Text style={{ fontFamily: 'Archivo', fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>
+              Back to Orders
+            </Text>
+          </Pressable>
         </View>
       </Screen>
     );
   }
 
-  const locality = localityById(order.localityId);
-  const eta = etaMinutes(order);
-  const done = isTerminal(order.status);
+  const isDelivered = order?.status === 'delivered';
 
-  // Free to cancel right up until a shop commits stock to it.
-  const canCancel =
-    !done &&
-    nextStatuses(order.status, 'customer').includes('cancelled') &&
-    ['incoming', 'admin_review', 'awaiting_payment', 'paid'].includes(order.status);
+  // 6 Timeline Stages
+  const stages = [
+    { title: 'Prescription Verified', desc: 'Pharmacy validated items & stock.', completed: true, active: false },
+    {
+      title: 'Store Packing & Ready',
+      desc: 'Items are securely boxed with tamper seal.',
+      completed: order?.status !== 'incoming' && order?.status !== 'admin_review',
+      active: order?.status === 'vendor_accepted' || order?.status === 'packing',
+    },
+    {
+      title: 'Captain Assigned',
+      desc: 'Captain Muthu Kumar accepted pickup.',
+      completed: ['ready_for_pickup', 'dispatched', 'picked_up', 'out_for_delivery', 'delivered'].includes(
+        order?.status || '',
+      ),
+      active: order?.status === 'ready_for_pickup',
+    },
+    {
+      title: 'Picked Up from Store',
+      desc: 'Captain checked batch codes.',
+      completed: ['picked_up', 'out_for_delivery', 'delivered'].includes(order?.status || ''),
+      active: order?.status === 'picked_up',
+    },
+    {
+      title: 'On the Way to You',
+      desc: 'Approaching Anna Nagar 80 Feet Road.',
+      completed: ['out_for_delivery', 'delivered'].includes(order?.status || ''),
+      active: order?.status === 'out_for_delivery',
+    },
+    {
+      title: 'Delivered & Handed Over',
+      desc: 'OTP verified at doorstep.',
+      completed: isDelivered,
+      active: isDelivered,
+    },
+  ];
 
   return (
-    <Screen>
-      <View className="flex-row items-center gap-2.5 border-b border-muted px-4 pb-3 pt-2">
-        <Pressable onPress={() => router.back()} hitSlop={12} className="size-9 items-center justify-center -ml-2">
-          <ArrowLeft size={21} color="#18181B" strokeWidth={2} />
+    <Screen edges={['top']}>
+      {/* Top Header Bar */}
+      <View
+        style={{
+          height: 60,
+          backgroundColor: '#F9F9FF',
+          paddingHorizontal: 16,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          borderBottomWidth: 1,
+          borderBottomColor: '#DAC0C430',
+        }}
+      >
+        <Pressable
+          onPress={() => router.back()}
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: 19,
+            backgroundColor: '#E9EDFF',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <ArrowLeft size={20} color="#7A1F3D" strokeWidth={2.2} />
         </Pressable>
-        <View className="flex-1 flex-row items-center gap-2">
-          <Num className="text-[15px] font-semibold tracking-tight">#{order.code}</Num>
-          <Badge
-            label={order.paymentMode === 'prepaid' ? 'PREPAID' : 'COD'}
-            tone={order.paymentMode === 'prepaid' ? 'pharmacy' : 'grocery'}
-          />
-        </View>
-        <Money paise={order.pricing.totalPaise} size={15} />
+
+        <Text
+          style={{
+            fontFamily: 'Archivo',
+            fontSize: 18,
+            fontWeight: '800',
+            color: '#7A1F3D',
+            letterSpacing: -0.3,
+          }}
+        >
+          ORD-#{order?.code || '9824-XT'}
+        </Text>
+
+        <View style={{ width: 38 }} />
       </View>
 
-      <ScrollView className="flex-1" contentContainerClassName="pb-6">
-        {order.riderUid && !done ? (
-          <LiveMap
-            fromLocalityId={storeById(order.storeId)?.localityId ?? order.localityId}
-            toLocalityId={order.localityId}
-            rider={riderAt}
-            minutes={eta}
-            height={240}
-          />
-        ) : (
-          /* Before a rider exists there is no route to draw, so the status
-             scene carries the wait instead of an empty map. */
-          <View style={{ height: 210 }}>
-            <AuroraField
-              tone={order.category === 'grocery' ? 'grocery' : 'pharmacy'}
-            >
-              <Status3D status={order.status} height={210} />
-            </AuroraField>
-          </View>
-        )}
-
-        <View className="gap-4 px-4 py-4">
-        <Animated.View entering={FadeIn}>
-          <View className="gap-1">
-            <T className="text-[26px] font-bold tracking-[-0.9px]">
-              {STATUS_LABEL[order.status].en}
-            </T>
-            <Ta className="text-[14px]">{STATUS_LABEL[order.status].ta}</Ta>
-          </View>
-          {!done ? (
-            <T className="mt-2 text-[14px] leading-5 text-muted-foreground">
-              Arriving in about {eta} minutes at {locality?.name ?? 'your address'}.
-            </T>
-          ) : null}
-        </Animated.View>
-
-        {/* Progress rail */}
-        <Card className="p-4">
-          {RAIL.map((step, i) => {
-            const hit = reached(order.status, step.status);
-            const current =
-              !reached(order.status, RAIL[i + 1]?.status ?? 'delivered') && hit;
-            return (
-              <View key={step.status} className="flex-row gap-3">
-                <View className="items-center">
-                  <View
-                    className={`size-[18px] items-center justify-center rounded-full ${
-                      hit ? (current ? 'bg-primary' : 'bg-grocery') : 'border-[1.5px] border-border'
-                    }`}
-                  >
-                    {hit && !current ? (
-                      <Check size={11} color="#FFFFFF" strokeWidth={3.4} />
-                    ) : current ? (
-                      <View className="size-1.5 rounded-full bg-primary-foreground" />
-                    ) : null}
-                  </View>
-                  {i < RAIL.length - 1 ? (
-                    <View className={`w-[1.5px] flex-1 ${hit ? 'bg-grocery' : 'bg-border'}`} />
-                  ) : null}
-                </View>
-                <View className={`flex-1 ${i < RAIL.length - 1 ? 'pb-4' : ''}`}>
-                  <T
-                    className={`text-[13.5px] ${
-                      current ? 'font-semibold' : hit ? 'text-body-strong' : 'text-placeholder'
-                    }`}
-                  >
-                    {step.en}
-                  </T>
-                  <Ta className="mt-0.5 text-[10.5px]">{step.ta}</Ta>
-                </View>
-              </View>
-            );
-          })}
-        </Card>
-
-        {/* The OTP — the one thing the customer must be able to find fast. */}
-        {!done && reached(order.status, 'out_for_delivery') ? (
-          <Card className="gap-2.5 p-4">
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 60 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Demo Stage Advance Tool */}
+        {DEMO_MODE && !isDelivered ? (
+          <View
+            style={{
+              backgroundColor: '#FFFBEB',
+              borderBottomWidth: 1,
+              borderBottomColor: '#FDE68A',
+              paddingHorizontal: 16,
+              paddingVertical: 10,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
             <View className="flex-row items-center gap-2">
-              <T className="text-[12.5px] font-semibold tracking-tight">{COPY.deliveryOtp.en}</T>
-              <Ta className="text-[11px]">Give this to the rider</Ta>
+              <Sparkles size={16} color="#D97706" />
+              <Text style={{ fontFamily: 'Archivo', fontSize: 12, fontWeight: '700', color: '#92400E' }}>
+                DEMO STAGE CONTROLLER
+              </Text>
             </View>
-            <View className="flex-row gap-2">
-              {order.deliveryOtp.split('').map((d, i) => (
-                <View
-                  key={i}
-                  className="h-14 flex-1 items-center justify-center rounded-[9px] border-[1.5px] border-primary"
-                >
-                  <Num className="text-2xl font-semibold">{d}</Num>
-                </View>
-              ))}
-            </View>
-          </Card>
-        ) : null}
-
-        {/* Rider */}
-        {order.riderName ? (
-          <Card className="flex-row items-center gap-3 p-3.5">
-            <View className="size-10 items-center justify-center rounded-full bg-muted">
-              <T className="text-[13px] font-semibold text-icon">
-                {order.riderName.slice(0, 2).toUpperCase()}
-              </T>
-            </View>
-            <View className="flex-1">
-              <T className="text-[15px] font-semibold tracking-tight">{order.riderName}</T>
-              <T className="mt-0.5 text-[12px] text-muted-foreground">Your rider</T>
-            </View>
-            <View className="size-[52px] items-center justify-center rounded-full bg-grocery">
-              <Phone size={22} color="#FFFFFF" strokeWidth={2.1} />
-            </View>
-          </Card>
-        ) : null}
-
-        {/* Items */}
-        <Card className="overflow-hidden">
-          <View className="flex-row items-center gap-2 px-3.5 py-3">
-            <T className="flex-1 text-[13px] font-semibold tracking-tight">
-              {order.storeName ?? 'Your order'}
-            </T>
-            <Num className="text-[11px] text-muted-foreground">
-              {order.items.filter((i) => i.included).length} items
-            </Num>
+            <Pressable
+              onPress={handleAdvanceStage}
+              disabled={advancing}
+              style={{
+                backgroundColor: '#D97706',
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 6,
+              }}
+            >
+              <Text style={{ fontFamily: 'Archivo', fontSize: 12, fontWeight: '800', color: '#FFFFFF' }}>
+                {advancing ? 'Advancing...' : '⚡ Advance Stage →'}
+              </Text>
+            </Pressable>
           </View>
-          <Divider className="bg-muted" />
-          {order.items
-            .filter((i) => i.included)
-            .map((item, i, arr) => (
-              <View
-                key={item.id}
-                className={`flex-row items-center justify-between px-3.5 py-2.5 ${
-                  i < arr.length - 1 ? 'border-b border-muted' : ''
-                }`}
-              >
-                <View className="flex-1 pr-3">
-                  <T className="text-[13.5px] font-medium tracking-tight">{item.name}</T>
-                  <Num className="mt-0.5 text-[10.5px] text-placeholder">
-                    {item.unit}
-                    {item.quantity > 1 ? ` × ${item.quantity}` : ''}
-                  </Num>
-                </View>
-                <Num className="text-[12.5px]">
-                  {item.unitPricePaise === null
-                    ? '₹ —'
-                    : formatInr(item.unitPricePaise * item.quantity)}
-                </Num>
-              </View>
-            ))}
-          <View className="flex-row items-center justify-between border-t border-border bg-surface px-3.5 py-3">
+        ) : null}
+
+        {/* Map View Section */}
+        <View
+          style={{
+            height: 240,
+            backgroundColor: '#E1E8FD',
+            position: 'relative',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {/* Simulated Map Visual */}
+          <View
+            style={{
+              position: 'absolute',
+              top: 36,
+              left: 40,
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: '#FFFFFF',
+              borderWidth: 2,
+              borderColor: '#7A1F3D',
+              alignItems: 'center',
+              justifyContent: 'center',
+              shadowColor: '#000',
+              shadowOpacity: 0.1,
+              shadowRadius: 6,
+              elevation: 4,
+            }}
+          >
+            <Pill size={22} color="#7A1F3D" />
+          </View>
+
+          {/* Dotted Route Curve Line */}
+          <View
+            style={{
+              width: 140,
+              height: 2,
+              borderStyle: 'dashed',
+              borderWidth: 1.5,
+              borderColor: '#7A1F3D',
+              transform: [{ rotate: '32deg' }],
+            }}
+          />
+
+          {/* Destination Node */}
+          <View
+            style={{
+              position: 'absolute',
+              bottom: 40,
+              right: 40,
+              width: 48,
+              height: 48,
+              borderRadius: 24,
+              backgroundColor: '#7A1F3D',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 3,
+              borderColor: '#FFFFFF',
+              shadowColor: '#000',
+              shadowOpacity: 0.15,
+              shadowRadius: 8,
+              elevation: 6,
+            }}
+          >
+            <Home size={22} color="#FFFFFF" />
+          </View>
+        </View>
+
+        {/* Pull-Up Tracking Canvas */}
+        <View
+          style={{
+            backgroundColor: '#F9F9FF',
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            marginTop: -20,
+            paddingTop: 12,
+            paddingHorizontal: 20,
+            shadowColor: '#000000',
+            shadowOpacity: 0.05,
+            shadowRadius: 12,
+            elevation: 4,
+          }}
+        >
+          {/* Handle */}
+          <View
+            style={{
+              width: 48,
+              height: 4,
+              borderRadius: 2,
+              backgroundColor: '#DAC0C4',
+              alignSelf: 'center',
+              marginBottom: 16,
+            }}
+          />
+
+          {/* Header row: ETA & Live Pulse */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              paddingBottom: 16,
+              borderBottomWidth: 1,
+              borderBottomColor: '#DAC0C430',
+              marginBottom: 20,
+            }}
+          >
             <View>
-              <T className="text-[12.5px] font-semibold">{COPY.total.en}</T>
-              <Ta className="text-[10px]">{COPY.total.ta}</Ta>
+              <Text
+                style={{
+                  fontFamily: 'Archivo',
+                  fontSize: 11,
+                  fontWeight: '700',
+                  color: '#554245',
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
+                  marginBottom: 2,
+                }}
+              >
+                Estimated Arrival
+              </Text>
+              <Text
+                style={{
+                  fontFamily: 'Archivo',
+                  fontSize: 30,
+                  fontWeight: '800',
+                  color: '#141B2B',
+                  letterSpacing: -0.5,
+                }}
+              >
+                12:45 <Text style={{ fontSize: 18, color: '#554245' }}>PM</Text>
+              </Text>
             </View>
-            <Money paise={order.pricing.totalPaise} size={17} />
+
+            {/* Live Tracking Pulse */}
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                backgroundColor: '#F0FDF4',
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 9999,
+                borderWidth: 1,
+                borderColor: '#0A6A3230',
+              }}
+            >
+              <View
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: '#0A6A32',
+                }}
+              />
+              <Text
+                style={{
+                  fontFamily: 'Archivo',
+                  fontSize: 11,
+                  fontWeight: '800',
+                  color: '#0A6A32',
+                  letterSpacing: 0.5,
+                }}
+              >
+                LIVE TRACKING
+              </Text>
+            </View>
           </View>
-        </Card>
 
-        {/* Cancelling.
-            Only offered while it is genuinely free — once a shop has started
-            packing, a cancel button that silently charges you is worse than no
-            button. Past that point the copy sends them to support instead. */}
-        {canCancel ? (
-          <Button
-            variant="outline"
-            size="md"
-            label="Cancel this order"
-            labelTa="ஆர்டரை ரத்து செய்"
-            loading={cancelling}
-            onPress={() =>
-              Alert.alert(
-                'Cancel this order?',
-                order.status === 'incoming' || order.status === 'admin_review'
-                  ? 'Nothing has been bought yet, so there is no charge.'
-                  : 'The store has not started packing, so there is no charge.',
-                [
-                  { text: 'Keep it', style: 'cancel' },
-                  {
-                    text: 'Cancel order',
-                    style: 'destructive',
-                    onPress: () => {
-                      setCancelling(true);
-                      void cancelOrder(order.id, user!.uid, 'customer')
-                        .catch((e: Error) => Alert.alert('Could not cancel', e.message))
-                        .finally(() => setCancelling(false));
-                    },
-                  },
-                ],
-              )
-            }
-          />
-        ) : !done ? (
-          <T className="px-1 text-center text-[11.5px] leading-[17px] text-placeholder">
-            The store is already preparing this order. To change or cancel it now, call us from
-            Account &rarr; Help.
-          </T>
-        ) : null}
+          {/* Delivery OTP Card */}
+          {!isDelivered ? (
+            <View
+              style={{
+                backgroundColor: '#EFF6FF',
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: '#2563EB30',
+                padding: 16,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: 20,
+              }}
+            >
+              <View className="flex-row items-center gap-3">
+                <View
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 10,
+                    backgroundColor: '#2563EB',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <KeyRound size={18} color="#FFFFFF" strokeWidth={2.2} />
+                </View>
+                <View>
+                  <Text style={{ fontFamily: 'Archivo', fontSize: 14, fontWeight: '700', color: '#1E3A8A' }}>
+                    Delivery OTP
+                  </Text>
+                  <Text style={{ fontFamily: 'Archivo', fontSize: 11, color: '#1E40AF' }}>
+                    Share with captain at doorstep
+                  </Text>
+                </View>
+              </View>
 
-        {/* Money is either owed or accounted for — never ambiguous. */}
-        {['unpaid', 'link_sent'].includes(order.paymentStatus) && !done ? (
-          <Button
-            size="lg"
-            label={`Pay ${formatInr(order.pricing.totalPaise)}`}
-            labelTa="பணம் செலுத்துங்கள்"
-            onPress={() => router.push(`/(customer)/pay/${order.id}`)}
-          />
-        ) : (
-          <Button
-            variant="outline"
-            size="md"
-            label="View tax invoice"
-            labelTa="ரசீது"
-            onPress={() => router.push(`/(customer)/invoice/${order.id}`)}
-          />
-        )}
+              <View
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  paddingHorizontal: 14,
+                  paddingVertical: 6,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: '#2563EB50',
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: 'Archivo',
+                    fontSize: 18,
+                    fontWeight: '800',
+                    color: '#1E40AF',
+                    letterSpacing: 3,
+                  }}
+                >
+                  {order?.deliveryOtp || '8492'}
+                </Text>
+              </View>
+            </View>
+          ) : null}
+
+          {/* Vertical 6-Stage Timeline */}
+          <View className="mb-6">
+            <Text
+              style={{
+                fontFamily: 'Archivo',
+                fontSize: 11,
+                fontWeight: '700',
+                color: '#7A1F3D',
+                textTransform: 'uppercase',
+                letterSpacing: 0.8,
+                marginBottom: 16,
+              }}
+            >
+              Live Order Progress
+            </Text>
+
+            <View style={{ paddingLeft: 12 }}>
+              {stages.map((stage, i) => {
+                return (
+                  <View key={stage.title} className="flex-row gap-3">
+                    <View className="items-center">
+                      <View
+                        style={{
+                          width: 22,
+                          height: 22,
+                          borderRadius: 11,
+                          backgroundColor: stage.completed
+                            ? '#7A1F3D'
+                            : stage.active
+                            ? '#FDF2F5'
+                            : '#FFFFFF',
+                          borderWidth: stage.completed ? 0 : 2,
+                          borderColor: stage.active ? '#7A1F3D' : '#DAC0C4',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        {stage.completed ? (
+                          <Check size={13} color="#FFFFFF" strokeWidth={3} />
+                        ) : stage.active ? (
+                          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#7A1F3D' }} />
+                        ) : null}
+                      </View>
+                      {i < stages.length - 1 ? (
+                        <View
+                          style={{
+                            width: 2,
+                            height: 28,
+                            backgroundColor: stage.completed ? '#7A1F3D' : '#DAC0C4',
+                          }}
+                        />
+                      ) : null}
+                    </View>
+
+                    <View className="flex-1 pb-4">
+                      <Text
+                        style={{
+                          fontFamily: 'Archivo',
+                          fontSize: 14,
+                          fontWeight: stage.completed || stage.active ? '700' : '500',
+                          color: stage.completed || stage.active ? '#141B2B' : '#887275',
+                        }}
+                      >
+                        {stage.title}
+                      </Text>
+                      {stage.desc ? (
+                        <Text style={{ fontFamily: 'Archivo', fontSize: 12, color: '#554245', marginTop: 2 }}>
+                          {stage.desc}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Captain Info Card */}
+          <View
+            style={{
+              backgroundColor: '#F1F3FF',
+              borderRadius: 16,
+              borderWidth: 1,
+              borderColor: '#DAC0C4',
+              padding: 16,
+              marginBottom: 20,
+            }}
+          >
+            <View className="flex-row items-center justify-between mb-3">
+              <View className="flex-row items-center gap-3">
+                <View
+                  style={{
+                    width: 46,
+                    height: 46,
+                    borderRadius: 23,
+                    backgroundColor: '#7A1F3D',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: 2,
+                    borderColor: '#FFFFFF',
+                  }}
+                >
+                  <Text style={{ fontFamily: 'Archivo', fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>
+                    M
+                  </Text>
+                </View>
+
+                <View>
+                  <Text style={{ fontFamily: 'Archivo', fontSize: 15, fontWeight: '700', color: '#141B2B' }}>
+                    Muthu Kumar
+                  </Text>
+                  <View className="flex-row items-center gap-2 mt-0.5">
+                    <View className="flex-row items-center gap-0.5">
+                      <Star size={12} color="#D97706" fill="#D97706" />
+                      <Text style={{ fontFamily: 'Archivo', fontSize: 12, fontWeight: '700', color: '#141B2B' }}>
+                        4.9
+                      </Text>
+                    </View>
+                    <Text style={{ fontFamily: 'Archivo', fontSize: 12, color: '#554245' }}>• TVS Jupiter</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* License Plate Badge */}
+              <View
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: 6,
+                  borderWidth: 1,
+                  borderColor: '#DAC0C4',
+                  flexDirection: 'row',
+                  overflow: 'hidden',
+                }}
+              >
+                <View style={{ backgroundColor: '#E9EDFF', paddingHorizontal: 6, paddingVertical: 4 }}>
+                  <Text style={{ fontFamily: 'Archivo', fontSize: 10, fontWeight: '800', color: '#554245' }}>
+                    TN 59
+                  </Text>
+                </View>
+                <View style={{ paddingHorizontal: 6, paddingVertical: 4 }}>
+                  <Text style={{ fontFamily: 'Archivo', fontSize: 11, fontWeight: '800', color: '#141B2B' }}>
+                    AZ 1234
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Call & Chat Action Buttons */}
+            <View className="flex-row items-center gap-3">
+              <Pressable
+                onPress={() => void Linking.openURL('tel:+919876500004')}
+                style={{
+                  flex: 1,
+                  height: 44,
+                  backgroundColor: '#7A1F3D',
+                  borderRadius: 10,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                }}
+              >
+                <Phone size={16} color="#FFFFFF" />
+                <Text style={{ fontFamily: 'Archivo', fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>
+                  Call Captain
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => router.push('/(customer)/chat')}
+                style={{
+                  width: 44,
+                  height: 44,
+                  backgroundColor: '#FFFFFF',
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: '#DAC0C4',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <MessageSquare size={18} color="#7A1F3D" />
+              </Pressable>
+            </View>
+          </View>
         </View>
       </ScrollView>
+
+      <DFCBottomNav activeTab="track" />
     </Screen>
   );
 }

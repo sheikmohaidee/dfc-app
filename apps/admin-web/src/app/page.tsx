@@ -17,6 +17,47 @@ import { moveOrder } from '@/lib/orders';
 import { useBoard, useDensity, type CategoryFilter } from '@/hooks/useBoard';
 import { SignIn } from './sign-in';
 
+function CancellationReview({ riders }: { riders: import('@dfc/core').Rider[] }) {
+  const needsReview = riders.filter(r => (r.cancellationCount || 0) > 0);
+  if (needsReview.length === 0) return null;
+
+  return (
+    <div className="border-b bg-surface px-5 py-4">
+      <h3 className="text-[13px] font-semibold mb-2.5 tracking-tight text-body-strong">CAPTAIN CANCELLATION REVIEW</h3>
+      <div className="flex flex-col gap-2">
+        {needsReview.map(r => (
+          <div key={r.uid} className="flex items-center gap-4 bg-background border rounded-lg px-4 py-2.5 shadow-sm">
+            <div className="flex items-center gap-2 min-w-[150px]">
+              <span className="grid size-6 shrink-0 place-items-center rounded-full border bg-muted text-[10px] font-semibold text-icon">
+                {r.name.substring(0, 2).toUpperCase()}
+              </span>
+              <span className="text-[13px] font-medium">{r.name}</span>
+            </div>
+            
+            <span className="text-[12px] font-medium text-destructive w-32">{r.cancellationCount} cancellations</span>
+            
+            <span className="w-24">
+              <span className={r.isOnline || r.status === 'ONLINE' ? "inline-flex items-center rounded-sm border px-1.5 py-0.5 text-[9px] font-bold tracking-[0.06em] leading-none text-grocery-fg bg-grocery-tint border-grocery-border" : "inline-flex items-center rounded-sm border px-1.5 py-0.5 text-[9px] font-bold tracking-[0.06em] leading-none text-muted-foreground bg-muted border-border"}>
+                {r.status || (r.isOnline ? 'ONLINE' : 'OFFLINE')}
+              </span>
+            </span>
+            
+            <span className="text-[10px] font-bold tracking-wider text-verify-fg bg-verify-tint border border-verify-border px-1.5 py-0.5 rounded-sm mr-auto">
+              REVIEW: PENDING
+            </span>
+            
+            {(!r.isOnline || r.status === 'OFFLINE') && (
+              <button className="text-[12px] font-semibold text-primary hover:underline px-3 py-1 rounded-md hover:bg-primary/5 transition-colors">
+                Reinstate
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function BoardPage() {
   const { user, role, loading: authLoading, configured, signOut } = useAuth();
   const [filter, setFilter] = React.useState<CategoryFilter>('all');
@@ -46,22 +87,7 @@ export default function BoardPage() {
     }
   }
 
-  if (!configured) {
-    return (
-      <main className="grid min-h-dvh place-items-center p-8">
-        <div className="max-w-md space-y-3 rounded-xl border p-6">
-          <h1 className="text-lg font-semibold tracking-tight">Firebase is not configured</h1>
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            Copy <code className="tnum rounded bg-muted px-1">.env.example</code> to{' '}
-            <code className="tnum rounded bg-muted px-1">.env.local</code> in{' '}
-            <code className="tnum rounded bg-muted px-1">apps/admin-web</code> and fill in the{' '}
-            <code className="tnum rounded bg-muted px-1">NEXT_PUBLIC_FIREBASE_*</code> values from
-            the Firebase console, then restart the dev server.
-          </p>
-        </div>
-      </main>
-    );
-  }
+
 
   if (authLoading) {
     return (
@@ -119,6 +145,8 @@ export default function BoardPage() {
           that is still open needs chasing outside the board.
         </div>
       ) : null}
+
+      <CancellationReview riders={board.riders} />
 
       <Board
         byColumn={board.byColumn}

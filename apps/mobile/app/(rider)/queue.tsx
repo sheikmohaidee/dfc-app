@@ -6,7 +6,7 @@
  */
 
 import * as React from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, View, Alert, Modal, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { ChevronRight, IndianRupee, Pill, ShoppingBag, Settings } from 'lucide-react-native';
@@ -24,8 +24,10 @@ import {
 import { useAuth } from '@/providers/auth';
 import { setRiderOnline, subscribeRiderOrders } from '@/lib/orders';
 import { Badge, Button, Card, Empty, Loading, Num, Screen, T, Ta } from '@/ui';
+import { mockOrderRepository } from '@/demo/repositories/order.repository';
+import { mockCaptainRepository } from '@/demo/repositories/captain.repository';
 
-function TaskCard({ order, onPress }: { order: Order; onPress: () => void }) {
+function TaskCard({ order, onPress, onAccept, onReject }: { order: Order; onPress: () => void; onAccept: () => void; onReject: () => void }) {
   const cod = order.paymentMode === 'cod';
   const store = storeById(order.storeId);
   const drop = localityById(order.localityId);
@@ -86,13 +88,30 @@ function TaskCard({ order, onPress }: { order: Order; onPress: () => void }) {
 
             <View className="flex-row items-center justify-between border-t border-muted pt-2.5">
               <T className="text-[12px] text-muted-foreground">
-                {STATUS_LABEL[order.status].en}
+                {STATUS_LABEL[order.status]?.en ?? order.status}
               </T>
               <View className="flex-row items-center gap-1">
                 <T className="text-[12.5px] font-semibold">Open task</T>
                 <ChevronRight size={15} color="#18181B" strokeWidth={2.4} />
               </View>
             </View>
+            
+            {order.assignmentStatus === 'ASSIGNED' && (
+              <View className="flex-row gap-2 border-t border-muted pt-3">
+                <Button
+                  variant="outline"
+                  label="Reject"
+                  className="flex-1"
+                  onPress={onReject}
+                />
+                <Button
+                  variant="primary"
+                  label="Accept"
+                  className="flex-1"
+                  onPress={onAccept}
+                />
+              </View>
+            )}
           </View>
         </Card>
       </Pressable>
@@ -107,25 +126,56 @@ export default function RiderQueue() {
   const [orders, setOrders] = React.useState<Order[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [online, setOnline] = React.useState(true);
+  
+  const [explanation, setExplanation] = React.useState('');
+  const [cancelModalOrderId, setCancelModalOrderId] = React.useState<string | null>(null);
+
+  const loadOrders = () => {
+    const all = (mockOrderRepository as any).getAll?.() ?? mockOrderRepository.getOrders();
+    const filtered = all.filter((o: Order) => o.captainUid === 'captain_002' || o.assignmentStatus === 'ASSIGNED');
+    setOrders(filtered);
+  };
 
   React.useEffect(() => {
-    if (!user) return;
-    return subscribeRiderOrders(user.uid, (list) => {
-      setOrders(list);
-      setLoading(false);
-    });
-  }, [user]);
+    loadOrders();
+    setLoading(false);
+  }, []);
 
   async function toggleOnline() {
-    if (!user) return;
-    const next = !online;
-    setOnline(next);
-    try {
-      await setRiderOnline(user.uid, next);
-    } catch {
-      setOnline(!next); // put the switch back if the write failed
-    }
+    setOnline(!online);
   }
+
+  const handleAccept = async (orderId: string) => {
+    await mockOrderRepository.captainAccept(orderId, 'captain_002');
+    loadOrders();
+  };
+
+  const handleCancelClick = (orderId: string) => {
+    const captain = mockCaptainRepository.getCaptainById('captain_002');
+    if (captain && captain.cancellationCount >= 2) {
+      setCancelModalOrderId(orderId);
+      setExplanation('');
+    } else {
+      handleConfirmCancel(orderId);
+    }
+  };
+
+  const handleConfirmCancel = async (orderId: string, expl?: string) => {
+    const res = await mockOrderRepository.captainCancel({
+      orderId,
+      captainId: 'captain_002',
+      reason: 'Rider rejected',
+      explanation: expl
+    });
+    
+    if (res.wentOffline) {
+      Alert.alert("Offline", "You have been moved offline due to cancellation limit.");
+      setOnline(false);
+    }
+    
+    setCancelModalOrderId(null);
+    loadOrders();
+  };
 
   if (loading) return <Screen><Loading /></Screen>;
 
@@ -137,12 +187,12 @@ export default function RiderQueue() {
         <View className="flex-row items-center gap-3 px-4 pb-3 pt-3.5">
           <View className="size-9 items-center justify-center rounded-full bg-muted">
             <T className="text-[13px] font-semibold text-icon">
-              {(profile?.name ?? 'R').slice(0, 2).toUpperCase()}
+              {(profile?.name ?? 'Arun').slice(0, 2).toUpperCase()}
             </T>
           </View>
           <View className="flex-1">
             <T className="text-[15px] font-semibold tracking-[-0.2px]">
-              {profile?.name ?? 'Rider'}
+              {profile?.name ?? 'Captain Arun'}
             </T>
             <T className="mt-0.5 text-[11px] text-placeholder">
               {localityById(profile?.localityId)?.name ?? 'Madurai'} · DFC rider
@@ -195,7 +245,13 @@ export default function RiderQueue() {
           </View>
         ) : (
           orders.map((o) => (
-            <TaskCard key={o.id} order={o} onPress={() => router.push(`/(rider)/task/${o.id}`)} />
+            <TaskCard 
+              key={o.id} 
+              order={o} 
+              onPress={() => router.push(`/(rider)/task/${o.id}`)}
+              onAccept={() => handleAccept(o.id)}
+              onReject={() => handleCancelClick(o.id)}
+            />
           ))
         )}
       </ScrollView>
@@ -228,6 +284,46 @@ export default function RiderQueue() {
           onPress={() => void toggleOnline()}
         />
       </View>
+      
+      <Modal
+        visible={!!cancelModalOrderId}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCancelModalOrderId(null)}
+      >
+        <View className="flex-1 items-center justify-center bg-black/50 p-4">
+          <View className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-lg">
+            <T className="text-lg font-bold text-dark">Cancellation Explanation Required</T>
+            <T className="mt-2 text-sm text-muted-foreground">
+              You have reached the cancellation limit. Please provide an explanation.
+            </T>
+            
+            <TextInput
+              className="mt-4 min-h-[100px] rounded-xl border border-border p-3 text-base"
+              multiline
+              textAlignVertical="top"
+              placeholder="Why are you rejecting this order?"
+              value={explanation}
+              onChangeText={setExplanation}
+            />
+            
+            <View className="mt-5 gap-3">
+              <Button
+                variant="primary"
+                label="Submit & Cancel Order"
+                disabled={!explanation.trim()}
+                onPress={() => cancelModalOrderId && handleConfirmCancel(cancelModalOrderId, explanation)}
+              />
+              <Button
+                variant="outline"
+                label="Go Back"
+                onPress={() => setCancelModalOrderId(null)}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
+

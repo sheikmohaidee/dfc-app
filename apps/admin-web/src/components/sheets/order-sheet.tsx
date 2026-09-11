@@ -347,37 +347,58 @@ function RiderPicker({
   riders: Rider[];
   adminUid: string;
 }) {
-  const free = riders.filter((r) => r.isOnline && (!r.activeOrderId || r.activeOrderId === order.id));
+  const [open, setOpen] = React.useState(false);
+
   return (
     <div className="flex flex-col gap-2">
       <Label>{COPY.assignRider.en.toUpperCase()}</Label>
-      <div className="flex flex-col gap-1.5">
-        {free.length === 0 ? (
-          <span className="text-[12px] text-placeholder">No rider is online right now.</span>
-        ) : null}
-        {free.map((r) => {
-          const mine = order.riderUid === r.uid;
-          return (
-            <button
-              key={r.uid}
-              onClick={() => void dispatchToRider(order.id, r, adminUid)}
-              className={cn(
-                'flex items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left transition-colors',
-                mine ? 'border-ring bg-muted' : 'hover:bg-muted',
-              )}
-            >
-              <span className="grid size-7 shrink-0 place-items-center rounded-full border bg-muted text-[10px] font-semibold text-icon">
-                {initials(r.name)}
-              </span>
-              <span className="flex flex-1 flex-col">
-                <span className="text-[13px] font-medium">{r.name}</span>
-                <span className="tnum text-[10.5px] text-placeholder">{r.phone}</span>
-              </span>
-              {mine ? <Check className="size-4 text-grocery" strokeWidth={3} /> : null}
-            </button>
-          );
-        })}
-      </div>
+      <Button variant="outline" className="w-full justify-start font-semibold text-[13px]" onClick={() => setOpen(true)}>
+        {order.riderUid ? 'CHANGE CAPTAIN' : 'ASSIGN CAPTAIN'}
+      </Button>
+
+      {open && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-xl bg-background p-5 shadow-lg border">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold tracking-tight">Assign Captain</h3>
+              <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="size-5" />
+              </button>
+            </div>
+            <div className="flex flex-col gap-2">
+              {riders.map((r) => {
+                const mine = order.riderUid === r.uid;
+                const isOnline = r.status === 'ONLINE' || r.isOnline;
+                return (
+                  <button
+                    key={r.uid}
+                    onClick={() => {
+                      void dispatchToRider(order.id, r, adminUid);
+                      setOpen(false);
+                    }}
+                    className={cn(
+                      'flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors',
+                      mine ? 'border-ring bg-muted' : 'hover:bg-muted',
+                    )}
+                  >
+                    <span className="grid size-8 shrink-0 place-items-center rounded-full border bg-muted text-[11px] font-semibold text-icon">
+                      {initials(r.name)}
+                    </span>
+                    <span className="flex flex-1 flex-col">
+                      <span className="text-[13.5px] font-medium">{r.name}</span>
+                      <span className="tnum text-[11px] text-placeholder">{r.phone}</span>
+                    </span>
+                    <Badge tone={isOnline ? 'grocery' : 'neutral'}>
+                      {r.status || (isOnline ? 'ONLINE' : 'OFFLINE')}
+                    </Badge>
+                    {mine ? <Check className="size-4 text-grocery" strokeWidth={3} /> : null}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

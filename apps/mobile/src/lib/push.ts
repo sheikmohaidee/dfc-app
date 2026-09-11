@@ -33,14 +33,17 @@ export const CHANNELS = {
  * A delivered notification should show even with the app open — a vendor
  * looking at yesterday's orders still needs to see a new one land.
  */
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+}
+
 
 async function declareChannels(role: Role): Promise<void> {
   if (Platform.OS !== 'android') return;
@@ -92,10 +95,11 @@ export interface PushRegistration {
  * tablet, and overwriting would silently stop notifying the other one.
  */
 export async function registerForPush(uid: string, role: Role): Promise<PushRegistration> {
-  // A simulator has no APNs/FCM registration to give. Not an error.
-  if (!Device.isDevice) return { token: null, reason: 'simulator' };
+  // Web and simulator have no APNs/FCM registration to give. Not an error.
+  if (Platform.OS === 'web' || !Device.isDevice) return { token: null, reason: 'simulator' };
 
   try {
+
     await declareChannels(role);
 
     const existing = await Notifications.getPermissionsAsync();
@@ -152,7 +156,10 @@ export async function unregisterPush(uid: string, token: string): Promise<void> 
  * launched by the tap) and the warm case.
  */
 export function onNotificationTap(navigate: (path: string) => void): () => void {
+  if (Platform.OS === 'web') return () => {};
+
   const route = (data: Record<string, unknown> | undefined) => {
+
     const orderId = typeof data?.orderId === 'string' ? data.orderId : null;
     const kind = typeof data?.kind === 'string' ? data.kind : '';
     if (!orderId) return;

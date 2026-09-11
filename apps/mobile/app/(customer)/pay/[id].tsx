@@ -52,6 +52,9 @@ import {
 import { GlassCard, PressableScale, PulseDot } from '@/ui/glass';
 import { Button, Card, Divider, ErrorNote, Loading, Money, Num, Screen, T, Ta } from '@/ui';
 
+import { DEMO_MODE } from '@/demo/config';
+import { mockPaymentRepository } from '@/demo/repositories/payment.repository';
+
 export default function Pay() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -96,6 +99,12 @@ export default function Pay() {
     setBusy(true);
     setError(null);
     try {
+      if (DEMO_MODE) {
+        await mockPaymentRepository.simulatePayment(order!, 'upi_intent');
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        router.replace(`/(customer)/order/${order!.id}` as any);
+        return;
+      }
       const p = await startPayment(order!, 'upi_intent');
       setPayment(p);
       await openUpiApp(p, app);
@@ -116,6 +125,12 @@ export default function Pay() {
     setBusy(true);
     setError(null);
     try {
+      if (DEMO_MODE) {
+        await mockPaymentRepository.simulatePayment(order!, 'upi_intent');
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        router.replace(`/(customer)/order/${order!.id}` as any);
+        return;
+      }
       await claimUpiPaid(payment, utr.trim() || undefined);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
@@ -129,10 +144,14 @@ export default function Pay() {
     setBusy(true);
     setError(null);
     try {
+      if (DEMO_MODE) {
+        await mockPaymentRepository.simulatePayment(order!, 'gateway');
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        router.replace(`/(customer)/order/${order!.id}` as any);
+        return;
+      }
       await startPayment(order!, 'gateway');
       await payWithGateway(order!.id);
-      // The browser closing tells us nothing about the money. The webhook
-      // decides, and the live payment subscription will move this screen.
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (e) {
       setError((e as Error).message);
