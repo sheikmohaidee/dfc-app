@@ -1,5 +1,5 @@
 /**
- * Reading a rider's live position.
+ * Reading a rider's live position and profile.
  *
  * Separate from lib/orders.ts because the subscription lifetime is different:
  * a customer watches a rider only while a delivery is actually moving, and
@@ -9,7 +9,8 @@
 import { doc, onSnapshot, type Unsubscribe } from 'firebase/firestore';
 
 import { COL, type Rider } from '@dfc/core';
-import { db } from './firebase';
+import { db, isConfigured } from './firebase';
+import { DEMO_MODE } from '@/demo/config';
 
 export interface LatLng {
   lat: number;
@@ -21,12 +22,15 @@ export function subscribeRiderPosition(
   riderUid: string,
   onData: (pos: LatLng | null) => void,
 ): Unsubscribe {
+  if (DEMO_MODE || !isConfigured) {
+    onData({ lat: 9.9252, lng: 78.1198 });
+    return () => {};
+  }
+
   return onSnapshot(
     doc(db(), COL.riders, riderUid),
     (snap) => {
       const seen = (snap.data() as Rider | undefined)?.lastSeen;
-      // A fix older than two minutes is stale — better to show no dot than a
-      // dot that has not moved because the app was backgrounded.
       if (!seen || Date.now() - seen.at > 120_000) {
         onData(null);
         return;
@@ -41,7 +45,20 @@ export function subscribeRider(
   riderUid: string,
   onData: (rider: Rider | null) => void,
 ): Unsubscribe {
+  if (DEMO_MODE || !isConfigured) {
+    onData({
+      uid: riderUid,
+      name: 'Captain Dhanush',
+      phone: '+919876500004',
+      isOnline: true,
+      activeOrderId: null,
+      vehicle: 'TVS Jupiter • TN 59 AZ 1234',
+      rating: 4.9,
+    });
+    return () => {};
+  }
+
   return onSnapshot(doc(db(), COL.riders, riderUid), (snap) =>
-    onData(snap.exists() ? (snap.data() as Rider) : null),
+    onData(snap.exists() ? ({ ...(snap.data() as Rider), uid: snap.id }) : null),
   );
 }

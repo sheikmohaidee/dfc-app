@@ -41,12 +41,15 @@ import {
   withStatus,
   type AiExtraction,
   type AiTrace,
+  type Category,
   type CreateProductInput,
   type Message,
   type MessageBody,
   type Order,
+  type OrderItem,
   type OrderSource,
   type OrderStatus,
+  type PaymentMethod,
   type Product,
   type Rider,
   type Role,
@@ -58,6 +61,7 @@ import { queueOfflineMutation } from './offline-storage';
 import { DEMO_MODE } from '@/demo/config';
 import { demoStorage } from '@/demo/storage';
 import { mockOrderRepository } from '@/demo/repositories/order.repository';
+import type { CartState, SavedAddress } from '@/demo/types';
 
 // ---------------------------------------------------------------------------
 // Reads
@@ -157,12 +161,12 @@ export function subscribeRiderTasks(
 ): Unsubscribe {
   if (DEMO_MODE || !isConfigured) {
     const all = demoStorage.getOrders();
-    const active = all.find((o) => (o.status === 'dispatched' || o.status === 'picked_up') && (o.riderUid === riderUid || o.captainUid === riderUid)) ?? null;
+    const active = all.find((o) => (o.status === 'dispatched' || o.status === 'picked_up' || o.status === 'out_for_delivery') && (o.riderUid === riderUid || o.captainUid === riderUid)) ?? null;
     const history = all.filter((o) => (o.status === 'delivered' || o.status === 'cancelled') && (o.riderUid === riderUid || o.captainUid === riderUid));
     onData(active, history);
     return demoStorage.subscribe(() => {
       const updated = demoStorage.getOrders();
-      const act = updated.find((o) => (o.status === 'dispatched' || o.status === 'picked_up') && (o.riderUid === riderUid || o.captainUid === riderUid)) ?? null;
+      const act = updated.find((o) => (o.status === 'dispatched' || o.status === 'picked_up' || o.status === 'out_for_delivery') && (o.riderUid === riderUid || o.captainUid === riderUid)) ?? null;
       const hist = updated.filter((o) => (o.status === 'delivered' || o.status === 'cancelled') && (o.riderUid === riderUid || o.captainUid === riderUid));
       onData(act, hist);
     });
@@ -177,7 +181,7 @@ export function subscribeRiderTasks(
     q,
     (snap) => {
       const all = snap.docs.map((d) => toOrder(d.id, d.data()));
-      const active = all.find((o) => o.status === 'dispatched' || o.status === 'picked_up') ?? null;
+      const active = all.find((o) => o.status === 'dispatched' || o.status === 'picked_up' || o.status === 'out_for_delivery') ?? null;
       const history = all.filter((o) => o.status === 'delivered' || o.status === 'cancelled');
       onData(active, history);
     },
@@ -259,13 +263,17 @@ async function read(id: string): Promise<Order> {
 
 async function nextCode(): Promise<number> {
   const ref = doc(db(), ORDER_CODE_COUNTER);
-  return runTransaction(db(), async (tx) => {
-    const snap = await tx.get(ref);
-    const current = snap.exists() ? ((snap.data().value as number) ?? 1000) : 1000;
-    const next = current + 1;
-    tx.set(ref, { value: next }, { merge: true });
-    return next;
-  });
+  try {
+    return await runTransaction(db(), async (tx) => {
+      const snap = await tx.get(ref);
+      const current = snap.exists() ? ((snap.data().value as number) ?? 1000) : 1000;
+      const next = current + 1;
+      tx.set(ref, { value: next }, { merge: true });
+      return next;
+    });
+  } catch {
+    return Math.floor(1000 + Math.random() * 9000);
+  }
 }
 
 export async function createOrderFromExtraction(args: {
@@ -308,6 +316,85 @@ export async function createOrderFromExtraction(args: {
     source: args.source,
     ai: args.ai,
   });
+  await setDoc(ref, order);
+  return order;
+}
+
+export async function createOrderFromCart(args: {
+  customer: UserProfile;
+  cart: CartState;
+  address: SavedAddress;
+  paymentMethod: PaymentMethod;
+}): Promise<Order> {
+  if (DEMO_MODE) {
+    return mockOrderRepository.createFromCart(args.cart, args.address, args.paymentMethod);
+  }
+
+  const code = await nextCode();
+  const ref = doc(collection(db(), COL.orders));
+  const primaryItem = args.cart.items[0];
+  const now = Date.now();
+  const isCod = args.paymentMethod === 'cash';
+
+  const orderItems: OrderItem[] = args.cart.items.map((i) => ({
+    id: i.id,
+    name: i.name,
+    unit: i.unit ?? '1 item',
+    quantity: i.quantity,
+    unitPricePaise: i.pricePaise,
+    confidence: 1.0,
+    included: true,
+  }));
+
+  const subtotal = args.cart.items.reduce((s, i) => s + i.pricePaise * i.quantity, 0);
+  const deliveryPaise = 2500;
+  const platformPaise = 500;
+  const discountPaise = args.cart.couponDiscountPaise || 0;
+  const totalPaise = Math.max(0, subtotal + deliveryPaise + platformPaise - discountPaise);
+
+  const order: Order = {
+    id: ref.id,
+    code,
+    customerUid: args.customer.uid,
+    customerName: args.customer.name,
+    customerPhone: args.customer.phone,
+    localityId: args.address.localityId || args.customer.localityId || 'kk-nagar',
+    addressLine: args.address.street ? `${args.address.street}, ${args.address.pincode}` : (args.customer.addressLine || ''),
+    category: (primaryItem?.sourceCategory as Category) || 'food',
+    status: 'incoming',
+    items: orderItems,
+    storeId: primaryItem?.sourceId || 'rest-amma-mess',
+    storeName: primaryItem?.sourceName || 'Amma Mess',
+    riderUid: null,
+    riderName: null,
+    pricing: {
+      itemsPaise: subtotal,
+      deliveryPaise,
+      servicePaise: platformPaise,
+      discountPaise,
+      totalPaise,
+      pricedAt: now,
+    },
+    paymentMode: isCod ? 'cod' : 'prepaid',
+    paymentStatus: 'unpaid',
+    source: {
+      kind: 'text',
+      transcript: `Cart checkout with ${args.cart.items.length} items`,
+    },
+    ai: null,
+    deliveryOtp: String(Math.floor(1000 + Math.random() * 9000)),
+    timeline: [
+      {
+        status: 'incoming',
+        at: now,
+        by: 'customer',
+        note: isCod ? 'Order placed with Cash on Delivery' : 'Order placed and awaiting payment',
+      },
+    ],
+    createdAt: now,
+    updatedAt: now,
+  };
+
   await setDoc(ref, order);
   return order;
 }
@@ -625,6 +712,64 @@ export async function riderCancelTask(
 export async function setRiderOnline(uid: string, isOnline: boolean): Promise<void> {
   if (DEMO_MODE || !isConfigured) return;
   await updateDoc(doc(db(), COL.riders, uid), { isOnline });
+}
+
+// ---------------------------------------------------------------------------
+// Admin & Lifecycle actions
+// ---------------------------------------------------------------------------
+
+export async function adminAssignRider(
+  orderId: string,
+  rider: { uid: string; name: string; phone?: string },
+  adminUid: string,
+): Promise<void> {
+  const o = await read(orderId);
+  const now = Date.now();
+  const event = {
+    status: 'dispatched' as OrderStatus,
+    at: now,
+    by: adminUid,
+    note: `Assigned to rider ${rider.name}`,
+  };
+
+  const orderPatch: Partial<Order> = {
+    status: 'dispatched',
+    riderUid: rider.uid,
+    riderName: rider.name,
+    captainUid: rider.uid,
+    captainName: rider.name,
+    captainPhone: rider.phone || '+919876500004',
+    assignmentStatus: 'ASSIGNED',
+    timeline: [...o.timeline, event],
+    updatedAt: now,
+  };
+
+  if (DEMO_MODE || !isConfigured) {
+    await demoStorage.saveOrder({ ...o, ...orderPatch } as Order);
+    return;
+  }
+
+  await updateDoc(doc(db(), COL.orders, orderId), orderPatch);
+  await updateDoc(doc(db(), COL.riders, rider.uid), { activeOrderId: orderId });
+}
+
+export async function adminAdvanceOrder(
+  orderId: string,
+  to: OrderStatus,
+  adminUid: string,
+  note?: string,
+): Promise<void> {
+  const o = await read(orderId);
+  const change = withStatus(o, to, 'admin', adminUid, note);
+  if (DEMO_MODE || !isConfigured) {
+    await demoStorage.saveOrder({ ...o, ...change } as Order);
+    return;
+  }
+  await updateDoc(doc(db(), COL.orders, orderId), change);
+}
+
+export async function riderAcceptTask(orderId: string, uid: string): Promise<void> {
+  return riderAdvance(orderId, 'picked_up', uid);
 }
 
 // ---------------------------------------------------------------------------

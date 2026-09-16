@@ -33,7 +33,10 @@ import {
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
-import { formatInr, type Category, type PaymentMethod } from '@dfc/core';
+import { formatInr, type Category, type PaymentMethod, type UserProfile } from '@dfc/core';
+import { DEMO_MODE } from '@/demo/config';
+import { createOrderFromCart } from '@/lib/orders';
+import { useAuth } from '@/providers/auth';
 import { mockOrderRepository } from '@/demo/repositories/order.repository';
 import { mockProfileRepository } from '@/demo/repositories/profile.repository';
 import { mockMenuRepository } from '@/demo/repositories/menu.repository';
@@ -44,6 +47,7 @@ import { Screen } from '@/ui';
 export default function CartScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { profile } = useAuth();
   // The checkout always belongs to exactly one service — the one whose cart
   // bar was tapped. Other service carts and active orders are untouched.
   const { service: serviceParam } = useLocalSearchParams<{ service?: string }>();
@@ -80,8 +84,14 @@ export default function CartScreen() {
   const [couponError, setCouponError] = React.useState<string | null>(null);
   const [placingOrder, setPlacingOrder] = React.useState(false);
 
-  const addresses = mockProfileRepository.getAddresses();
-  const currentAddress = addresses.find((a) => a.id === selectedAddrId) || addresses[0]!;
+  const addresses = React.useMemo(() => {
+    if (profile && (profile as any).addresses && Array.isArray((profile as any).addresses) && (profile as any).addresses.length > 0) {
+      return (profile as any).addresses;
+    }
+    return mockProfileRepository.getAddresses();
+  }, [profile]);
+
+  const currentAddress = addresses.find((a: any) => a.id === selectedAddrId) || addresses[0]!;
 
   const handleApplyCoupon = async () => {
     setCouponError(null);
@@ -100,12 +110,25 @@ export default function CartScreen() {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     try {
-      const order = await mockOrderRepository.createFromCart(
-        cart,
-        currentAddress,
-        paymentMethod,
-      );
+      let order;
+      if (!DEMO_MODE && profile) {
+        order = await createOrderFromCart({
+          customer: profile,
+          cart,
+          address: currentAddress,
+          paymentMethod,
+        });
+        await clearCart();
+      } else {
+        order = await mockOrderRepository.createFromCart(
+          cart,
+          currentAddress,
+          paymentMethod,
+        );
+      }
       router.replace(`/(customer)/order/${order.id}` as any);
+    } catch (err: any) {
+      Alert.alert('Order Placement Failed', err?.message || 'Please check your connection and try again.');
     } finally {
       setPlacingOrder(false);
     }

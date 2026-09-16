@@ -6,7 +6,7 @@
  * Storage, FCM, Google Maps, or external AI APIs.
  */
 
-export const DEMO_MODE = true;
+export const DEMO_MODE = process.env.EXPO_PUBLIC_DEMO_MODE === 'true';
 
 export const DEMO_CONFIG = {
   defaultLocalityId: 'anna-nagar',

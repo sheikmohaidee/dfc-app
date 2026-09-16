@@ -28,8 +28,9 @@ import {
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
-import { formatInr, isTerminal, type Order } from '@dfc/core';
+import { formatInr, isTerminal, type Order, type Rider } from '@dfc/core';
 import { subscribeOrder } from '@/lib/orders';
+import { subscribeRider, subscribeRiderPosition, type LatLng } from '@/lib/riders';
 import { DEMO_MODE } from '@/demo/config';
 import { mockOrderRepository } from '@/demo/repositories/order.repository';
 import { Screen } from '@/ui';
@@ -39,6 +40,8 @@ export default function OrderTrackingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [order, setOrder] = React.useState<Order | null>(null);
+  const [assignedRider, setAssignedRider] = React.useState<Rider | null>(null);
+  const [riderPos, setRiderPos] = React.useState<LatLng | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [advancing, setAdvancing] = React.useState(false);
 
@@ -49,6 +52,24 @@ export default function OrderTrackingScreen() {
       setLoading(false);
     });
   }, [id]);
+
+  React.useEffect(() => {
+    if (!order?.riderUid) {
+      setAssignedRider(null);
+      setRiderPos(null);
+      return;
+    }
+    const unsubRider = subscribeRider(order.riderUid, (r) => {
+      setAssignedRider(r);
+    });
+    const unsubPos = subscribeRiderPosition(order.riderUid, (pos) => {
+      setRiderPos(pos);
+    });
+    return () => {
+      unsubRider();
+      unsubPos();
+    };
+  }, [order?.riderUid]);
 
   const handleAdvanceStage = async () => {
     if (!order) return;
@@ -83,6 +104,7 @@ export default function OrderTrackingScreen() {
   }
 
   const isDelivered = order?.status === 'delivered';
+  const riderName = assignedRider?.name || order?.riderName || order?.captainName || 'Captain';
 
   // 6 Timeline Stages
   const stages = [
@@ -95,21 +117,21 @@ export default function OrderTrackingScreen() {
     },
     {
       title: 'Captain Assigned',
-      desc: 'Captain Muthu Kumar accepted pickup.',
+      desc: `${riderName} assigned for pickup.`,
       completed: ['ready_for_pickup', 'dispatched', 'picked_up', 'out_for_delivery', 'delivered'].includes(
         order?.status || '',
       ),
-      active: order?.status === 'ready_for_pickup',
+      active: order?.status === 'ready_for_pickup' || order?.status === 'dispatched',
     },
     {
       title: 'Picked Up from Store',
-      desc: 'Captain checked batch codes.',
+      desc: `${riderName} picked up order from store.`,
       completed: ['picked_up', 'out_for_delivery', 'delivered'].includes(order?.status || ''),
       active: order?.status === 'picked_up',
     },
     {
       title: 'On the Way to You',
-      desc: 'Approaching Anna Nagar 80 Feet Road.',
+      desc: `En route to ${order?.addressLine || 'your location'}.`,
       completed: ['out_for_delivery', 'delivered'].includes(order?.status || ''),
       active: order?.status === 'out_for_delivery',
     },
@@ -549,16 +571,18 @@ export default function OrderTrackingScreen() {
 
                 <View>
                   <Text style={{ fontFamily: 'Archivo', fontSize: 15, fontWeight: '700', color: '#141B2B' }}>
-                    Muthu Kumar
+                    {assignedRider?.name || order?.riderName || 'Muthu Kumar'}
                   </Text>
                   <View className="flex-row items-center gap-2 mt-0.5">
                     <View className="flex-row items-center gap-0.5">
                       <Star size={12} color="#D97706" fill="#D97706" />
                       <Text style={{ fontFamily: 'Archivo', fontSize: 12, fontWeight: '700', color: '#141B2B' }}>
-                        4.9
+                        {assignedRider?.rating || 4.9}
                       </Text>
                     </View>
-                    <Text style={{ fontFamily: 'Archivo', fontSize: 12, color: '#554245' }}>• TVS Jupiter</Text>
+                    <Text style={{ fontFamily: 'Archivo', fontSize: 12, color: '#554245' }}>
+                      • {assignedRider?.vehicle || 'TVS Jupiter'}
+                    </Text>
                   </View>
                 </View>
               </View>
@@ -590,7 +614,7 @@ export default function OrderTrackingScreen() {
             {/* Call & Chat Action Buttons */}
             <View className="flex-row items-center gap-3">
               <Pressable
-                onPress={() => void Linking.openURL('tel:+919876500004')}
+                onPress={() => void Linking.openURL(`tel:${assignedRider?.phone || '+919876500004'}`)}
                 style={{
                   flex: 1,
                   height: 44,

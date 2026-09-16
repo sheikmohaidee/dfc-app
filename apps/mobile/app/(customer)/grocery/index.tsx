@@ -31,8 +31,11 @@ import {
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
-import { formatInr } from '@dfc/core';
+import { formatInr, type Product } from '@dfc/core';
+import { DEMO_MODE } from '@/demo/config';
+import { subscribeProducts } from '@/lib/catalogue';
 import { mockGroceryRepository } from '@/demo/repositories/grocery.repository';
+import type { GroceryProduct } from '@/demo/types';
 import { useCart } from '@/providers/cart';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Screen } from '@/ui';
@@ -53,17 +56,91 @@ export default function GroceryHomeScreen() {
   const { cart, addItem, updateQuantity, itemCount, totalPaise } = useCart('grocery');
   const [selectedCategory, setSelectedCategory] = React.useState('All');
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [liveProducts, setLiveProducts] = React.useState<Product[]>([]);
+
+  React.useEffect(() => {
+    if (DEMO_MODE) return;
+    return subscribeProducts((prods) => {
+      setLiveProducts(prods.filter((p) => p.category === 'grocery'));
+    }, 'grocery');
+  }, []);
 
   const stores = mockGroceryRepository.getStores();
   const currentStore = stores[0]!;
 
   const products = React.useMemo(() => {
+    if (!DEMO_MODE && liveProducts.length > 0) {
+      let mapped: GroceryProduct[] = liveProducts.map((p) => {
+        const catLower = (p.name + ' ' + (p.nameTa || '')).toLowerCase();
+        let cat: GroceryProduct['category'] = 'Staples & Rice';
+        if (
+          catLower.includes('milk') ||
+          catLower.includes('curd') ||
+          catLower.includes('egg') ||
+          catLower.includes('butter') ||
+          catLower.includes('cheese')
+        ) {
+          cat = 'Dairy & Eggs';
+        } else if (catLower.includes('oil') || catLower.includes('ghee')) {
+          cat = 'Oils & Ghee';
+        } else if (
+          catLower.includes('pooja') ||
+          catLower.includes('flower') ||
+          catLower.includes('agarbatti') ||
+          catLower.includes('camphor')
+        ) {
+          cat = 'Flowers & Puja';
+        } else if (
+          catLower.includes('masala') ||
+          catLower.includes('chilli') ||
+          catLower.includes('turmeric') ||
+          catLower.includes('pepper')
+        ) {
+          cat = 'Spices';
+        } else if (
+          catLower.includes('biscuit') ||
+          catLower.includes('snack') ||
+          catLower.includes('tea') ||
+          catLower.includes('coffee')
+        ) {
+          cat = 'Snacks & Beverages';
+        }
+
+        return {
+          id: p.id,
+          name: p.name,
+          nameTa: p.nameTa,
+          category: cat,
+          unit: p.unit,
+          mrpPaise: p.mrpPaise,
+          sellPaise: p.sellPaise,
+          storeId: p.storeId,
+          storeName: currentStore.name,
+          inStock: p.stockQty > 0 && p.isActive !== false,
+        };
+      });
+
+      if (selectedCategory !== 'All') {
+        mapped = mapped.filter((p) => p.category === selectedCategory);
+      }
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        mapped = mapped.filter(
+          (p) =>
+            p.name.toLowerCase().includes(q) ||
+            p.category.toLowerCase().includes(q) ||
+            (p.nameTa && p.nameTa.toLowerCase().includes(q)),
+        );
+      }
+      return mapped;
+    }
+
     let list = mockGroceryRepository.getByCategory(selectedCategory);
     if (searchQuery.trim()) {
       list = mockGroceryRepository.search(searchQuery);
     }
     return list;
-  }, [selectedCategory, searchQuery]);
+  }, [selectedCategory, searchQuery, liveProducts, currentStore.name]);
 
   return (
     <Screen edges={['top', 'bottom']}>

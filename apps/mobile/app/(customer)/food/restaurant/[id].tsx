@@ -29,9 +29,12 @@ import {
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
-import { formatInr } from '@dfc/core';
+import { formatInr, type Product } from '@dfc/core';
+import { DEMO_MODE } from '@/demo/config';
+import { subscribeProducts } from '@/lib/catalogue';
 import { mockRestaurantRepository } from '@/demo/repositories/restaurant.repository';
 import { mockMenuRepository } from '@/demo/repositories/menu.repository';
+import type { MenuItem } from '@/demo/types';
 import { useCart } from '@/providers/cart';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Screen } from '@/ui';
@@ -44,6 +47,7 @@ export default function RestaurantMenuScreen() {
   const [selectedCategory, setSelectedCategory] = React.useState('All');
   const [searchQuery, setSearchQuery] = React.useState('');
   const [menuVersion, setMenuVersion] = React.useState(0);
+  const [liveProducts, setLiveProducts] = React.useState<Product[]>([]);
 
   React.useEffect(() => {
     return mockMenuRepository.subscribe(() => setMenuVersion((v) => v + 1));
@@ -56,11 +60,33 @@ export default function RestaurantMenuScreen() {
     );
   }, [id]);
 
+  React.useEffect(() => {
+    if (DEMO_MODE || !restaurant?.id) return;
+    return subscribeProducts((prods) => {
+      setLiveProducts(prods);
+    }, undefined, restaurant.id);
+  }, [restaurant?.id]);
+
   const allMenuItems = React.useMemo(() => {
+    if (!DEMO_MODE && liveProducts.length > 0) {
+      const mapped: MenuItem[] = liveProducts.map((p) => ({
+        id: p.id,
+        name: p.name,
+        nameTa: p.nameTa,
+        description: p.unit || undefined,
+        pricePaise: p.sellPaise,
+        category: p.category || 'Mains',
+        isVeg: p.dietary?.includes('pure_veg') ?? false,
+        isBestseller: true,
+        isAvailable: p.stockQty > 0 && p.isActive !== false,
+      }));
+      return mapped;
+    }
+
     const dynamicItems = mockMenuRepository.getMenuByVendor(restaurant?.id || '');
     if (dynamicItems && dynamicItems.length > 0) return dynamicItems;
     return restaurant?.menu || [];
-  }, [restaurant?.id, restaurant?.menu, menuVersion]);
+  }, [restaurant?.id, restaurant?.menu, menuVersion, liveProducts]);
 
   if (!restaurant) {
     return null;

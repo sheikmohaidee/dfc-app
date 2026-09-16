@@ -8,7 +8,9 @@ import { useRouter } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { ArrowLeft, Clock, MapPin, Search, Sparkles, Star, Utensils } from 'lucide-react-native';
 
-import { formatInr } from '@dfc/core';
+import { formatInr, localityById, routeKm, type Store } from '@dfc/core';
+import { DEMO_MODE } from '@/demo/config';
+import { subscribeStores } from '@/lib/catalogue';
 import { mockRestaurantRepository } from '@/demo/repositories/restaurant.repository';
 import { mockLocationRepository } from '@/demo/repositories/location.repository';
 import { useCart } from '@/providers/cart';
@@ -23,10 +25,40 @@ export default function FoodScreen() {
   const [vegOnly, setVegOnly] = React.useState(false);
   const [selectedCuisine, setSelectedCuisine] = React.useState('All');
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [liveStores, setLiveStores] = React.useState<Store[]>([]);
+
+  React.useEffect(() => {
+    if (DEMO_MODE) return;
+    return subscribeStores((stores) => {
+      setLiveStores(stores.filter((s) => s.category === 'food'));
+    }, 'food');
+  }, []);
 
   const currentLocality = mockLocationRepository.getCurrentLocality();
   const restaurants = React.useMemo(() => {
     let list = mockRestaurantRepository.getForCurrentLocality(vegOnly);
+
+    // If live stores are loaded from Firestore, merge live store metadata (open status, avgPrepMinutes, locality)
+    if (!DEMO_MODE && liveStores.length > 0) {
+      list = list.map((r) => {
+        const matchingLive = liveStores.find((ls) => ls.id === r.id);
+        if (matchingLive) {
+          const km = routeKm(matchingLive.localityId, currentLocality.id);
+          return {
+            ...r,
+            name: matchingLive.name || r.name,
+            nameTa: matchingLive.nameTa || r.nameTa,
+            localityId: matchingLive.localityId || r.localityId,
+            localityName: localityById(matchingLive.localityId)?.name || r.localityName,
+            avgPrepMinutes: matchingLive.avgPrepMinutes || r.avgPrepMinutes,
+            distanceKm: km,
+            deliveryFeePaise: 2000 + Math.round(km * 400),
+          };
+        }
+        return r;
+      });
+    }
+
     if (selectedCuisine !== 'All') {
       list = list.filter((r) =>
         r.cuisines.some((c) => c.toLowerCase().includes(selectedCuisine.toLowerCase())),
@@ -42,7 +74,7 @@ export default function FoodScreen() {
       );
     }
     return list;
-  }, [vegOnly, selectedCuisine, searchQuery]);
+  }, [vegOnly, selectedCuisine, searchQuery, liveStores, currentLocality.id]);
 
   return (
     <Screen edges={['top']}>

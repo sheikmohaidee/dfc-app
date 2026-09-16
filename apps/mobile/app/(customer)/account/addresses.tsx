@@ -31,6 +31,7 @@ import { localityById, LOCALITIES } from '@dfc/core';
 import { useAuth } from '@/providers/auth';
 import { DEMO_MODE } from '@/demo/config';
 import { mockProfileRepository } from '@/demo/repositories/profile.repository';
+import type { SavedAddress } from '@/demo/types';
 import { Screen } from '@/ui';
 
 export default function AddressesScreen() {
@@ -43,9 +44,18 @@ export default function AddressesScreen() {
   const [newStreet, setNewStreet] = React.useState('');
   const [newLocalityId, setNewLocalityId] = React.useState('anna-nagar');
 
-  const [addresses, setAddresses] = React.useState(() => {
+  const [addresses, setAddresses] = React.useState<SavedAddress[]>(() => {
+    if (profile && (profile as any).addresses && Array.isArray((profile as any).addresses)) {
+      return (profile as any).addresses;
+    }
     return mockProfileRepository.getAddresses();
   });
+
+  React.useEffect(() => {
+    if (profile && (profile as any).addresses && Array.isArray((profile as any).addresses) && (profile as any).addresses.length > 0) {
+      setAddresses((profile as any).addresses);
+    }
+  }, [profile]);
 
   const handleUseCurrentLocation = () => {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -59,9 +69,16 @@ export default function AddressesScreen() {
       isDefault: a.id === id,
     }));
     setAddresses(updated);
+    if (!DEMO_MODE && profile) {
+      const def = updated.find((a) => a.id === id);
+      void updateProfile({
+        ...(def ? { addressLine: `${def.street}, ${def.title}`, localityId: def.localityId } : {}),
+        ...({ addresses: updated } as any),
+      });
+    }
   };
 
-  const handleSaveAddress = () => {
+  const handleSaveAddress = async () => {
     if (!newTitle.trim() || !newStreet.trim()) {
       Alert.alert('Missing Info', 'Please enter a name and street address.');
       return;
@@ -78,11 +95,19 @@ export default function AddressesScreen() {
       isDefault: addresses.length === 0,
     };
 
-    setAddresses([...addresses, created]);
+    const nextAddresses = [...addresses, created];
+    setAddresses(nextAddresses);
     setAddingNew(false);
     setNewTitle('');
     setNewStreet('');
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    if (!DEMO_MODE && profile) {
+      void updateProfile({
+        ...(created.isDefault ? { addressLine: `${created.street}, ${created.title}`, localityId: created.localityId } : {}),
+        ...({ addresses: nextAddresses } as any),
+      });
+    }
   };
 
   return (

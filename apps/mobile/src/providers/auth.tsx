@@ -122,10 +122,12 @@ interface AuthValue {
 const Ctx = React.createContext<AuthValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = React.useState<User | { uid: string; email?: string } | null>(() => {
+  const [user, setUser] = React.useState<
+    User | { uid: string; email?: string; displayName?: string | null; phoneNumber?: string | null } | null
+  >(() => {
     if (DEMO_MODE) {
       const u = demoStorage.getUser();
-      return u ? { uid: u.uid, email: `${u.role}@dfc.test` } : null;
+      return u ? { uid: u.uid, email: `${u.role}@dfc.test`, displayName: u.name, phoneNumber: u.phone } : null;
     }
     return null;
   });
@@ -168,48 +170,71 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return unsub;
     }
 
-    void (async () => {
-      try {
-        const savedMock = await AsyncStorage.getItem(MOCK_USER_STORAGE_KEY);
-        if (savedMock) {
-          const parsed = JSON.parse(savedMock) as { user: User; profile: UserProfile; role: Role };
-          setUser(parsed.user);
-          setProfile(parsed.profile);
-          setRole(parsed.role);
+    if (!isConfigured) {
+      void (async () => {
+        try {
+          const savedMock = await AsyncStorage.getItem(MOCK_USER_STORAGE_KEY);
+          if (savedMock) {
+            const parsed = JSON.parse(savedMock) as { user: User; profile: UserProfile; role: Role };
+            setUser(parsed.user);
+            setProfile(parsed.profile);
+            setRole(parsed.role);
+          }
+        } catch {
+          // continue
+        } finally {
           setLoading(false);
-          return;
         }
-      } catch {
-        // continue
-      }
+      })();
+      return;
+    }
 
-      if (!isConfigured) {
+    const unsub = onAuthStateChanged(auth(), async (u) => {
+      setUser(u);
+      if (!u) {
+        setRole(null);
+        setProfile(null);
         setLoading(false);
         return;
       }
-
-      return onAuthStateChanged(auth(), async (u) => {
-        setUser(u);
-        if (!u) {
-          setRole(null);
-          setProfile(null);
-          setLoading(false);
-          return;
-        }
+      try {
         const token = await u.getIdTokenResult();
         setRole((token.claims.role as Role) ?? 'customer');
+      } catch {
+        setRole('customer');
+      } finally {
         setLoading(false);
-      });
-    })();
+      }
+    });
+
+    return unsub;
   }, []);
 
   // Live profile listener (active when DEMO_MODE = false)
   React.useEffect(() => {
     if (DEMO_MODE || !user || !isConfigured) return;
-    return onSnapshot(doc(db(), COL.users, user.uid), (snap) => {
-      setProfile(snap.exists() ? (snap.data() as UserProfile) : null);
-    });
-  }, [user]);
+    return onSnapshot(
+      doc(db(), COL.users, user.uid),
+      (snap) => {
+        if (snap.exists()) {
+          setProfile(snap.data() as UserProfile);
+        } else {
+          setProfile((prev) => prev ?? {
+            uid: user.uid,
+            name: user.displayName || user.email?.split('@')[0] || 'Customer',
+            phone: user.phoneNumber || '+919876543210',
+            role: role ?? 'customer',
+            localityId: 'kk-nagar',
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          });
+        }
+      },
+      (err) => {
+        console.warn('Profile listener error:', err);
+      },
+    );
+  }, [user, role]);
 
   // Push notifications registration
   React.useEffect(() => {

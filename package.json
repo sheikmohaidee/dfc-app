@@ -26,6 +26,8 @@
     "web:build": "npm run build -w @dfc/admin-web",
     "deploy:hosting": "npm run web:build && npm run deploy:hosting -w @dfc/firebase",
     "deploy:rules": "npm run deploy:rules -w @dfc/firebase",
+    "deploy:functions:core": "npm run deploy:functions:core -w @dfc/firebase",
+    "deploy:functions": "npm run deploy:functions -w @dfc/firebase",
     "serve:hosting": "npm run web:build && npm run serve:hosting -w @dfc/firebase",
     "test:storage": "npm run test:storage -w @dfc/firebase",
     "test:indexes": "npm run test:indexes -w @dfc/firebase"

@@ -116,7 +116,9 @@ export default function SignIn() {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setCurrentView('success');
       } else {
-        // Live auth fallback
+        // Live auth: sign in customer with Firebase Auth
+        await signIn('customer@dfc.test', 'dfc-customer-2026');
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setCurrentView('success');
       }
     } catch (err: any) {
