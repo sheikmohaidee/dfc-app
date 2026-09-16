@@ -40,10 +40,12 @@ function load(): Mod | null {
   if (attempted) return mod;
   attempted = true;
   try {
-     
     const fiber = require('@react-three/fiber/native');
     const THREE = require('three');
-     
+    if (!fiber?.Canvas || !fiber?.useFrame || !THREE) {
+      mod = null;
+      return null;
+    }
     mod = { Canvas: fiber.Canvas, useFrame: fiber.useFrame, THREE };
   } catch {
     mod = null;
@@ -136,12 +138,12 @@ export function Hero3D({
   spin?: boolean;
 }) {
   const m = load();
+  const Scene = React.useMemo(() => (m ? makeScene(m, tone, spin) : null), [m, tone, spin]);
 
   // No native GL — the flat illustration is the same silhouette, so the screen
   // still looks deliberate rather than broken.
-  if (!m) return <GlossyParcelFallback tone={tone} height={height} />;
+  if (!m || !Scene) return <GlossyParcelFallback tone={tone} height={height} />;
 
-  const Scene = React.useMemo(() => makeScene(m, tone, spin), [m, tone, spin]);
   const { Canvas } = m;
 
   return (

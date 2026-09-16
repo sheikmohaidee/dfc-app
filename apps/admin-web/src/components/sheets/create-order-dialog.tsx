@@ -33,6 +33,9 @@ const CATEGORY_NAMES: Record<Category, string> = {
   food: 'Food / Restaurant',
   concierge: 'Concierge Errand',
   pharmacy: 'Pharmacy',
+  print: 'Print & Xerox',
+  pickup_drop: 'Pickup & Drop',
+  buy_deliver: 'Custom Delivery',
 };
 
 interface DraftItem {

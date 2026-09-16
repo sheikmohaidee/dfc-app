@@ -1,15 +1,8 @@
 /**
  * The multimodal step: photo / voice / text in, structured order out.
  *
- * This runs on the device against Firebase AI Logic, so there is no server in
- * the path — the SDK holds the Gemini call behind App Check rather than behind
- * an API key you would otherwise have to hide in a backend.
- *
- * The model is asked for JSON and the answer is validated by zod before
- * anything downstream sees it (packages/core/src/schema.ts). If validation
- * fails we retry once with the failure quoted back at the model, then give up
- * and hand the request to a human — which is exactly what the "Incoming AI
- * Requests" column on the admin board is for.
+ * Supports seamless Demo Mode via local deterministic mock AI extractor,
+ * while preserving future Firebase AI Logic / Gemini live integration.
  */
 
 import { getAI, getGenerativeModel, GoogleAIBackend } from 'firebase/ai';
@@ -26,6 +19,8 @@ import {
 } from '@dfc/core';
 
 import { app } from './firebase';
+import { DEMO_MODE } from '@/demo/config';
+import { mockAiRepository } from '@/demo/repositories/ai.repository';
 
 const MODEL = process.env.EXPO_PUBLIC_GEMINI_MODEL ?? DEFAULT_MODEL;
 
@@ -34,11 +29,6 @@ function model() {
   return getGenerativeModel(ai, {
     model: MODEL,
     systemInstruction: SYSTEM_PROMPT,
-    // The response schema is deliberately *not* pinned here. Constraining the
-    // model to a JSON Schema is stricter, but the SDK's schema builder differs
-    // between versions; asking for application/json and validating with zod is
-    // version-proof and fails just as loudly. GEMINI_RESPONSE_SCHEMA in
-    // @dfc/core is there for the server-side path when you add one.
     generationConfig: {
       temperature: GENERATION_CONFIG.temperature,
       topP: GENERATION_CONFIG.topP,
@@ -66,6 +56,22 @@ export interface ExtractResult {
 }
 
 export async function extractOrder(input: ExtractInput): Promise<ExtractResult> {
+  if (DEMO_MODE) {
+    const res = mockAiRepository.extractOrderFromInput({
+      kind: input.kind === 'photo' ? 'photo' : input.kind === 'voice' ? 'voice' : 'text',
+      text: input.text,
+      localityName: input.localityName,
+    });
+    // Realistic short delay
+    await new Promise((r) => setTimeout(r, res.latencyMs));
+    return {
+      extraction: res.extraction,
+      raw: JSON.stringify(res.extraction),
+      latencyMs: res.latencyMs,
+      model: res.model,
+    };
+  }
+
   const started = Date.now();
   const m = model();
 
@@ -88,8 +94,6 @@ export async function extractOrder(input: ExtractInput): Promise<ExtractResult> 
   } catch (err) {
     if (!(err instanceof AiParseError)) throw err;
 
-    // One repair attempt. Quoting the validation error back is far more
-    // effective than simply asking again.
     const repaired = await m.generateContent([
       'Your previous reply was not valid for this task.',
       `Error: ${err.message}`,
@@ -108,10 +112,6 @@ export async function extractOrder(input: ExtractInput): Promise<ExtractResult> 
   }
 }
 
-/**
- * A last-resort extraction so a failed model call still produces a ticket the
- * admin can work with, rather than an error the customer has to retry.
- */
 export function fallbackExtraction(text: string): AiExtraction {
   return {
     category: 'concierge',

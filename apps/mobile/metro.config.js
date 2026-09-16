@@ -38,7 +38,21 @@ config.resolver.extraNodeModules = {
   'react-native': path.resolve(projectRoot, 'node_modules/react-native'),
 };
 
+// Intercept native-only modules when bundling for web
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (platform === 'web') {
+    if (moduleName === 'react-native-maps' || moduleName === '@react-three/fiber/native') {
+      return {
+        type: 'sourceFile',
+        filePath: path.resolve(projectRoot, 'src/lib/empty-module.js'),
+      };
+    }
+  }
+  return context.resolveRequest(context, moduleName, platform);
+};
+
 // The Firebase JS SDK still ships some .cjs entry points.
 config.resolver.sourceExts = [...config.resolver.sourceExts, 'cjs', 'mjs'];
 
 module.exports = withNativeWind(config, { input: './global.css' });
+

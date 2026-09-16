@@ -77,7 +77,7 @@ export default function InvoiceScreen() {
   // devices opening this at once still produce one document.
   React.useEffect(() => {
     if (loading || invoice || !id) return;
-    void issueInvoice(id).catch((e) => setError((e as Error).message));
+    void issueInvoice(id).catch((e: Error) => setError(e.message));
   }, [loading, invoice, id]);
 
   if (loading || (!invoice && !error)) {

@@ -417,6 +417,7 @@ function RiderPicker({
         {eligible.map((r) => {
           const mine = order.riderUid === r.uid;
           const strikes = r.cancellationsToday ?? 0;
+          const isOnline = r.status === 'ONLINE' || r.isOnline;
           return (
             <button
               key={r.uid}
@@ -437,7 +438,7 @@ function RiderPicker({
                   <span
                     className={cn(
                       'size-1.5 rounded-full',
-                      r.isOnline ? 'bg-grocery' : 'bg-placeholder',
+                      isOnline ? 'bg-grocery' : 'bg-placeholder',
                     )}
                   />
                   {strikes > 0 ? (

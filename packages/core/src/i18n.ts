@@ -188,6 +188,9 @@ export const CATEGORY_LABEL: Record<Category, Bi> = {
   grocery: COPY.grocery,
   food: COPY.food,
   concierge: COPY.concierge,
+  print: { en: 'Print & Xerox', ta: 'அச்சு & செராக்ஸ்' },
+  pickup_drop: { en: 'Pickup & Drop', ta: 'பிக்அப் & டிராப்' },
+  buy_deliver: { en: 'Buy & Deliver', ta: 'வாங்கி கொடு' },
 };
 
 /** Two-letter code used by the dense board. */
@@ -196,4 +199,7 @@ export const CATEGORY_CODE: Record<Category, string> = {
   grocery: 'GR',
   food: 'FD',
   concierge: 'CN',
+  print: 'PX',
+  pickup_drop: 'PD',
+  buy_deliver: 'BD',
 };

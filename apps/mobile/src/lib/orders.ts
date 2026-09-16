@@ -1,9 +1,8 @@
 /**
- * Every Firestore read and write the three mobile roles make.
+ * Order operations for mobile roles.
  *
- * The mutations all go through @dfc/core's pure helpers, so a rider tapping
- * "Picked up" runs the same transition check the admin board and the security
- * rules do.
+ * Supports seamless Demo Mode via local mock repository without Firebase dependency,
+ * while preserving future Firebase Firestore subscriptions & rules.
  */
 
 import {
@@ -26,8 +25,6 @@ import {
 import {
   COL,
   ORDER_CODE_COUNTER,
-  SEED_ORDERS,
-  SEED_RIDERS,
   cancelOrderWithReason,
   confirmItem as coreConfirmItem,
   createProduct,
@@ -44,12 +41,15 @@ import {
   withStatus,
   type AiExtraction,
   type AiTrace,
+  type Category,
   type CreateProductInput,
   type Message,
   type MessageBody,
   type Order,
+  type OrderItem,
   type OrderSource,
   type OrderStatus,
+  type PaymentMethod,
   type Product,
   type Rider,
   type Role,
@@ -58,6 +58,10 @@ import {
 
 import { db, isConfigured } from './firebase';
 import { queueOfflineMutation } from './offline-storage';
+import { DEMO_MODE } from '@/demo/config';
+import { demoStorage } from '@/demo/storage';
+import { mockOrderRepository } from '@/demo/repositories/order.repository';
+import type { CartState, SavedAddress } from '@/demo/types';
 
 // ---------------------------------------------------------------------------
 // Reads
@@ -65,56 +69,88 @@ import { queueOfflineMutation } from './offline-storage';
 
 const toOrder = (id: string, data: unknown): Order => ({ ...(data as Order), id });
 
-export function subscribeCustomerOrders(
-  customerUid: string,
+const CUSTOMER_HISTORY = 30;
+const STORE_LIVE = 60;
+const RIDER_LIVE = 10;
+const THREAD_MESSAGES = 100;
+
+/** Customer: my orders, newest first. */
+export function subscribeMyOrders(
+  uid: string,
   onData: (orders: Order[]) => void,
   onError?: (e: Error) => void,
 ): Unsubscribe {
-  if (!isConfigured) {
-    const list = SEED_ORDERS.filter((o) => o.customerUid === customerUid || o.customerUid === 'cust-1');
-    onData(list.length > 0 ? list : SEED_ORDERS);
-    return () => {};
+  if (DEMO_MODE) {
+    onData(demoStorage.getOrders());
+    return demoStorage.subscribe(() => {
+      onData(demoStorage.getOrders());
+    });
   }
+
   const q = query(
     collection(db(), COL.orders),
-    where('customerUid', '==', customerUid),
+    where('customerUid', '==', uid),
     orderBy('createdAt', 'desc'),
-    limit(20),
+    limit(CUSTOMER_HISTORY),
   );
   return onSnapshot(
     q,
-    (snap) => onData(snap.docs.map((d) => toOrder(d.id, d.data()))),
-    (err) => onError?.(err),
+    (s) => onData(s.docs.map((d) => toOrder(d.id, d.data()))),
+    (e) => onError?.(e),
   );
 }
 
-export function subscribeVendorOrders(
+/** Vendor: everything live for my store. */
+export function subscribeStoreOrders(
   storeId: string,
   onData: (orders: Order[]) => void,
   onError?: (e: Error) => void,
 ): Unsubscribe {
-  if (!isConfigured) {
-    const list = SEED_ORDERS.filter((o) => !storeId || o.storeId === storeId);
-    onData(list.length > 0 ? list : SEED_ORDERS);
-    return () => {};
+  if (DEMO_MODE) {
+    onData(demoStorage.getOrders());
+    return demoStorage.subscribe(() => {
+      onData(demoStorage.getOrders());
+    });
   }
+
   const q = query(
     collection(db(), COL.orders),
     where('storeId', '==', storeId),
-    where('status', 'in', [
-      'admin_review',
-      'awaiting_payment',
-      'paid',
-      'vendor_accepted',
-      'packing',
-      'ready_for_pickup',
-    ]),
+    where('status', 'in', ['paid', 'vendor_accepted', 'packing', 'ready_for_pickup', 'dispatched']),
     orderBy('createdAt', 'desc'),
+    limit(STORE_LIVE),
   );
   return onSnapshot(
     q,
-    (snap) => onData(snap.docs.map((d) => toOrder(d.id, d.data()))),
-    (err) => onError?.(err),
+    (s) => onData(s.docs.map((d) => toOrder(d.id, d.data()))),
+    (e) => onError?.(e),
+  );
+}
+
+/** Rider: my assigned work. */
+export function subscribeRiderOrders(
+  uid: string,
+  onData: (orders: Order[]) => void,
+  onError?: (e: Error) => void,
+): Unsubscribe {
+  if (DEMO_MODE) {
+    onData(demoStorage.getOrders());
+    return demoStorage.subscribe(() => {
+      onData(demoStorage.getOrders());
+    });
+  }
+
+  const q = query(
+    collection(db(), COL.orders),
+    where('riderUid', '==', uid),
+    where('status', 'in', ['dispatched', 'picked_up', 'out_for_delivery']),
+    orderBy('createdAt', 'desc'),
+    limit(RIDER_LIVE),
+  );
+  return onSnapshot(
+    q,
+    (s) => onData(s.docs.map((d) => toOrder(d.id, d.data()))),
+    (e) => onError?.(e),
   );
 }
 
@@ -123,11 +159,17 @@ export function subscribeRiderTasks(
   onData: (active: Order | null, history: Order[]) => void,
   onError?: (e: Error) => void,
 ): Unsubscribe {
-  if (!isConfigured) {
-    const active = SEED_ORDERS.find((o) => o.status === 'dispatched' || o.status === 'picked_up') ?? null;
-    const history = SEED_ORDERS.filter((o) => o.status === 'delivered' || o.status === 'cancelled');
+  if (DEMO_MODE || !isConfigured) {
+    const all = demoStorage.getOrders();
+    const active = all.find((o) => (o.status === 'dispatched' || o.status === 'picked_up' || o.status === 'out_for_delivery') && (o.riderUid === riderUid || o.captainUid === riderUid)) ?? null;
+    const history = all.filter((o) => (o.status === 'delivered' || o.status === 'cancelled') && (o.riderUid === riderUid || o.captainUid === riderUid));
     onData(active, history);
-    return () => {};
+    return demoStorage.subscribe(() => {
+      const updated = demoStorage.getOrders();
+      const act = updated.find((o) => (o.status === 'dispatched' || o.status === 'picked_up' || o.status === 'out_for_delivery') && (o.riderUid === riderUid || o.captainUid === riderUid)) ?? null;
+      const hist = updated.filter((o) => (o.status === 'delivered' || o.status === 'cancelled') && (o.riderUid === riderUid || o.captainUid === riderUid));
+      onData(act, hist);
+    });
   }
   const q = query(
     collection(db(), COL.orders),
@@ -139,7 +181,7 @@ export function subscribeRiderTasks(
     q,
     (snap) => {
       const all = snap.docs.map((d) => toOrder(d.id, d.data()));
-      const active = all.find((o) => o.status === 'dispatched' || o.status === 'picked_up') ?? null;
+      const active = all.find((o) => o.status === 'dispatched' || o.status === 'picked_up' || o.status === 'out_for_delivery') ?? null;
       const history = all.filter((o) => o.status === 'delivered' || o.status === 'cancelled');
       onData(active, history);
     },
@@ -152,9 +194,17 @@ export function subscribeRiderProfile(
   onData: (rider: Rider | null) => void,
   onError?: (e: Error) => void,
 ): Unsubscribe {
-  if (!isConfigured) {
-    const found = SEED_RIDERS.find((r) => r.uid === riderUid) ?? SEED_RIDERS[0]!;
-    onData(found);
+  if (DEMO_MODE || !isConfigured) {
+    const mockRider: Rider = {
+      uid: riderUid,
+      name: 'Captain Arun',
+      phone: '+919876500002',
+      isOnline: true,
+      activeOrderId: null,
+      cancellationsToday: 0,
+      maxDailyCancellations: 2,
+    };
+    onData(mockRider);
     return () => {};
   }
   return onSnapshot(
@@ -164,164 +214,289 @@ export function subscribeRiderProfile(
   );
 }
 
-export function subscribeOrder(
-  orderId: string,
-  onData: (order: Order | null) => void,
-  onError?: (e: Error) => void,
-): Unsubscribe {
-  if (!isConfigured) {
-    const found = SEED_ORDERS.find((o) => o.id === orderId) ?? SEED_ORDERS[0] ?? null;
-    onData(found);
-    return () => {};
+export function subscribeOrder(id: string, onData: (o: Order | null) => void): Unsubscribe {
+  if (DEMO_MODE) {
+    onData(demoStorage.getOrderById(id));
+    return demoStorage.subscribe(() => {
+      onData(demoStorage.getOrderById(id));
+    });
   }
-  return onSnapshot(
-    doc(db(), COL.orders, orderId),
-    (snap) => onData(snap.exists() ? toOrder(snap.id, snap.data()) : null),
-    (err) => onError?.(err),
+
+  return onSnapshot(doc(db(), COL.orders, id), (s) =>
+    onData(s.exists() ? toOrder(s.id, s.data()) : null),
   );
 }
 
 export function subscribeMessages(
   orderId: string,
-  onData: (messages: Message[]) => void,
-  onError?: (e: Error) => void,
+  onData: (m: Message[]) => void,
 ): Unsubscribe {
-  if (!isConfigured) {
+  if (DEMO_MODE) {
     onData([]);
     return () => {};
   }
-  const q = query(collection(db(), messagesCol(orderId)), orderBy('createdAt', 'asc'));
-  return onSnapshot(
-    q,
-    (snap) => onData(snap.docs.map((d) => ({ ...(d.data() as Message), id: d.id }))),
-    (err) => onError?.(err),
+
+  const q = query(
+    collection(db(), messagesCol(orderId)),
+    orderBy('createdAt', 'desc'),
+    limit(THREAD_MESSAGES),
+  );
+  return onSnapshot(q, (s) =>
+    onData(s.docs.map((d) => ({ ...(d.data() as Message), id: d.id })).reverse()),
   );
 }
 
-async function read(orderId: string): Promise<Order> {
-  if (!isConfigured) {
-    return SEED_ORDERS.find((o) => o.id === orderId) ?? SEED_ORDERS[0]!;
+async function read(id: string): Promise<Order> {
+  if (DEMO_MODE) {
+    const o = demoStorage.getOrderById(id);
+    if (!o) throw new Error('Order not found');
+    return o;
   }
+  const snap = await getDoc(doc(db(), COL.orders, id));
+  if (!snap.exists()) throw new Error('That order no longer exists.');
+  return toOrder(snap.id, snap.data());
+}
+
+// ---------------------------------------------------------------------------
+// Creation
+// ---------------------------------------------------------------------------
+
+async function nextCode(): Promise<number> {
+  const ref = doc(db(), ORDER_CODE_COUNTER);
   try {
-    const snap = await getDoc(doc(db(), COL.orders, orderId));
-    if (!snap.exists()) {
-      return SEED_ORDERS.find((o) => o.id === orderId) ?? SEED_ORDERS[0]!;
-    }
-    return toOrder(snap.id, snap.data());
+    return await runTransaction(db(), async (tx) => {
+      const snap = await tx.get(ref);
+      const current = snap.exists() ? ((snap.data().value as number) ?? 1000) : 1000;
+      const next = current + 1;
+      tx.set(ref, { value: next }, { merge: true });
+      return next;
+    });
   } catch {
-    return SEED_ORDERS.find((o) => o.id === orderId) ?? SEED_ORDERS[0]!;
+    return Math.floor(1000 + Math.random() * 9000);
   }
+}
+
+export async function createOrderFromExtraction(args: {
+  customer: UserProfile;
+  extraction: AiExtraction;
+  source: OrderSource;
+  ai: AiTrace;
+}): Promise<Order> {
+  if (DEMO_MODE) {
+    const storeName = args.extraction.storeHint || 'Amma Mess';
+    const storeId = args.extraction.category === 'pharmacy' ? 'pharm-meenakshi' : 'rest-amma-mess';
+    return mockOrderRepository.createDirectOrder({
+      category: args.extraction.category,
+      storeName,
+      storeId,
+      items: args.extraction.items.map((i) => ({
+        name: i.name,
+        quantity: i.quantity,
+        unit: i.unit,
+        pricePaise: i.estimatedPriceRupees ? i.estimatedPriceRupees * 100 : 15000,
+        flag: i.note,
+      })),
+      totalPaise:
+        args.extraction.items.reduce(
+          (s, i) => s + (i.estimatedPriceRupees ? i.estimatedPriceRupees * 100 : 15000) * i.quantity,
+          0,
+        ) + 3000,
+      sourceKind: args.source.kind,
+      transcript: args.source.transcript,
+    });
+  }
+
+  const code = await nextCode();
+  const ref = doc(collection(db(), COL.orders));
+  const order = draftOrderFromExtraction({
+    id: ref.id,
+    code,
+    customer: args.customer,
+    extraction: args.extraction,
+    source: args.source,
+    ai: args.ai,
+  });
+  await setDoc(ref, order);
+  return order;
+}
+
+export async function createOrderFromCart(args: {
+  customer: UserProfile;
+  cart: CartState;
+  address: SavedAddress;
+  paymentMethod: PaymentMethod;
+}): Promise<Order> {
+  if (DEMO_MODE) {
+    return mockOrderRepository.createFromCart(args.cart, args.address, args.paymentMethod);
+  }
+
+  const code = await nextCode();
+  const ref = doc(collection(db(), COL.orders));
+  const primaryItem = args.cart.items[0];
+  const now = Date.now();
+  const isCod = args.paymentMethod === 'cash';
+
+  const orderItems: OrderItem[] = args.cart.items.map((i) => ({
+    id: i.id,
+    name: i.name,
+    unit: i.unit ?? '1 item',
+    quantity: i.quantity,
+    unitPricePaise: i.pricePaise,
+    confidence: 1.0,
+    included: true,
+  }));
+
+  const subtotal = args.cart.items.reduce((s, i) => s + i.pricePaise * i.quantity, 0);
+  const deliveryPaise = 2500;
+  const platformPaise = 500;
+  const discountPaise = args.cart.couponDiscountPaise || 0;
+  const totalPaise = Math.max(0, subtotal + deliveryPaise + platformPaise - discountPaise);
+
+  const order: Order = {
+    id: ref.id,
+    code,
+    customerUid: args.customer.uid,
+    customerName: args.customer.name,
+    customerPhone: args.customer.phone,
+    localityId: args.address.localityId || args.customer.localityId || 'kk-nagar',
+    addressLine: args.address.street ? `${args.address.street}, ${args.address.pincode}` : (args.customer.addressLine || ''),
+    category: (primaryItem?.sourceCategory as Category) || 'food',
+    status: 'incoming',
+    items: orderItems,
+    storeId: primaryItem?.sourceId || 'rest-amma-mess',
+    storeName: primaryItem?.sourceName || 'Amma Mess',
+    riderUid: null,
+    riderName: null,
+    pricing: {
+      itemsPaise: subtotal,
+      deliveryPaise,
+      servicePaise: platformPaise,
+      discountPaise,
+      totalPaise,
+      pricedAt: now,
+    },
+    paymentMode: isCod ? 'cod' : 'prepaid',
+    paymentStatus: 'unpaid',
+    source: {
+      kind: 'text',
+      transcript: `Cart checkout with ${args.cart.items.length} items`,
+    },
+    ai: null,
+    deliveryOtp: String(Math.floor(1000 + Math.random() * 9000)),
+    timeline: [
+      {
+        status: 'incoming',
+        at: now,
+        by: 'customer',
+        note: isCod ? 'Order placed with Cash on Delivery' : 'Order placed and awaiting payment',
+      },
+    ],
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  await setDoc(ref, order);
+  return order;
+}
+
+export async function addMessage(orderId: string, body: MessageBody, author: 'user' | 'bot') {
+  if (DEMO_MODE) return;
+  await addDoc(collection(db(), messagesCol(orderId)), {
+    threadId: orderId,
+    author,
+    body,
+    createdAt: Date.now(),
+  });
+}
+
+export async function sendMessage(
+  orderId: string,
+  sender: { uid: string; role: Role; name: string } | 'user' | 'bot',
+  body: MessageBody,
+): Promise<string> {
+  if (DEMO_MODE) return 'mock-msg-id';
+  const author = typeof sender === 'string' ? sender : (sender.role === 'customer' ? 'user' : 'bot');
+  const payload: Record<string, unknown> = {
+    orderId,
+    threadId: orderId,
+    author,
+    body,
+    createdAt: Date.now(),
+  };
+  if (typeof sender !== 'string') {
+    payload.senderUid = sender.uid;
+    payload.senderRole = sender.role;
+    payload.senderName = sender.name;
+  }
+  const ref = await addDoc(collection(db(), messagesCol(orderId)), payload);
+  return ref.id;
 }
 
 // ---------------------------------------------------------------------------
 // Customer actions
 // ---------------------------------------------------------------------------
 
-export async function createOrderFromExtraction(args: {
-  customer: UserProfile;
-  source: OrderSource;
-  extraction: AiExtraction;
-  ai?: AiTrace | null;
-  aiTrace?: AiTrace | null;
-}): Promise<string> {
-  if (!isConfigured) return 'mock-order-id';
-  const codeRef = doc(db(), ORDER_CODE_COUNTER);
-  const code = await runTransaction(db(), async (tx) => {
-    const snap = await tx.get(codeRef);
-    const current = snap.exists() ? ((snap.data().value as number) ?? 1000) : 1000;
-    const next = current + 1;
-    tx.set(codeRef, { value: next }, { merge: true });
-    return next;
-  });
-
-  const fallbackAi: AiTrace = {
-    model: 'gemini-1.5-flash',
-    latencyMs: 0,
-    raw: '',
-    minConfidence: 1.0,
-    parsedAt: Date.now(),
-  };
-
-  const orderRef = doc(collection(db(), COL.orders));
-  const order = draftOrderFromExtraction({
-    id: orderRef.id,
-    code,
-    customer: args.customer,
-    source: args.source,
-    extraction: args.extraction,
-    ai: args.ai ?? args.aiTrace ?? fallbackAi,
-  });
-
-  await setDoc(orderRef, order);
-  return orderRef.id;
-}
-
-export async function sendMessage(
-  orderId: string,
-  sender: { uid: string; role: Role; name: string },
-  body: MessageBody,
-): Promise<string> {
-  if (!isConfigured) return 'mock-msg-id';
-  const msgRef = await addDoc(collection(db(), messagesCol(orderId)), {
-    orderId,
-    senderUid: sender.uid,
-    senderRole: sender.role,
-    senderName: sender.name,
-    body,
-    createdAt: Date.now(),
-  });
-  return msgRef.id;
-}
-
-export async function addOrderItem(
-  orderId: string,
-  nameOrItem: string | { name: string; quantity?: number; unit?: string },
-  quantity = 1,
-  unit = 'item',
-): Promise<void> {
-  if (!isConfigured) return;
+export async function toggleItem(orderId: string, itemId: string): Promise<void> {
   const o = await read(orderId);
-  const item =
-    typeof nameOrItem === 'string'
-      ? { name: nameOrItem, quantity, unit }
-      : { name: nameOrItem.name, quantity: nameOrItem.quantity ?? 1, unit: nameOrItem.unit ?? 'item' };
-  const change = coreAddItem(o, item);
+  const change = coreToggleItem(o, itemId);
+  if (DEMO_MODE) {
+    await demoStorage.saveOrder({ ...o, ...change } as Order);
+    return;
+  }
   await updateDoc(doc(db(), COL.orders, orderId), change);
 }
 
-export async function editOrderItem(
-  orderId: string,
-  itemId: string,
-  patch: { name?: string; quantity?: number; unit?: string },
-): Promise<void> {
-  if (!isConfigured) return;
-  const o = await read(orderId);
-  const change = coreEditItem(o, itemId, patch);
-  await updateDoc(doc(db(), COL.orders, orderId), change);
-}
-
-export async function removeOrderItem(orderId: string, itemId: string): Promise<void> {
-  if (!isConfigured) return;
-  const o = await read(orderId);
-  const change = coreRemoveItem(o, itemId);
-  await updateDoc(doc(db(), COL.orders, orderId), change);
-}
-
-export async function setItemQuantity(
+export async function setQuantity(
   orderId: string,
   itemId: string,
   quantity: number,
 ): Promise<void> {
-  if (!isConfigured) return;
   const o = await read(orderId);
   const change = coreSetQuantity(o, itemId, quantity);
+  if (DEMO_MODE) {
+    await demoStorage.saveOrder({ ...o, ...change } as Order);
+    return;
+  }
   await updateDoc(doc(db(), COL.orders, orderId), change);
 }
 
-export async function toggleItemIncluded(orderId: string, itemId: string): Promise<void> {
-  if (!isConfigured) return;
+export async function editItem(
+  orderId: string,
+  itemId: string,
+  patch: { name?: string; unit?: string; quantity?: number; note?: string },
+): Promise<void> {
   const o = await read(orderId);
-  const change = coreToggleItem(o, itemId);
+  const change = coreEditItem(o, itemId, patch);
+  if (Object.keys(change).length === 0) return;
+  if (DEMO_MODE) {
+    await demoStorage.saveOrder({ ...o, ...change } as Order);
+    return;
+  }
+  await updateDoc(doc(db(), COL.orders, orderId), change);
+}
+
+export async function addItem(
+  orderId: string,
+  input: { name: string; unit?: string; quantity?: number },
+): Promise<void> {
+  const o = await read(orderId);
+  const change = coreAddItem(o, input);
+  if (Object.keys(change).length === 0) return;
+  if (DEMO_MODE) {
+    await demoStorage.saveOrder({ ...o, ...change } as Order);
+    return;
+  }
+  await updateDoc(doc(db(), COL.orders, orderId), change);
+}
+
+export async function removeItem(orderId: string, itemId: string): Promise<void> {
+  const o = await read(orderId);
+  const change = coreRemoveItem(o, itemId);
+  if (Object.keys(change).length === 0) return;
+  if (DEMO_MODE) {
+    await demoStorage.saveOrder({ ...o, ...change } as Order);
+    return;
+  }
   await updateDoc(doc(db(), COL.orders, orderId), change);
 }
 
@@ -331,10 +506,13 @@ export async function cancelOrder(
   role: Role,
   reason?: string,
 ): Promise<void> {
-  if (!isConfigured) return;
   const o = await read(orderId);
-  const patch = cancelOrderWithReason(o, role, uid, reason ?? 'Cancelled');
-  await updateDoc(doc(db(), COL.orders, orderId), patch);
+  const change = cancelOrderWithReason(o, role, uid, reason ?? 'Cancelled');
+  if (DEMO_MODE) {
+    await demoStorage.saveOrder({ ...o, ...change } as Order);
+    return;
+  }
+  await updateDoc(doc(db(), COL.orders, orderId), change);
 }
 
 // ---------------------------------------------------------------------------
@@ -342,27 +520,43 @@ export async function cancelOrder(
 // ---------------------------------------------------------------------------
 
 export async function vendorAccept(orderId: string, uid: string): Promise<void> {
-  if (!isConfigured) return;
   const o = await read(orderId);
-  await updateDoc(doc(db(), COL.orders, orderId), withStatus(o, 'vendor_accepted', 'vendor', uid));
+  const change = withStatus(o, 'vendor_accepted', 'vendor', uid);
+  if (DEMO_MODE) {
+    await demoStorage.saveOrder({ ...o, ...change } as Order);
+    return;
+  }
+  await updateDoc(doc(db(), COL.orders, orderId), change);
 }
 
 export async function vendorReject(orderId: string, uid: string, reason: string): Promise<void> {
-  if (!isConfigured) return;
   const o = await read(orderId);
-  await updateDoc(doc(db(), COL.orders, orderId), withStatus(o, 'rejected', 'vendor', uid, reason));
+  const change = withStatus(o, 'rejected', 'vendor', uid, reason);
+  if (DEMO_MODE) {
+    await demoStorage.saveOrder({ ...o, ...change } as Order);
+    return;
+  }
+  await updateDoc(doc(db(), COL.orders, orderId), change);
 }
 
 export async function vendorStartPacking(orderId: string, uid: string): Promise<void> {
-  if (!isConfigured) return;
   const o = await read(orderId);
-  await updateDoc(doc(db(), COL.orders, orderId), withStatus(o, 'packing', 'vendor', uid));
+  const change = withStatus(o, 'packing', 'vendor', uid);
+  if (DEMO_MODE) {
+    await demoStorage.saveOrder({ ...o, ...change } as Order);
+    return;
+  }
+  await updateDoc(doc(db(), COL.orders, orderId), change);
 }
 
 export async function vendorMarkReady(orderId: string, uid: string): Promise<void> {
-  if (!isConfigured) return;
   const o = await read(orderId);
-  await updateDoc(doc(db(), COL.orders, orderId), withStatus(o, 'ready_for_pickup', 'vendor', uid));
+  const change = withStatus(o, 'ready_for_pickup', 'vendor', uid);
+  if (DEMO_MODE) {
+    await demoStorage.saveOrder({ ...o, ...change } as Order);
+    return;
+  }
+  await updateDoc(doc(db(), COL.orders, orderId), change);
 }
 
 export async function vendorReportDelay(
@@ -371,9 +565,12 @@ export async function vendorReportDelay(
   reason: string,
   uid: string,
 ): Promise<void> {
-  if (!isConfigured) return;
   const o = await read(orderId);
   const patch = reportOrderDelay(o, delayMinutes, reason, uid);
+  if (DEMO_MODE) {
+    await demoStorage.saveOrder({ ...o, ...patch } as Order);
+    return;
+  }
   await updateDoc(doc(db(), COL.orders, orderId), patch);
 }
 
@@ -382,15 +579,23 @@ export async function vendorConfirmItem(
   itemId: string,
   patch: { name?: string; pricePaise?: number } = {},
 ): Promise<void> {
-  if (!isConfigured) return;
   const o = await read(orderId);
-  await updateDoc(doc(db(), COL.orders, orderId), coreConfirmItem(o, itemId, patch));
+  const change = coreConfirmItem(o, itemId, patch);
+  if (DEMO_MODE) {
+    await demoStorage.saveOrder({ ...o, ...change } as Order);
+    return;
+  }
+  await updateDoc(doc(db(), COL.orders, orderId), change);
 }
 
 export async function vendorMarkUnavailable(orderId: string, itemId: string): Promise<void> {
-  if (!isConfigured) return;
   const o = await read(orderId);
-  await updateDoc(doc(db(), COL.orders, orderId), coreMarkUnavailable(o, itemId));
+  const change = coreMarkUnavailable(o, itemId);
+  if (DEMO_MODE) {
+    await demoStorage.saveOrder({ ...o, ...change } as Order);
+    return;
+  }
+  await updateDoc(doc(db(), COL.orders, orderId), change);
 }
 
 // ---------------------------------------------------------------------------
@@ -402,7 +607,7 @@ export function vendorSubscribeProducts(
   onData: (products: Product[]) => void,
   onError?: (e: Error) => void,
 ): Unsubscribe {
-  if (!isConfigured) {
+  if (DEMO_MODE || !isConfigured) {
     onData([]);
     return () => {};
   }
@@ -419,19 +624,19 @@ export function vendorSubscribeProducts(
 }
 
 export async function vendorAddProduct(input: CreateProductInput): Promise<string> {
-  if (!isConfigured) return 'mock-prod';
+  if (DEMO_MODE || !isConfigured) return 'mock-prod';
   const prod = createProduct(input);
   await setDoc(doc(db(), COL.products, prod.id), prod);
   return prod.id;
 }
 
 export async function vendorToggleProduct(productId: string, isActive: boolean): Promise<void> {
-  if (!isConfigured) return;
+  if (DEMO_MODE || !isConfigured) return;
   await updateDoc(doc(db(), COL.products, productId), { isActive, updatedAt: Date.now() });
 }
 
 export async function vendorDeleteProduct(productId: string): Promise<void> {
-  if (!isConfigured) return;
+  if (DEMO_MODE || !isConfigured) return;
   await deleteDoc(doc(db(), COL.products, productId));
 }
 
@@ -444,18 +649,27 @@ export async function riderAdvance(
   to: OrderStatus,
   uid: string,
 ): Promise<void> {
-  if (!isConfigured) {
+  if (DEMO_MODE || !isConfigured) {
     void queueOfflineMutation('rider_advance', { orderId, to, uid });
+    const o = await read(orderId);
+    const change = withStatus(o, to, 'rider', uid);
+    await demoStorage.saveOrder({ ...o, ...change } as Order);
     return;
   }
   const o = await read(orderId);
-  await updateDoc(doc(db(), COL.orders, orderId), withStatus(o, to, 'rider', uid));
+  const change = withStatus(o, to, 'rider', uid);
+  await updateDoc(doc(db(), COL.orders, orderId), change);
 }
 
 export async function riderComplete(orderId: string, uid: string): Promise<void> {
-  if (!isConfigured) return;
   const o = await read(orderId);
-  await updateDoc(doc(db(), COL.orders, orderId), withStatus(o, 'delivered', 'rider', uid));
+  const change = withStatus(o, 'delivered', 'rider', uid);
+  if (DEMO_MODE || !isConfigured) {
+    void queueOfflineMutation('rider_complete', { orderId, uid });
+    await demoStorage.saveOrder({ ...o, ...change } as Order);
+    return;
+  }
+  await updateDoc(doc(db(), COL.orders, orderId), change);
   await updateDoc(doc(db(), COL.riders, uid), { activeOrderId: null });
 }
 
@@ -465,12 +679,14 @@ export async function riderCancelTask(
   reason: string,
   explanation?: string,
 ): Promise<{ autoOffline: boolean; count: number }> {
-  if (!isConfigured) {
-    return { autoOffline: false, count: (rider.cancellationsToday ?? 0) + 1 };
-  }
-
   const o = await read(orderId);
   const result = recordRiderCancellation(rider, o, reason, explanation);
+
+  if (DEMO_MODE || !isConfigured) {
+    void queueOfflineMutation('cancel_order', { orderId, riderUid: rider.uid, reason, explanation });
+    await demoStorage.saveOrder({ ...o, ...result.orderPatch } as Order);
+    return { autoOffline: result.autoOffline, count: result.rider.cancellationsToday ?? 0 };
+  }
 
   // Unassign rider from order and reset order status
   const orderPatch = {
@@ -494,31 +710,76 @@ export async function riderCancelTask(
 }
 
 export async function setRiderOnline(uid: string, isOnline: boolean): Promise<void> {
-  if (!isConfigured) return;
+  if (DEMO_MODE || !isConfigured) return;
   await updateDoc(doc(db(), COL.riders, uid), { isOnline });
 }
 
 // ---------------------------------------------------------------------------
-// Aliases for compatibility
+// Admin & Lifecycle actions
 // ---------------------------------------------------------------------------
 
-export const addItem = addOrderItem;
-export const editItem = editOrderItem;
-export const removeItem = removeOrderItem;
-export const setQuantity = setItemQuantity;
-export const toggleItem = toggleItemIncluded;
-export const subscribeMyOrders = subscribeCustomerOrders;
-export const subscribeStoreOrders = subscribeVendorOrders;
-export const subscribeRiderOrders = (
-  riderUid: string,
-  onData: (orders: Order[]) => void,
-  onError?: (e: Error) => void,
-) => {
-  return subscribeRiderTasks(
-    riderUid,
-    (active, history) => {
-      onData(active ? [active, ...history] : history);
-    },
-    onError,
-  );
-};
+export async function adminAssignRider(
+  orderId: string,
+  rider: { uid: string; name: string; phone?: string },
+  adminUid: string,
+): Promise<void> {
+  const o = await read(orderId);
+  const now = Date.now();
+  const event = {
+    status: 'dispatched' as OrderStatus,
+    at: now,
+    by: adminUid,
+    note: `Assigned to rider ${rider.name}`,
+  };
+
+  const orderPatch: Partial<Order> = {
+    status: 'dispatched',
+    riderUid: rider.uid,
+    riderName: rider.name,
+    captainUid: rider.uid,
+    captainName: rider.name,
+    captainPhone: rider.phone || '+919876500004',
+    assignmentStatus: 'ASSIGNED',
+    timeline: [...o.timeline, event],
+    updatedAt: now,
+  };
+
+  if (DEMO_MODE || !isConfigured) {
+    await demoStorage.saveOrder({ ...o, ...orderPatch } as Order);
+    return;
+  }
+
+  await updateDoc(doc(db(), COL.orders, orderId), orderPatch);
+  await updateDoc(doc(db(), COL.riders, rider.uid), { activeOrderId: orderId });
+}
+
+export async function adminAdvanceOrder(
+  orderId: string,
+  to: OrderStatus,
+  adminUid: string,
+  note?: string,
+): Promise<void> {
+  const o = await read(orderId);
+  const change = withStatus(o, to, 'admin', adminUid, note);
+  if (DEMO_MODE || !isConfigured) {
+    await demoStorage.saveOrder({ ...o, ...change } as Order);
+    return;
+  }
+  await updateDoc(doc(db(), COL.orders, orderId), change);
+}
+
+export async function riderAcceptTask(orderId: string, uid: string): Promise<void> {
+  return riderAdvance(orderId, 'picked_up', uid);
+}
+
+// ---------------------------------------------------------------------------
+// Compatibility Aliases
+// ---------------------------------------------------------------------------
+
+export const addOrderItem = addItem;
+export const editOrderItem = editItem;
+export const removeOrderItem = removeItem;
+export const setItemQuantity = setQuantity;
+export const toggleItemIncluded = toggleItem;
+export const subscribeCustomerOrders = subscribeMyOrders;
+export const subscribeVendorOrders = subscribeStoreOrders;

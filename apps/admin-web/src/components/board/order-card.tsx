@@ -31,6 +31,9 @@ const TONE: Record<Category, 'pharmacy' | 'grocery' | 'food' | 'concierge'> = {
   grocery: 'grocery',
   food: 'food',
   concierge: 'concierge',
+  print: 'pharmacy',
+  pickup_drop: 'food',
+  buy_deliver: 'grocery',
 };
 
 const DOT: Record<Category, string> = {
@@ -38,6 +41,9 @@ const DOT: Record<Category, string> = {
   grocery: 'bg-grocery',
   food: 'bg-food',
   concierge: 'bg-concierge',
+  print: 'bg-pharmacy',
+  pickup_drop: 'bg-food',
+  buy_deliver: 'bg-grocery',
 };
 
 // ---------------------------------------------------------------------------

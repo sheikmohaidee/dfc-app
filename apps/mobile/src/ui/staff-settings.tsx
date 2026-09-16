@@ -11,6 +11,7 @@ import * as React from 'react';
 import { Alert, Linking, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
+  Bike,
   FileText,
   Globe,
   LifeBuoy,
@@ -18,13 +19,17 @@ import {
   Phone,
   ScrollText,
   ShieldCheck,
+  Store,
   Trash2,
+  User,
 } from 'lucide-react-native';
 
 import { COMPANY, COPY, localityById } from '@dfc/core';
 
 import { useAuth } from '@/providers/auth';
 import { useLang } from '@/providers/language';
+import { DEMO_MODE } from '@/demo/config';
+import { mockAuthRepository } from '@/demo/repositories/auth.repository';
 import { Screen, T, Ta } from './index';
 import { Group, Row, SettingsHeader, SettingsScroll } from './settings';
 
@@ -132,12 +137,51 @@ export function StaffSettings({ role }: { role: 'rider' | 'vendor' }) {
           />
         </Group>
 
+        {DEMO_MODE ? (
+          <Group label="DEMO ROLES & CONTROLS">
+            <Row
+              icon={<User size={19} color="#7A1F3D" strokeWidth={1.9} />}
+              label={{ en: 'Switch to Customer App', ta: 'வாடிக்கையாளர் ஆப்' }}
+              value="Arun Kumar"
+              onPress={async () => {
+                await mockAuthRepository.loginWithPhone('+919876543210', '123456');
+                router.replace('/(customer)/chat');
+              }}
+            />
+            {role !== 'vendor' ? (
+              <Row
+                icon={<Store size={19} color="#2563EB" strokeWidth={1.9} />}
+                label={{ en: 'Switch to Vendor App', ta: 'விற்பனையாளர் ஆப்' }}
+                value="Meenakshi Medicals"
+                onPress={async () => {
+                  await mockAuthRepository.loginWithStaff('vendor@dfc.test', 'password');
+                  router.replace('/(vendor)/inbox');
+                }}
+              />
+            ) : null}
+            {role !== 'rider' ? (
+              <Row
+                icon={<Bike size={19} color="#16A34A" strokeWidth={1.9} />}
+                label={{ en: 'Switch to Rider App', ta: 'டெலிவரி கேப்டன் ஆப்' }}
+                value="Arun Captain"
+                onPress={async () => {
+                  await mockAuthRepository.loginWithStaff('rider@dfc.test', 'password');
+                  router.replace('/(rider)/queue');
+                }}
+              />
+            ) : null}
+          </Group>
+        ) : null}
+
         <Group>
           <Row
             icon={<LogOut {...ICON} />}
             label={COPY.signOut}
             chevron={false}
-            onPress={() => void signOut()}
+            onPress={async () => {
+              await signOut();
+              router.replace('/(auth)/sign-in');
+            }}
           />
           <Row
             icon={<Trash2 size={19} color="#DC2626" strokeWidth={1.9} />}

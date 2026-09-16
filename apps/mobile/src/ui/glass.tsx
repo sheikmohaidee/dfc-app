@@ -11,7 +11,15 @@
  */
 
 import * as React from 'react';
-import { Platform, Pressable, View, type PressableProps, type ViewProps } from 'react-native';
+import {
+  Platform,
+  Pressable,
+  View,
+  type PressableProps,
+  type ViewProps,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -38,6 +46,7 @@ const SPRING = { damping: 15, stiffness: 220, mass: 0.55 } as const;
 export interface PressableScaleProps extends Omit<PressableProps, 'style'> {
   children: React.ReactNode;
   className?: string;
+  style?: StyleProp<ViewStyle>;
   /** How far it sinks. 0.97 for cards, 0.94 for small controls. */
   to?: number;
   haptic?: boolean;
@@ -50,6 +59,7 @@ export interface PressableScaleProps extends Omit<PressableProps, 'style'> {
 export function PressableScale({
   children,
   className,
+  style,
   to = 0.97,
   haptic = false,
   onPressIn,
@@ -58,11 +68,11 @@ export function PressableScale({
   ...rest
 }: PressableScaleProps) {
   const scale = useSharedValue(1);
-  const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const animated = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   return (
     <AnimatedPressable
-      style={style}
+      style={[animated, style]}
       className={className}
       onPressIn={(e) => {
         scale.value = withSpring(to, SPRING);

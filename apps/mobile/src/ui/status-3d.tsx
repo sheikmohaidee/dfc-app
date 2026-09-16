@@ -37,8 +37,11 @@ function load(): Mod | null {
   if (attempted) return mod;
   attempted = true;
   try {
-     
     const fiber = require('@react-three/fiber/native');
+    if (!fiber?.Canvas || !fiber?.useFrame) {
+      mod = null;
+      return null;
+    }
     mod = { Canvas: fiber.Canvas, useFrame: fiber.useFrame };
   } catch {
     mod = null;
@@ -175,10 +178,10 @@ export function Status3D({
 }) {
   const phase = phaseOf(status);
   const m = load();
+  const Scene = React.useMemo(() => (m ? makeScene(m, phase) : null), [m, phase]);
 
-  if (!m) return <StatusFallback phase={phase} height={height} />;
+  if (!m || !Scene) return <StatusFallback phase={phase} height={height} />;
 
-  const Scene = React.useMemo(() => makeScene(m, phase), [m, phase]);
   const { Canvas } = m;
 
   return (

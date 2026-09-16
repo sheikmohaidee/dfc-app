@@ -39,7 +39,7 @@ export interface UserProfile {
 
 export interface RiderCancellationRecord {
   orderId: string;
-  orderCode: number;
+  orderCode: number | string;
   reason: string;
   explanation?: string;
   timestamp: number;
@@ -50,6 +50,12 @@ export interface Rider {
   name: string;
   phone: string;
   isOnline: boolean;
+  status?: 'ONLINE' | 'OFFLINE' | 'BUSY';
+  offlineReason?: string;
+  cancellationCount?: number;
+  maxFreeCancellations?: number;
+  vehicle?: string;
+  rating?: number;
   /** At most one live task at a time in v1. */
   activeOrderId: string | null;
   /** Coarse last-known position, updated while a task is live. */
@@ -66,13 +72,55 @@ export interface Rider {
   explanationGiven?: string;
 }
 
+export interface Captain {
+  id: string;
+  name: string;
+  phone: string;
+  status: 'ONLINE' | 'OFFLINE' | 'BUSY';
+  offlineReason?: string;
+  cancellationCount: number;
+  maxFreeCancellations: number;
+  vehicle: string;
+  rating: number;
+  activeOrderId: string | null;
+}
+
+export interface OrderCancellation {
+  id: string;
+  captainId: string;
+  captainName: string;
+  orderId: string;
+  orderCode: number | string;
+  reason: string;
+  explanation?: string;
+  createdAt: number;
+  adminReviewStatus: 'pending' | 'reviewed' | 'penalized' | 'waived';
+  reviewedAt?: number;
+  reviewedBy?: string;
+}
+
 // ---------------------------------------------------------------------------
 // Catalogue
 // ---------------------------------------------------------------------------
 
-export type Category = 'pharmacy' | 'grocery' | 'food' | 'concierge';
-export const ACTIVE_CATEGORIES: Category[] = ['grocery', 'food', 'concierge'];
+export type Category =
+  | 'food'
+  | 'grocery'
+  | 'print'
+  | 'concierge'
+  | 'pickup_drop'
+  | 'buy_deliver'
+  /** @deprecated Pharmacy removed by client requirement. Kept in union for legacy migration safety. */
+  | 'pharmacy';
 
+export const ACTIVE_CATEGORIES: Category[] = [
+  'food' as Category,
+  'grocery' as Category,
+  'print' as Category,
+  'concierge' as Category,
+  'pickup_drop' as Category,
+  'buy_deliver' as Category,
+];
 
 export interface Store {
   id: string;
@@ -265,6 +313,46 @@ export interface Order {
   riderUid: string | null;
   riderName: string | null;
 
+  /** Client Requirement: Manual Captain Assignment & Status */
+  captainUid?: string | null;
+  captainName?: string | null;
+  captainPhone?: string | null;
+  assignmentStatus?: 'UNASSIGNED' | 'ASSIGNED' | 'ACCEPTED' | 'REJECTED';
+  assignmentHistory?: Array<{
+    captainId: string;
+    captainName: string;
+    assignedAt: number;
+    assignedBy?: string;
+    status: string;
+  }>;
+
+  /** Client Requirement: Preparation and Delivery Timing */
+  acceptedAt?: number;
+  preparationStartedAt?: number;
+  preparationCompletedAt?: number;
+  preparationDurationMinutes?: number;
+  captainAssignedAt?: number;
+  pickedUpAt?: number;
+  deliveryStartedAt?: number;
+  deliveredAt?: number;
+  deliveryDurationMinutes?: number;
+  totalOrderDurationMinutes?: number;
+
+  // --- Timing & Delays from Reference ---
+  prepStartedAt?: number;
+  prepCompletedAt?: number;
+  actualPrepMinutes?: number;
+  dispatchedAt?: number;
+  actualDeliveryMinutes?: number;
+  delayMinutes?: number;
+  delayReason?: string;
+  delayReportedAt?: number;
+
+  // --- Cancellation Auditing ---
+  cancellationReason?: string;
+  cancelledByRole?: Role;
+  cancelledByUid?: string;
+
   pricing: Pricing;
   paymentMode: PaymentMode;
   paymentStatus: PaymentStatus;
@@ -286,23 +374,6 @@ export interface Order {
   instructions?: DeliveryInstructions;
   /** 100% rider tip in paise. */
   riderTipPaise?: number;
-
-  // --- Timing & Delays ---
-  prepStartedAt?: number;
-  prepCompletedAt?: number;
-  actualPrepMinutes?: number;
-  dispatchedAt?: number;
-  pickedUpAt?: number;
-  deliveredAt?: number;
-  actualDeliveryMinutes?: number;
-  delayMinutes?: number;
-  delayReason?: string;
-  delayReportedAt?: number;
-
-  // --- Cancellation Auditing ---
-  cancellationReason?: string;
-  cancelledByRole?: Role;
-  cancelledByUid?: string;
 
   timeline: TimelineEvent[];
   createdAt: number;

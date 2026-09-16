@@ -1,12 +1,12 @@
 /**
  * Session, profile and role for the mobile apps.
  *
- * The role decides which route group the router lands on. It comes from the
- * ID token claim so it matches what the security rules see; the Firestore
- * profile carries everything else (name, locality, store).
+ * Supports seamless Demo Mode via local mock repository without Firebase dependency,
+ * while preserving future Firebase Auth & Firestore listeners.
  */
 
 import * as React from 'react';
+import { Platform } from 'react-native';
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -21,6 +21,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COL, type Role, type UserProfile } from '@dfc/core';
 import { auth, db, isConfigured } from '@/lib/firebase';
 import { registerForPush, unregisterPush } from '@/lib/push';
+import { DEMO_MODE } from '@/demo/config';
+import { mockAuthRepository } from '@/demo/repositories/auth.repository';
+import { demoStorage } from '@/demo/storage';
 
 export const MOCK_USER_STORAGE_KEY = 'dfc_mock_user_persona';
 
@@ -101,7 +104,7 @@ export const DEMO_PERSONAS: Record<Role, { user: User; profile: UserProfile }> =
 };
 
 interface AuthValue {
-  user: User | null;
+  user: User | { uid: string; email?: string; displayName?: string | null; phoneNumber?: string | null } | null;
   profile: UserProfile | null;
   role: Role | null;
   loading: boolean;
@@ -119,77 +122,129 @@ interface AuthValue {
 const Ctx = React.createContext<AuthValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = React.useState<User | null>(null);
-  const [profile, setProfile] = React.useState<UserProfile | null>(null);
-  const [role, setRole] = React.useState<Role | null>(null);
-  const [loading, setLoading] = React.useState(true);
+  const [user, setUser] = React.useState<
+    User | { uid: string; email?: string; displayName?: string | null; phoneNumber?: string | null } | null
+  >(() => {
+    if (DEMO_MODE) {
+      const u = demoStorage.getUser();
+      return u ? { uid: u.uid, email: `${u.role}@dfc.test`, displayName: u.name, phoneNumber: u.phone } : null;
+    }
+    return null;
+  });
+  const [profile, setProfile] = React.useState<UserProfile | null>(() => {
+    if (DEMO_MODE) return demoStorage.getUser();
+    return null;
+  });
+  const [role, setRole] = React.useState<Role | null>(() => {
+    if (DEMO_MODE) return demoStorage.getUser()?.role ?? null;
+    return null;
+  });
+  const [loading, setLoading] = React.useState(!DEMO_MODE);
   const [biometricsAvailable, setBiometrics] = React.useState(false);
   const pushToken = React.useRef<string | null>(null);
 
   React.useEffect(() => {
+    if (Platform.OS === 'web') return;
     void (async () => {
-      const hasHardware = await LocalAuthentication.hasHardwareAsync();
-      const enrolled = await LocalAuthentication.isEnrolledAsync();
-      setBiometrics(hasHardware && enrolled);
+      try {
+        const hasHardware = await LocalAuthentication.hasHardwareAsync();
+        const enrolled = await LocalAuthentication.isEnrolledAsync();
+        setBiometrics(hasHardware && enrolled);
+      } catch {
+        setBiometrics(false);
+      }
     })();
   }, []);
 
+  // Demo Mode or live session listener
   React.useEffect(() => {
-    void (async () => {
-      try {
-        const savedMock = await AsyncStorage.getItem(MOCK_USER_STORAGE_KEY);
-        if (savedMock) {
-          const parsed = JSON.parse(savedMock) as { user: User; profile: UserProfile; role: Role };
-          setUser(parsed.user);
-          setProfile(parsed.profile);
-          setRole(parsed.role);
-          setLoading(false);
-          return;
-        }
-      } catch {
-        // continue
-      }
+    if (DEMO_MODE) {
+      const unsub = demoStorage.subscribe(() => {
+        const u = demoStorage.getUser();
+        setUser(u ? { uid: u.uid, email: `${u.role}@dfc.test` } : null);
+        setProfile(u);
+        setRole(u?.role ?? null);
+        setLoading(false);
+      });
+      setLoading(false);
+      return unsub;
+    }
 
-      if (!isConfigured) {
+    if (!isConfigured) {
+      void (async () => {
+        try {
+          const savedMock = await AsyncStorage.getItem(MOCK_USER_STORAGE_KEY);
+          if (savedMock) {
+            const parsed = JSON.parse(savedMock) as { user: User; profile: UserProfile; role: Role };
+            setUser(parsed.user);
+            setProfile(parsed.profile);
+            setRole(parsed.role);
+          }
+        } catch {
+          // continue
+        } finally {
+          setLoading(false);
+        }
+      })();
+      return;
+    }
+
+    const unsub = onAuthStateChanged(auth(), async (u) => {
+      setUser(u);
+      if (!u) {
+        setRole(null);
+        setProfile(null);
         setLoading(false);
         return;
       }
-
-      return onAuthStateChanged(auth(), async (u) => {
-        setUser(u);
-        if (!u) {
-          setRole(null);
-          setProfile(null);
-          setLoading(false);
-          return;
-        }
+      try {
         const token = await u.getIdTokenResult();
         setRole((token.claims.role as Role) ?? 'customer');
+      } catch {
+        setRole('customer');
+      } finally {
         setLoading(false);
-      });
-    })();
+      }
+    });
+
+    return unsub;
   }, []);
 
-  // Live profile — a locality change on one device shows up on the other.
+  // Live profile listener (active when DEMO_MODE = false)
   React.useEffect(() => {
-    if (!user || !isConfigured) return;
-    return onSnapshot(doc(db(), COL.users, user.uid), (snap) => {
-      setProfile(snap.exists() ? (snap.data() as UserProfile) : null);
-    });
-  }, [user]);
+    if (DEMO_MODE || !user || !isConfigured) return;
+    return onSnapshot(
+      doc(db(), COL.users, user.uid),
+      (snap) => {
+        if (snap.exists()) {
+          setProfile(snap.data() as UserProfile);
+        } else {
+          setProfile((prev) => prev ?? {
+            uid: user.uid,
+            name: user.displayName || user.email?.split('@')[0] || 'Customer',
+            phone: user.phoneNumber || '+919876543210',
+            role: role ?? 'customer',
+            localityId: 'kk-nagar',
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          });
+        }
+      },
+      (err) => {
+        console.warn('Profile listener error:', err);
+      },
+    );
+  }, [user, role]);
 
-  // Push, once we know who this is. The role decides which Android channels
-  // to declare, so this has to wait for the claim rather than the session.
+  // Push notifications registration
   React.useEffect(() => {
-    if (!user || !role || !isConfigured) return;
+    if (DEMO_MODE || !user || !role || !isConfigured) return;
     let token: string | null = null;
     void registerForPush(user.uid, role).then((r) => {
       token = r.token;
       pushToken.current = r.token;
     });
     return () => {
-      // Deliberately not unregistering on unmount — that fires on every fast
-      // refresh. Sign-out handles it, below.
       void token;
     };
   }, [user, role]);
@@ -200,10 +255,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       profile,
       role,
       loading,
-      configured: isConfigured,
+      configured: true,
       biometricsAvailable,
 
       signIn: async (email, password) => {
+        if (DEMO_MODE) {
+          const u = await mockAuthRepository.loginWithStaff(email, password);
+          setUser({ uid: u.uid, email });
+          setProfile(u);
+          setRole(u.role);
+          return;
+        }
         if (!isConfigured) {
           const persona = DEMO_PERSONAS.customer;
           setUser(persona.user);
@@ -219,6 +281,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(persona.user);
         setProfile(persona.profile);
         setRole(targetRole);
+        if (DEMO_MODE) {
+          await demoStorage.setUser(persona.profile);
+        }
         try {
           await AsyncStorage.setItem(
             MOCK_USER_STORAGE_KEY,
@@ -245,6 +310,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(newUser);
         setProfile(newProfile);
         setRole(profileData.role);
+        if (DEMO_MODE) {
+          await demoStorage.setUser(newProfile);
+        }
         try {
           await AsyncStorage.setItem(
             MOCK_USER_STORAGE_KEY,
@@ -260,6 +328,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
        * credential. If there is no session, the caller falls back to password.
        */
       unlockWithBiometrics: async () => {
+        if (DEMO_MODE) return true;
         if (!biometricsAvailable || (!auth().currentUser && !user)) return false;
         const res = await LocalAuthentication.authenticateAsync({
           promptMessage: 'Unlock DFC',
@@ -275,6 +344,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } catch {
           // ignore
         }
+        if (DEMO_MODE) {
+          await mockAuthRepository.logout();
+          setUser(null);
+          setProfile(null);
+          setRole(null);
+          return;
+        }
         setUser(null);
         setProfile(null);
         setRole(null);
@@ -288,6 +364,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
 
       updateProfile: async (patch) => {
+        if (DEMO_MODE) {
+          const updated = await mockAuthRepository.updateProfile(patch);
+          setProfile(updated);
+          return;
+        }
         if (!user) return;
         setProfile((prev) => (prev ? { ...prev, ...patch, updatedAt: Date.now() } : null));
         if (!isConfigured) {
@@ -317,7 +398,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useAuth(): AuthValue {
-  const ctx = React.useContext(Ctx);
-  if (!ctx) throw new Error('useAuth must be used inside <AuthProvider>');
-  return ctx;
+  const v = React.useContext(Ctx);
+  if (!v) throw new Error('useAuth must be used inside <AuthProvider>');
+  return v;
 }

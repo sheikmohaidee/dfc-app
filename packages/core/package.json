@@ -19,7 +19,7 @@
     "build": "tsc -p tsconfig.build.json",
     "prepare": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/__tests__/*.test.ts",
+    "test": "tsx --test src/__tests__/advanced-features.test.ts src/__tests__/edits.test.ts src/__tests__/features.test.ts src/__tests__/flow.test.ts src/__tests__/money.test.ts src/__tests__/platform-config.test.ts src/__tests__/ux-kds-features.test.ts",
     "lint": "eslint ."
   },
   "dependencies": {

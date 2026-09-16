@@ -1,163 +1,591 @@
 /**
- * The account hub.
- *
- * Every app-store requirement is reachable from here in one tap: privacy,
- * terms, and account deletion. Apple rejects apps where deletion is buried or
- * requires emailing support, so Delete account is a visible row on this
- * screen — not three levels down.
+ * DFC User Profile Hub - Full Stitch Design Implementation
+ * Profile Header Bento, Bento Grid Navigation, Legal Policies, and Demo Roles.
  */
 
 import * as React from 'react';
-import { Linking, View } from 'react-native';
+import {
+  Alert,
+  Image,
+  Linking,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import {
   Bell,
+  Bike,
+  ChevronRight,
   CreditCard,
+  Edit,
   FileText,
-  Globe,
-  LifeBuoy,
+  HelpCircle,
   LogOut,
   MapPin,
-  Receipt,
+  RotateCcw,
   ScrollText,
   ShieldCheck,
+  Star,
+  Store,
   Trash2,
-  User,
 } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 
 import { COMPANY, COPY, localityById } from '@dfc/core';
-
 import { useAuth } from '@/providers/auth';
-import { useLang } from '@/providers/language';
-import { Group, Row, SettingsScroll } from '@/ui/settings';
-import { Screen, T, Ta } from '@/ui';
-
-const ICON = { size: 19, color: '#52525B', strokeWidth: 1.9 } as const;
+import { DEMO_MODE } from '@/demo/config';
+import { demoStorage } from '@/demo/storage';
+import { mockAuthRepository } from '@/demo/repositories/auth.repository';
+import { Screen } from '@/ui';
+import { TopAppBar } from '@/ui/top-app-bar';
+import { DFCBottomNav } from '@/ui/bottom-nav';
 
 export default function AccountHub() {
   const router = useRouter();
   const { profile, user, signOut } = useAuth();
-  const { mode, primary, bilingual } = useLang();
 
   const locality = localityById(profile?.localityId);
-  const langLabel =
-    mode === 'en' ? COPY.langEnglish.en : mode === 'ta' ? COPY.langTamil.en : 'EN + தமிழ்';
 
   return (
-    <Screen>
-      {/* Identity card */}
-      <View className="flex-row items-center gap-3.5 px-5 pb-4 pt-3">
-        <View className="size-14 items-center justify-center rounded-full bg-muted">
-          <T className="text-[19px] font-semibold text-icon">
-            {(profile?.name ?? 'DFC').slice(0, 2).toUpperCase()}
-          </T>
-        </View>
-        <View className="flex-1">
-          <T className="text-[19px] font-semibold tracking-[-0.4px]">
-            {profile?.name ?? 'Your account'}
-          </T>
-          <T className="mt-0.5 font-mono text-[12.5px] text-muted-foreground">
-            {profile?.phone ?? user?.email ?? ''}
-          </T>
-          {locality ? (
-            <T className="mt-0.5 text-[11.5px] text-placeholder">{locality.name}, Madurai</T>
-          ) : null}
-        </View>
-      </View>
+    <Screen edges={['top']}>
+      {/* Top Header with Anna Nagar and Notifications */}
+      <TopAppBar
+        title={locality?.name ?? 'Anna Nagar'}
+        showNotifications={true}
+        onLocationPress={() => router.push('/(customer)/account/addresses')}
+      />
 
-      <SettingsScroll>
-        <Group>
-          <Row
-            icon={<User {...ICON} />}
-            label={COPY.profile}
+      <ScrollView
+        contentContainerStyle={{
+          paddingHorizontal: 20,
+          paddingTop: 16,
+          paddingBottom: 40,
+        }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Profile Header Bento */}
+        <View
+          style={{
+            backgroundColor: '#F9F9FF',
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: '#DAC0C4',
+            padding: 20,
+            marginBottom: 20,
+            shadowColor: '#000000',
+            shadowOpacity: 0.04,
+            shadowRadius: 10,
+            shadowOffset: { width: 0, height: 4 },
+            elevation: 3,
+          }}
+        >
+          <View className="flex-row items-center gap-4 mb-4">
+            {/* Avatar */}
+            <View
+              style={{
+                width: 72,
+                height: 72,
+                borderRadius: 36,
+                backgroundColor: '#7A1F3D',
+                borderWidth: 3,
+                borderColor: '#FFFFFF',
+                alignItems: 'center',
+                justifyContent: 'center',
+                shadowColor: '#000000',
+                shadowOpacity: 0.1,
+                shadowRadius: 6,
+                elevation: 4,
+              }}
+            >
+              <Text style={{ fontFamily: 'Archivo', fontSize: 26, fontWeight: '800', color: '#FFFFFF' }}>
+                {(profile?.name ?? 'Karthik').slice(0, 1).toUpperCase()}
+              </Text>
+            </View>
+
+            {/* Profile Info */}
+            <View className="flex-1">
+              <Text
+                style={{
+                  fontFamily: 'Archivo',
+                  fontSize: 20,
+                  fontWeight: '700',
+                  color: '#141B2B',
+                  letterSpacing: -0.4,
+                  marginBottom: 2,
+                }}
+              >
+                {profile?.name ?? 'Karthik Rajan'}
+              </Text>
+              <Text
+                style={{
+                  fontFamily: 'Archivo',
+                  fontSize: 13,
+                  fontWeight: '500',
+                  color: '#554245',
+                  marginBottom: 8,
+                }}
+              >
+                {profile?.phone ?? '+91 98765 43210'}
+              </Text>
+
+              {/* Premium Member Badge */}
+              <View
+                style={{
+                  alignSelf: 'flex-start',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 4,
+                  backgroundColor: '#F1F3FF',
+                  paddingHorizontal: 10,
+                  paddingVertical: 4,
+                  borderRadius: 9999,
+                  borderWidth: 1,
+                  borderColor: '#DAC0C4',
+                }}
+              >
+                <Star size={13} color="#7A1F3D" fill="#7A1F3D" />
+                <Text style={{ fontFamily: 'Archivo', fontSize: 12, fontWeight: '600', color: '#141B2B' }}>
+                  Premium Member
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Edit Profile Button */}
+          <Pressable
             onPress={() => router.push('/(customer)/account/profile')}
-          />
-          <Row
-            icon={<Receipt {...ICON} />}
-            label={COPY.myOrders}
-            onPress={() => router.push('/(customer)/orders')}
-          />
-          <Row
-            icon={<MapPin {...ICON} />}
-            label={COPY.savedAddresses}
-            onPress={() => router.push('/(customer)/account/addresses')}
-          />
-          <Row
-            icon={<CreditCard {...ICON} />}
-            label={COPY.paymentMethods}
-            onPress={() => router.push('/(customer)/account/payments')}
-          />
-        </Group>
-
-        <Group label={primary({ en: 'Preferences', ta: 'விருப்பங்கள்' })}>
-          <Row
-            icon={<Globe {...ICON} />}
-            label={COPY.language}
-            value={langLabel}
-            onPress={() => router.push('/(customer)/account/language')}
-          />
-          <Row
-            icon={<Bell {...ICON} />}
-            label={COPY.notifications}
-            onPress={() => router.push('/(customer)/account/notifications')}
-          />
-        </Group>
-
-        <Group label={primary({ en: 'Support', ta: 'உதவி' })}>
-          <Row
-            icon={<LifeBuoy {...ICON} />}
-            label={COPY.helpSupport}
-            onPress={() => router.push('/(customer)/account/help')}
-          />
-        </Group>
-
-        <Group label={primary(COPY.legalPolicies)}>
-          <Row
-            icon={<ShieldCheck {...ICON} />}
-            label={COPY.privacyPolicy}
-            onPress={() => router.push('/(customer)/legal/privacy')}
-          />
-          <Row
-            icon={<ScrollText {...ICON} />}
-            label={COPY.termsOfService}
-            onPress={() => router.push('/(customer)/legal/terms')}
-          />
-          <Row
-            icon={<FileText {...ICON} />}
-            label={COPY.refundPolicy}
-            onPress={() => router.push('/(customer)/legal/refunds')}
-          />
-        </Group>
-
-        <Group>
-          <Row
-            icon={<LogOut {...ICON} />}
-            label={COPY.signOut}
-            chevron={false}
-            onPress={() => void signOut()}
-          />
-          {/* Visible, one tap from the hub — Apple 5.1.1(v). */}
-          <Row
-            icon={<Trash2 size={19} color="#DC2626" strokeWidth={1.9} />}
-            label={COPY.deleteAccount}
-            danger
-            onPress={() => router.push('/(customer)/account/delete')}
-          />
-        </Group>
-
-        <View className="items-center gap-1 pt-1">
-          <T className="text-[11.5px] text-placeholder">
-            {COPY.appName.en} · {COPY.version.en} 0.1.0
-          </T>
-          {bilingual ? <Ta className="text-[11px]">{COPY.appName.ta}</Ta> : null}
-          <T
-            className="mt-1 text-[11.5px] text-muted-foreground underline"
-            onPress={() => void Linking.openURL(`mailto:${COMPANY.supportEmail}`)}
+            style={{
+              height: 44,
+              backgroundColor: '#FE98B3',
+              borderRadius: 10,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+            }}
           >
-            {COMPANY.supportEmail}
-          </T>
+            <Edit size={16} color="#792C45" strokeWidth={2.2} />
+            <Text style={{ fontFamily: 'Archivo', fontSize: 14, fontWeight: '700', color: '#792C45' }}>
+              Edit Profile
+            </Text>
+          </Pressable>
         </View>
-      </SettingsScroll>
+
+        {/* Bento Grid Layout for Sections */}
+        <Text
+          style={{
+            fontFamily: 'Archivo',
+            fontSize: 11,
+            fontWeight: '700',
+            color: '#7A1F3D',
+            textTransform: 'uppercase',
+            letterSpacing: 0.8,
+            marginBottom: 10,
+          }}
+        >
+          Account Preferences
+        </Text>
+
+        <View className="gap-3 mb-6">
+          {/* Saved Addresses */}
+          <Pressable
+            onPress={() => router.push('/(customer)/account/addresses')}
+            style={{
+              backgroundColor: '#F9F9FF',
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: '#DAC0C4',
+              padding: 14,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: '#E9EDFF',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <MapPin size={20} color="#7A1F3D" />
+            </View>
+            <View className="flex-1">
+              <Text style={{ fontFamily: 'Archivo', fontSize: 15, fontWeight: '700', color: '#141B2B' }}>
+                Saved Addresses
+              </Text>
+              <Text style={{ fontFamily: 'Archivo', fontSize: 12, color: '#554245' }}>
+                Home, Work, Other
+              </Text>
+            </View>
+            <ChevronRight size={18} color="#554245" />
+          </Pressable>
+
+          {/* Payment Methods */}
+          <Pressable
+            onPress={() => router.push('/(customer)/account/payments')}
+            style={{
+              backgroundColor: '#F9F9FF',
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: '#DAC0C4',
+              padding: 14,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: '#E9EDFF',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <CreditCard size={20} color="#7A1F3D" />
+            </View>
+            <View className="flex-1">
+              <Text style={{ fontFamily: 'Archivo', fontSize: 15, fontWeight: '700', color: '#141B2B' }}>
+                Payment Methods
+              </Text>
+              <Text style={{ fontFamily: 'Archivo', fontSize: 12, color: '#554245' }}>
+                Cards, UPI, Wallets
+              </Text>
+            </View>
+            <ChevronRight size={18} color="#554245" />
+          </Pressable>
+
+          {/* Notifications */}
+          <Pressable
+            onPress={() => router.push('/(customer)/account/notifications')}
+            style={{
+              backgroundColor: '#F9F9FF',
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: '#DAC0C4',
+              padding: 14,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: '#E9EDFF',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Bell size={20} color="#7A1F3D" />
+            </View>
+            <View className="flex-1">
+              <Text style={{ fontFamily: 'Archivo', fontSize: 15, fontWeight: '700', color: '#141B2B' }}>
+                Notifications
+              </Text>
+              <Text style={{ fontFamily: 'Archivo', fontSize: 12, color: '#554245' }}>
+                Push, Email, SMS preferences
+              </Text>
+            </View>
+            <ChevronRight size={18} color="#554245" />
+          </Pressable>
+
+          {/* Help & Support */}
+          <Pressable
+            onPress={() => router.push('/(customer)/account/help')}
+            style={{
+              backgroundColor: '#F9F9FF',
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: '#DAC0C4',
+              padding: 14,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: '#E9EDFF',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <HelpCircle size={20} color="#7A1F3D" />
+            </View>
+            <View className="flex-1">
+              <Text style={{ fontFamily: 'Archivo', fontSize: 15, fontWeight: '700', color: '#141B2B' }}>
+                Help & Support
+              </Text>
+              <Text style={{ fontFamily: 'Archivo', fontSize: 12, color: '#554245' }}>
+                FAQs, Contact us
+              </Text>
+            </View>
+            <ChevronRight size={18} color="#554245" />
+          </Pressable>
+        </View>
+
+        {/* Demo Roles Switcher */}
+        {DEMO_MODE ? (
+          <View className="mb-6">
+            <Text
+              style={{
+                fontFamily: 'Archivo',
+                fontSize: 11,
+                fontWeight: '700',
+                color: '#7A1F3D',
+                textTransform: 'uppercase',
+                letterSpacing: 0.8,
+                marginBottom: 10,
+              }}
+            >
+              Multi-App Role Switcher
+            </Text>
+
+            <View className="gap-2">
+              <Pressable
+                onPress={async () => {
+                  void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  await mockAuthRepository.loginWithStaff('vendor@dfc.test', 'password');
+                  router.replace('/(vendor)/inbox');
+                }}
+                style={{
+                  backgroundColor: '#EFF6FF',
+                  borderWidth: 1,
+                  borderColor: '#2563EB30',
+                  borderRadius: 12,
+                  padding: 14,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <View className="flex-row items-center gap-3">
+                  <Store size={20} color="#2563EB" />
+                  <View>
+                    <Text style={{ fontFamily: 'Archivo', fontSize: 14, fontWeight: '700', color: '#1E40AF' }}>
+                      Switch to Vendor App
+                    </Text>
+                    <Text style={{ fontFamily: 'Archivo', fontSize: 11, color: '#1E3A8A' }}>
+                      Meenakshi Medicals Order Inbox
+                    </Text>
+                  </View>
+                </View>
+                <ChevronRight size={18} color="#2563EB" />
+              </Pressable>
+
+              <Pressable
+                onPress={async () => {
+                  void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  await mockAuthRepository.loginWithStaff('rider@dfc.test', 'password');
+                  router.replace('/(rider)/queue');
+                }}
+                style={{
+                  backgroundColor: '#ECFDF5',
+                  borderWidth: 1,
+                  borderColor: '#05966930',
+                  borderRadius: 12,
+                  padding: 14,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <View className="flex-row items-center gap-3">
+                  <Bike size={20} color="#059669" />
+                  <View>
+                    <Text style={{ fontFamily: 'Archivo', fontSize: 14, fontWeight: '700', color: '#065F46' }}>
+                      Switch to Rider App
+                    </Text>
+                    <Text style={{ fontFamily: 'Archivo', fontSize: 11, color: '#047857' }}>
+                      Arun Captain Delivery Queue
+                    </Text>
+                  </View>
+                </View>
+                <ChevronRight size={18} color="#059669" />
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  Alert.alert(
+                    'Reset Demo Data?',
+                    'This will clear current cart and restore default seed orders (Amma Mess & Meenakshi Medicals).',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Reset Demo',
+                        style: 'destructive',
+                        onPress: async () => {
+                          await demoStorage.resetDemoData();
+                          Alert.alert('Demo Data Reset', 'Fresh demo state restored successfully.');
+                        },
+                      },
+                    ],
+                  );
+                }}
+                style={{
+                  backgroundColor: '#FFFBEB',
+                  borderWidth: 1,
+                  borderColor: '#D9770630',
+                  borderRadius: 12,
+                  padding: 14,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <View className="flex-row items-center gap-3">
+                  <RotateCcw size={20} color="#D97706" />
+                  <View>
+                    <Text style={{ fontFamily: 'Archivo', fontSize: 14, fontWeight: '700', color: '#92400E' }}>
+                      Reset All Demo Data
+                    </Text>
+                    <Text style={{ fontFamily: 'Archivo', fontSize: 11, color: '#B45309' }}>
+                      Restore default orders and cart
+                    </Text>
+                  </View>
+                </View>
+                <ChevronRight size={18} color="#D97706" />
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+
+        {/* Legal & Logout Group */}
+        <View
+          style={{
+            backgroundColor: '#F9F9FF',
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: '#DAC0C4',
+            overflow: 'hidden',
+            marginBottom: 24,
+          }}
+        >
+          <Pressable
+            onPress={() => router.push('/(customer)/legal/privacy')}
+            style={{
+              padding: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              borderBottomWidth: 1,
+              borderBottomColor: '#DAC0C4',
+            }}
+          >
+            <View className="flex-row items-center gap-3">
+              <ShieldCheck size={18} color="#554245" />
+              <Text style={{ fontFamily: 'Archivo', fontSize: 14, fontWeight: '500', color: '#141B2B' }}>
+                Privacy Policy
+              </Text>
+            </View>
+            <ChevronRight size={16} color="#554245" />
+          </Pressable>
+
+          <Pressable
+            onPress={() => router.push('/(customer)/legal/terms')}
+            style={{
+              padding: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              borderBottomWidth: 1,
+              borderBottomColor: '#DAC0C4',
+            }}
+          >
+            <View className="flex-row items-center gap-3">
+              <ScrollText size={18} color="#554245" />
+              <Text style={{ fontFamily: 'Archivo', fontSize: 14, fontWeight: '500', color: '#141B2B' }}>
+                Terms of Service
+              </Text>
+            </View>
+            <ChevronRight size={16} color="#554245" />
+          </Pressable>
+
+          <Pressable
+            onPress={() => router.push('/(customer)/legal/refunds')}
+            style={{
+              padding: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              borderBottomWidth: 1,
+              borderBottomColor: '#DAC0C4',
+            }}
+          >
+            <View className="flex-row items-center gap-3">
+              <FileText size={18} color="#554245" />
+              <Text style={{ fontFamily: 'Archivo', fontSize: 14, fontWeight: '500', color: '#141B2B' }}>
+                Refund Policy
+              </Text>
+            </View>
+            <ChevronRight size={16} color="#554245" />
+          </Pressable>
+
+          {/* Logout Row */}
+          <Pressable
+            onPress={async () => {
+              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              await signOut();
+              router.replace('/(auth)/sign-in');
+            }}
+            style={{
+              padding: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+              borderBottomWidth: 1,
+              borderBottomColor: '#DAC0C4',
+            }}
+          >
+            <LogOut size={18} color="#BA1A1A" />
+            <Text style={{ fontFamily: 'Archivo', fontSize: 15, fontWeight: '700', color: '#BA1A1A' }}>
+              Logout
+            </Text>
+          </Pressable>
+
+          {/* Delete Account */}
+          <Pressable
+            onPress={() => router.push('/(customer)/account/delete')}
+            style={{
+              padding: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+            }}
+          >
+            <Trash2 size={18} color="#BA1A1A" />
+            <Text style={{ fontFamily: 'Archivo', fontSize: 14, fontWeight: '500', color: '#BA1A1A' }}>
+              Delete Account
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* App Version Info */}
+        <View className="items-center pb-4">
+          <Text style={{ fontFamily: 'Archivo', fontSize: 12, color: '#887275' }}>
+            {COPY.appName.en} · v0.1.0 (Madurai)
+          </Text>
+          <Text style={{ fontFamily: 'HindMadurai', fontSize: 11, color: '#887275', marginTop: 2 }}>
+            {COPY.appName.ta}
+          </Text>
+        </View>
+      </ScrollView>
+
+      <DFCBottomNav activeTab="profile" />
     </Screen>
   );
 }
