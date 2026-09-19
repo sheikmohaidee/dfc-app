@@ -184,7 +184,7 @@ export const mockCartRepository = {
     const sourceLocId = cart.items[0]?.localityId || 'anna-nagar';
     const km = routeKm(sourceLocId, currentLocId);
 
-    let deliveryFeePaise = DEMO_CONFIG.deliveryBasePaise + Math.round(km * 400);
+    const deliveryFeePaise = DEMO_CONFIG.deliveryBasePaise + Math.round(km * 400);
     const platformFeePaise = DEMO_CONFIG.platformFeePaise;
     let discountPaise = cart.couponDiscountPaise;
 

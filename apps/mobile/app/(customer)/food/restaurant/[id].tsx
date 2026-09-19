@@ -83,6 +83,7 @@ export default function RestaurantMenuScreen() {
       return mapped;
     }
 
+    void menuVersion;
     const dynamicItems = mockMenuRepository.getMenuByVendor(restaurant?.id || '');
     if (dynamicItems && dynamicItems.length > 0) return dynamicItems;
     return restaurant?.menu || [];
@@ -97,7 +98,9 @@ export default function RestaurantMenuScreen() {
       await Share.share({
         message: `Order delicious food from ${restaurant.name} on DFC Madurai!`,
       });
-    } catch {}
+    } catch {
+      // User cancelled share dialog
+    }
   };
 
   // One Food order = one restaurant. A different restaurant starts a new,
