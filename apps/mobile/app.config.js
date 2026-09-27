@@ -75,7 +75,9 @@ module.exports = {
     newArchEnabled: true,
     assetBundlePatterns: ['**/*'],
 
+    icon: './assets/icon.png',
     splash: {
+      image: './assets/splash.png',
       backgroundColor: '#FFFFFF',
       resizeMode: 'contain',
     },
@@ -110,7 +112,10 @@ module.exports = {
 
     android: {
       package: v.id,
-      adaptiveIcon: { backgroundColor: '#18181B' },
+      adaptiveIcon: {
+        foregroundImage: './assets/adaptive-icon.png',
+        backgroundColor: '#7A1F3D',
+      },
       config: {
         googleMaps: { apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_KEY ?? '' },
       },
@@ -131,6 +136,10 @@ module.exports = {
             ]
           : []),
       ],
+    },
+
+    web: {
+      favicon: './assets/favicon.png',
     },
 
     plugins: [

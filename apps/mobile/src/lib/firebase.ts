@@ -47,7 +47,15 @@ let _db: Firestore | null = null;
 let _storage: FirebaseStorage | null = null;
 
 export function app(): FirebaseApp {
-  if (!_app) _app = getApps().length ? getApp() : initializeApp(config);
+  if (!_app) {
+    _app = getApps().length
+      ? getApp()
+      : initializeApp(
+          isConfigured
+            ? config
+            : { apiKey: 'AIzaSyDemoPlaceholderKeyForLocalTesting', projectId: 'dfc-app-bdb4e' },
+        );
+  }
   return _app;
 }
 

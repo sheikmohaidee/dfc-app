@@ -38,7 +38,13 @@ let _storage: FirebaseStorage | null = null;
 
 function app(): FirebaseApp {
   if (_app) return _app;
-  _app = getApps().length ? getApp() : initializeApp(config);
+  _app = getApps().length
+    ? getApp()
+    : initializeApp(
+        isConfigured
+          ? config
+          : { apiKey: 'AIzaSyDemoPlaceholderKeyForLocalTesting', projectId: 'dfc-app-bdb4e' },
+      );
 
   // App Check has to come before the first Firestore/Storage call.
   if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY) {

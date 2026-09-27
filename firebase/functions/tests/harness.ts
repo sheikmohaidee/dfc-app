@@ -271,9 +271,17 @@ export function assertHonestRejections(
 /** Wipes the emulator between suites so leftovers cannot make a test pass. */
 export async function clearFirestore(): Promise<void> {
   const host = process.env.FIRESTORE_EMULATOR_HOST;
-  const res = await fetch(
-    `http://${host}/emulator/v1/projects/${PROJECT_ID}/databases/(default)/documents`,
-    { method: 'DELETE' },
-  );
-  if (!res.ok) throw new Error(`emulator wipe failed: ${res.status}`);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      const res = await fetch(
+        `http://${host}/emulator/v1/projects/${PROJECT_ID}/databases/(default)/documents`,
+        { method: 'DELETE' },
+      );
+      if (!res.ok) throw new Error(`emulator wipe failed: ${res.status}`);
+      return;
+    } catch (err) {
+      if (attempt === 4) throw err;
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+  }
 }

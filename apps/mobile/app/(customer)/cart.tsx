@@ -75,6 +75,7 @@ export default function CartScreen() {
   }, []);
 
   const unavailableItems = React.useMemo(() => {
+    void menuVer;
     return cart.items.filter((item) => !mockMenuRepository.isItemAvailable(item.id));
   }, [cart.items, menuVer]);
 
