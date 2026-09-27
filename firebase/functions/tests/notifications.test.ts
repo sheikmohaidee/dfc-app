@@ -189,12 +189,14 @@ describe('the customer hears about milestones only', () => {
     'paid',
     'vendor_accepted',
     'ready_for_pickup',
+    'dispatched',
+    'picked_up',
     'out_for_delivery',
     'delivered',
     'rejected',
     'cancelled',
   ];
-  const quiet: OrderStatus[] = ['admin_review', 'awaiting_payment', 'packing', 'picked_up'];
+  const quiet: OrderStatus[] = ['admin_review', 'awaiting_payment', 'packing'];
 
   for (const status of loud) {
     it(`says something on ${status}`, async () => {

@@ -9,6 +9,8 @@
 
 import * as React from 'react';
 import type { Category } from '@dfc/core';
+import { DEMO_MODE } from '@/demo/config';
+import { validateAndApplyCoupon } from '@/lib/promotions';
 import { mockCartRepository } from '@/demo/repositories/cart.repository';
 import type { AddItemResult } from '@/demo/repositories/cart.repository';
 import { CART_SERVICES, demoStorage } from '@/demo/storage';
@@ -82,6 +84,20 @@ export function useCart(service: Category = 'food'): CartContextValue {
         await mockCartRepository.clearCart(service);
       },
       applyCoupon: async (code) => {
+        if (!DEMO_MODE) {
+          const subtotal = cart.items.reduce((s, i) => s + i.pricePaise * i.quantity, 0);
+          const res = await validateAndApplyCoupon(code, subtotal, service);
+          if (!res.success) {
+            return { success: false, message: res.message, cart };
+          }
+          const updated: CartState = {
+            ...cart,
+            appliedCoupon: code.trim().toUpperCase(),
+            couponDiscountPaise: res.discountPaise,
+          };
+          await demoStorage.saveCartFor(service, updated);
+          return { success: true, message: res.message, cart: updated };
+        }
         return mockCartRepository.applyCoupon(service, code);
       },
       removeCoupon: async () => {

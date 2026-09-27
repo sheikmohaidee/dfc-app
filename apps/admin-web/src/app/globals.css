@@ -3,102 +3,112 @@
 @tailwind utilities;
 
 /* ---------------------------------------------------------------------------
-   DFC tokens — the same values as packages/core/src/tokens.ts and the
-   Foundations artboard. shadcn zinc, unmodified, plus four category hues and
-   one verify amber. Colour only ever encodes a category or a state.
-
-   tailwind.config.ts maps every one of these to a utility class, so a dark
-   palette is a variable swap rather than a rebuild.
+   DFC Admin Tokens — DFC Dark Floating Theme
+   Background: #0E0E10
+   Cards: #18191B
+   Elevated / Surface: #222327
+   Border: #2A2A2E
+   Primary: #6A5ACD
+   Accent: #FF7F50
 --------------------------------------------------------------------------- */
 
 @layer base {
   :root {
-    --background: #ffffff;
-    --foreground: #09090b;
-    --surface: #fafafa;
-    --card: #ffffff;
-    --card-foreground: #09090b;
-    --muted: #f4f4f5;
-    --muted-foreground: #71717a;
-    --border: #e4e4e7;
-    --input: #e4e4e7;
-    --ring: #18181b;
-    --primary: #18181b;
-    --primary-foreground: #fafafa;
-    --secondary: #f4f4f5;
-    --secondary-foreground: #18181b;
-    --accent: #f4f4f5;
-    --accent-foreground: #18181b;
-    --disabled: #d4d4d8;
-    --placeholder: #a1a1aa;
-    --body-strong: #3f3f46;
-    --icon: #52525b;
+    --background: #0E0E10;
+    --foreground: #F4F4F5;
+    --surface: #18191B;
+    --elevated: #222327;
+    --card: #18191B;
+    --card-foreground: #F4F4F5;
+    --muted: #222327;
+    --muted-foreground: #A1A1AA;
+    --border: #2A2A2E;
+    --input: #2A2A2E;
+    --ring: #6A5ACD;
+    --primary: #6A5ACD;
+    --primary-foreground: #FFFFFF;
+    --secondary: #222327;
+    --secondary-foreground: #F4F4F5;
+    --accent: #FF7F50;
+    --accent-foreground: #FFFFFF;
+    --disabled: #3F3F46;
+    --placeholder: #71717A;
+    --body-strong: #E4E4E7;
+    --icon: #A1A1AA;
 
-    --pharmacy: #2563eb;
-    --pharmacy-fg: #1d4ed8;
-    --pharmacy-tint: #eff6ff;
-    --pharmacy-border: #dbeafe;
+    --grocery: #10B981;
+    --grocery-fg: #34D399;
+    --grocery-tint: rgba(16, 185, 129, 0.15);
+    --grocery-border: rgba(16, 185, 129, 0.35);
 
-    --grocery: #16a34a;
-    --grocery-fg: #15803d;
-    --grocery-tint: #f0fdf4;
-    --grocery-border: #bbf7d0;
+    --food: #FF7F50;
+    --food-fg: #FF9B76;
+    --food-tint: rgba(255, 127, 80, 0.15);
+    --food-border: rgba(255, 127, 80, 0.35);
 
-    --food: #ea580c;
-    --food-fg: #c2410c;
-    --food-tint: #fff7ed;
-    --food-border: #fed7aa;
+    --concierge: #8B5CF6;
+    --concierge-fg: #A78BFA;
+    --concierge-tint: rgba(139, 92, 246, 0.15);
+    --concierge-border: rgba(139, 92, 246, 0.35);
 
-    --concierge: #7c3aed;
-    --concierge-fg: #6d28d9;
-    --concierge-tint: #f5f3ff;
-    --concierge-border: #ddd6fe;
+    --verify: #F59E0B;
+    --verify-fg: #FCD34D;
+    --verify-tint: rgba(245, 158, 11, 0.15);
+    --verify-border: rgba(245, 158, 11, 0.35);
 
-    --verify: #b45309;
-    --verify-fg: #92400e;
-    --verify-tint: #fffbeb;
-    --verify-border: #fde68a;
-
-    --destructive: #dc2626;
-    --destructive-fg: #b91c1c;
-    --destructive-tint: #fef2f2;
-    --destructive-border: #fecaca;
+    --destructive: #EF4444;
+    --destructive-fg: #FCA5A5;
+    --destructive-tint: rgba(239, 68, 68, 0.15);
+    --destructive-border: rgba(239, 68, 68, 0.35);
   }
 
   .dark {
-    --background: #09090b;
-    --foreground: #fafafa;
-    --surface: #0f0f11;
-    --card: #111113;
-    --card-foreground: #fafafa;
-    --muted: #27272a;
-    --muted-foreground: #a1a1aa;
-    --border: #27272a;
-    --input: #27272a;
-    --ring: #d4d4d8;
-    --primary: #fafafa;
-    --primary-foreground: #18181b;
-    --secondary: #27272a;
-    --secondary-foreground: #fafafa;
-    --accent: #27272a;
-    --accent-foreground: #fafafa;
-    --disabled: #3f3f46;
-    --placeholder: #52525b;
-    --body-strong: #d4d4d8;
-    --icon: #a1a1aa;
+    --background: #0E0E10;
+    --foreground: #F4F4F5;
+    --surface: #18191B;
+    --elevated: #222327;
+    --card: #18191B;
+    --card-foreground: #F4F4F5;
+    --muted: #222327;
+    --muted-foreground: #A1A1AA;
+    --border: #2A2A2E;
+    --input: #2A2A2E;
+    --ring: #6A5ACD;
+    --primary: #6A5ACD;
+    --primary-foreground: #FFFFFF;
+    --secondary: #222327;
+    --secondary-foreground: #F4F4F5;
+    --accent: #FF7F50;
+    --accent-foreground: #FFFFFF;
+    --disabled: #3F3F46;
+    --placeholder: #71717A;
+    --body-strong: #E4E4E7;
+    --icon: #A1A1AA;
 
-    --pharmacy-tint: #0e1a30;
-    --pharmacy-border: #1c3055;
-    --grocery-tint: #0c1f14;
-    --grocery-border: #17381f;
-    --food-tint: #251409;
-    --food-border: #422211;
-    --concierge-tint: #170f2b;
-    --concierge-border: #2c1d4f;
-    --verify-tint: #251b06;
-    --verify-border: #453109;
-    --destructive-tint: #2a0f0f;
-    --destructive-border: #4c1a1a;
+    --grocery: #10B981;
+    --grocery-fg: #34D399;
+    --grocery-tint: rgba(16, 185, 129, 0.15);
+    --grocery-border: rgba(16, 185, 129, 0.35);
+
+    --food: #FF7F50;
+    --food-fg: #FF9B76;
+    --food-tint: rgba(255, 127, 80, 0.15);
+    --food-border: rgba(255, 127, 80, 0.35);
+
+    --concierge: #8B5CF6;
+    --concierge-fg: #A78BFA;
+    --concierge-tint: rgba(139, 92, 246, 0.15);
+    --concierge-border: rgba(139, 92, 246, 0.35);
+
+    --verify: #F59E0B;
+    --verify-fg: #FCD34D;
+    --verify-tint: rgba(245, 158, 11, 0.15);
+    --verify-border: rgba(245, 158, 11, 0.35);
+
+    --destructive: #EF4444;
+    --destructive-fg: #FCA5A5;
+    --destructive-tint: rgba(239, 68, 68, 0.15);
+    --destructive-border: rgba(239, 68, 68, 0.35);
   }
 
   * {
@@ -107,6 +117,8 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    background-color: #0E0E10;
+    color: #F4F4F5;
   }
 
   /* Every figure in the product is tabular, so ₹ columns line up. */
@@ -121,18 +133,17 @@
 }
 
 @layer utilities {
-  /* Thin scrollbars — the board is dense enough without 16px gutters. */
   .scroll-slim {
     scrollbar-width: thin;
-    scrollbar-color: var(--border) transparent;
+    scrollbar-color: #2A2A2E transparent;
   }
   .scroll-slim::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
   .scroll-slim::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 999px;
+    background: #2A2A2E;
+    border-radius: 9999px;
   }
   .scroll-slim::-webkit-scrollbar-track {
     background: transparent;

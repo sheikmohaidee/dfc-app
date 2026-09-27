@@ -78,11 +78,11 @@ export default function NotificationSettings() {
               to={0.98}
               onPress={() => handleNotificationPress(n.orderId)}
               className={`rounded-xl border p-3 ${
-                n.read ? 'border-border bg-surface' : 'border-blue-200 bg-blue-50/70'
+                n.read ? 'border-[#26262B] bg-[#18181B]' : 'border-[#6A5ACD]/50 bg-[#1E1D26]'
               }`}
             >
               <View className="flex-row items-start gap-2.5">
-                <View className="mt-0.5 size-7 items-center justify-center rounded-lg bg-primary">
+                <View className="mt-0.5 size-7 items-center justify-center rounded-lg bg-[#6A5ACD]">
                   {n.type === 'order' ? (
                     <Truck size={14} color="#FFFFFF" strokeWidth={2.2} />
                   ) : (
@@ -91,14 +91,14 @@ export default function NotificationSettings() {
                 </View>
                 <View className="flex-1">
                   <View className="flex-row items-center justify-between">
-                    <T className="text-[13px] font-bold text-foreground">{n.title}</T>
-                    <T className="text-[10px] text-muted-foreground">
+                    <T className="text-[13px] font-bold text-[#E5E1E4]">{n.title}</T>
+                    <T className="text-[10px] text-[#928F9E]">
                       {new Date(n.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </T>
                   </View>
-                  <T className="text-[11.5px] leading-[16px] text-muted-foreground">{n.message}</T>
+                  <T className="text-[11.5px] leading-[16px] text-[#928F9E]">{n.message}</T>
                   {n.orderId ? (
-                    <T className="mt-1 text-[11px] font-semibold text-primary">
+                    <T className="mt-1 text-[11px] font-semibold text-[#C8BFFF]">
                       Track Order #{n.orderId.replace('ord-demo-live-', '').replace('ord-demo-past-', '')} →
                     </T>
                   ) : null}

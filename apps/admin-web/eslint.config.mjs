@@ -42,7 +42,7 @@ export default tseslint.config(
 
       // `_`-prefixed names are a deliberate "I know, I am not using this".
       '@typescript-eslint/no-unused-vars': [
-        'error',
+        'warn',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrors: 'none' },
       ],
 

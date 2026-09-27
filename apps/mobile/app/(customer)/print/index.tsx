@@ -1,17 +1,33 @@
 /**
- * Print & Xerox Studio Screen
+ * Print & Xerox Studio Screen — Stitch Dark Floating Theme
+ * High-speed document upload and instant price quoting for Tallakulam Print Hub.
+ * Supports B&W/Color, Single/Double sided, Staple/Spiral/Hardcover binding, and express doorstep delivery.
  */
 
 import * as React from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Check, FileCheck, FileText, Minus, Plus, Printer, Shield } from 'lucide-react-native';
+import {
+  ArrowLeft,
+  Check,
+  FileCheck,
+  FileText,
+  Minus,
+  Plus,
+  Printer,
+  Shield,
+  Sparkles,
+  Layers,
+  BookOpen,
+} from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 
 import { formatInr } from '@dfc/core';
 import { mockPrintRepository } from '@/demo/repositories/print.repository';
 import { useCart } from '@/providers/cart';
-import { Badge, Button, Num, Screen, T, Ta } from '@/ui';
-import { GlassCard, PressableScale } from '@/ui/glass';
+import { Screen } from '@/ui';
+import { DFCPressable } from '@/ui/animated';
+import { StitchHeader } from '@/ui/stitch-header';
 
 export default function PrintScreen() {
   const router = useRouter();
@@ -39,6 +55,7 @@ export default function PrintScreen() {
 
   async function onOrderPrint() {
     setBusy(true);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     await addItem({
       id: `print-${Date.now()}`,
       sourceId: 'store-print-hub',
@@ -50,208 +67,579 @@ export default function PrintScreen() {
       quantity: 1,
     });
     setBusy(false);
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     router.push('/(customer)/cart?service=print' as any);
   }
 
   return (
-    <Screen edges={['top']}>
+    <Screen edges={['top']} style={{ backgroundColor: '#0E0E10' }}>
       {/* Header */}
-      <View className="flex-row items-center gap-3 border-b border-muted bg-background px-4 py-3">
-        <PressableScale to={0.9} onPress={() => router.back()} className="size-9 items-center justify-center">
-          <ArrowLeft size={22} color="#18181B" strokeWidth={2} />
-        </PressableScale>
-        <View className="flex-1">
-          <View className="flex-row items-center gap-2">
-            <T className="text-[17px] font-bold tracking-tight">Print & Xerox Express</T>
-            <Ta className="text-[12px] text-muted-foreground">பிரிண்ட்</Ta>
+      <StitchHeader
+        showBack={true}
+        title="Print & Xerox Studio"
+        subtitle="Tallakulam Hub · 30-min Doorstep"
+        showNotifications={false}
+        rightAction={
+          <View
+            style={{
+              backgroundColor: 'rgba(106, 90, 205, 0.15)',
+              borderWidth: 1,
+              borderColor: 'rgba(106, 90, 205, 0.35)',
+              paddingHorizontal: 10,
+              paddingVertical: 5,
+              borderRadius: 20,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: 'PlusJakartaSans',
+                fontSize: 11,
+                fontWeight: '700',
+                color: '#C8BFFF',
+              }}
+            >
+              A4 HD Laser
+            </Text>
           </View>
-          <T className="text-[11px] font-medium text-muted-foreground">
-            Tallakulam Print Hub · 30-min Doorstep Delivery
-          </T>
-        </View>
-        <View className="rounded-full bg-blue-50 px-2.5 py-1">
-          <T className="text-[11px] font-bold text-blue-700">A4 / A3 HD</T>
-        </View>
-      </View>
+        }
+      />
 
-      <ScrollView className="flex-1 bg-surface" contentContainerClassName="gap-4 p-4 pb-28">
-        {/* Document Selection Card */}
-        <View className="gap-2">
-          <T className="text-[13px] font-bold text-foreground">1. SELECT DOCUMENT TO PRINT</T>
-          <View className="gap-2">
+      <ScrollView
+        contentContainerStyle={{
+          paddingHorizontal: 16,
+          paddingTop: 16,
+          paddingBottom: 48,
+        }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Step 1: Document Selection */}
+        <View className="mb-6">
+          <View className="flex-row items-center gap-2 mb-3">
+            <View
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: 11,
+                backgroundColor: '#6A5ACD',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 12, fontWeight: '800', color: '#FFFFFF' }}>
+                1
+              </Text>
+            </View>
+            <Text
+              style={{
+                fontFamily: 'PlusJakartaSans',
+                fontSize: 13,
+                fontWeight: '700',
+                color: '#E5E1E4',
+                letterSpacing: 0.5,
+              }}
+            >
+              SELECT DOCUMENT
+            </Text>
+          </View>
+
+          <View className="gap-2.5">
             {sampleDocs.map((doc, idx) => {
               const active = selectedDocIdx === idx;
               return (
-                <Pressable
+                <DFCPressable
                   key={doc.name}
-                  onPress={() => setSelectedDocIdx(idx)}
-                  className={`flex-row items-center gap-3 rounded-[14px] border p-3.5 ${
-                    active ? 'border-primary bg-primary-tint' : 'border-border bg-background'
-                  }`}
+                  onPress={() => {
+                    void Haptics.selectionAsync();
+                    setSelectedDocIdx(idx);
+                  }}
+                  scaleTo={0.98}
+                  style={{
+                    backgroundColor: active ? '#1E1D26' : '#18181B',
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: active ? '#6A5ACD' : '#26262B',
+                    padding: 14,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 12,
+                  }}
                 >
-                  <View className={`size-9 items-center justify-center rounded-lg ${active ? 'bg-primary' : 'bg-muted'}`}>
-                    <FileText size={18} color={active ? '#FFFFFF' : '#71717A'} />
+                  <View
+                    style={{
+                      width: 42,
+                      height: 42,
+                      borderRadius: 12,
+                      backgroundColor: active ? 'rgba(106, 90, 205, 0.25)' : '#201F24',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <FileText size={20} color={active ? '#C8BFFF' : '#928F9E'} />
                   </View>
+
                   <View className="flex-1">
-                    <T className="text-[13.5px] font-semibold text-foreground">{doc.name}</T>
-                    <T className="text-[11px] text-muted-foreground">
+                    <Text
+                      style={{
+                        fontFamily: 'PlusJakartaSans',
+                        fontSize: 14,
+                        fontWeight: '700',
+                        color: active ? '#FFFFFF' : '#E5E1E4',
+                      }}
+                    >
+                      {doc.name}
+                    </Text>
+                    <Text
+                      style={{
+                        fontFamily: 'PlusJakartaSans',
+                        fontSize: 11,
+                        color: '#928F9E',
+                        marginTop: 2,
+                      }}
+                    >
                       {doc.pages} pages · {doc.size} · PDF
-                    </T>
+                    </Text>
                   </View>
+
                   {active ? (
-                    <View className="size-6 items-center justify-center rounded-full bg-primary">
-                      <Check size={13} color="#FFFFFF" strokeWidth={3} />
+                    <View
+                      style={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: 12,
+                        backgroundColor: '#6A5ACD',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Check size={14} color="#FFFFFF" strokeWidth={3} />
                     </View>
                   ) : null}
-                </Pressable>
+                </DFCPressable>
               );
             })}
           </View>
         </View>
 
-        {/* Print Configuration */}
-        <View className="gap-3 rounded-[16px] border border-border bg-background p-4 shadow-sm">
-          <T className="text-[13px] font-bold text-foreground">2. PRINT SPECIFICATIONS</T>
+        {/* Step 2: Print Specifications */}
+        <View
+          style={{
+            backgroundColor: '#18181B',
+            borderRadius: 20,
+            borderWidth: 1,
+            borderColor: '#26262B',
+            padding: 16,
+            marginBottom: 20,
+          }}
+        >
+          <View className="flex-row items-center gap-2 mb-4">
+            <View
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: 11,
+                backgroundColor: '#6A5ACD',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 12, fontWeight: '800', color: '#FFFFFF' }}>
+                2
+              </Text>
+            </View>
+            <Text
+              style={{
+                fontFamily: 'PlusJakartaSans',
+                fontSize: 13,
+                fontWeight: '700',
+                color: '#E5E1E4',
+                letterSpacing: 0.5,
+              }}
+            >
+              PRINT SPECIFICATIONS
+            </Text>
+          </View>
 
           {/* Color Mode */}
-          <View className="gap-1.5">
-            <T className="text-[12px] font-semibold text-body-strong">Color Mode</T>
+          <View className="mb-4">
+            <Text
+              style={{
+                fontFamily: 'PlusJakartaSans',
+                fontSize: 12,
+                fontWeight: '600',
+                color: '#928F9E',
+                marginBottom: 8,
+              }}
+            >
+              Color Mode
+            </Text>
             <View className="flex-row gap-2.5">
-              <Pressable
-                onPress={() => setColor('bw')}
-                className={`flex-1 items-center rounded-xl border py-2.5 ${
-                  color === 'bw' ? 'border-primary bg-primary-tint' : 'border-border bg-surface'
-                }`}
+              <DFCPressable
+                onPress={() => {
+                  void Haptics.selectionAsync();
+                  setColor('bw');
+                }}
+                scaleTo={0.97}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  alignItems: 'center',
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  backgroundColor: color === 'bw' ? 'rgba(106, 90, 205, 0.2)' : '#1F1E24',
+                  borderColor: color === 'bw' ? '#6A5ACD' : '#2A2930',
+                }}
               >
-                <T className={`text-[13px] font-semibold ${color === 'bw' ? 'text-primary' : 'text-body-strong'}`}>
+                <Text
+                  style={{
+                    fontFamily: 'PlusJakartaSans',
+                    fontSize: 13,
+                    fontWeight: '700',
+                    color: color === 'bw' ? '#C8BFFF' : '#E5E1E4',
+                  }}
+                >
                   B & W (₹2/pg)
-                </T>
-              </Pressable>
-              <Pressable
-                onPress={() => setColor('color')}
-                className={`flex-1 items-center rounded-xl border py-2.5 ${
-                  color === 'color' ? 'border-primary bg-primary-tint' : 'border-border bg-surface'
-                }`}
+                </Text>
+              </DFCPressable>
+
+              <DFCPressable
+                onPress={() => {
+                  void Haptics.selectionAsync();
+                  setColor('color');
+                }}
+                scaleTo={0.97}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  alignItems: 'center',
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  backgroundColor: color === 'color' ? 'rgba(106, 90, 205, 0.2)' : '#1F1E24',
+                  borderColor: color === 'color' ? '#6A5ACD' : '#2A2930',
+                }}
               >
-                <T className={`text-[13px] font-semibold ${color === 'color' ? 'text-primary' : 'text-body-strong'}`}>
+                <Text
+                  style={{
+                    fontFamily: 'PlusJakartaSans',
+                    fontSize: 13,
+                    fontWeight: '700',
+                    color: color === 'color' ? '#C8BFFF' : '#E5E1E4',
+                  }}
+                >
                   Color (₹8/pg)
-                </T>
-              </Pressable>
+                </Text>
+              </DFCPressable>
             </View>
           </View>
 
-          {/* Sides */}
-          <View className="gap-1.5 pt-1">
-            <T className="text-[12px] font-semibold text-body-strong">Print Sides</T>
+          {/* Print Sides */}
+          <View className="mb-4">
+            <Text
+              style={{
+                fontFamily: 'PlusJakartaSans',
+                fontSize: 12,
+                fontWeight: '600',
+                color: '#928F9E',
+                marginBottom: 8,
+              }}
+            >
+              Print Sides
+            </Text>
             <View className="flex-row gap-2.5">
-              <Pressable
-                onPress={() => setSide('double')}
-                className={`flex-1 items-center rounded-xl border py-2.5 ${
-                  side === 'double' ? 'border-primary bg-primary-tint' : 'border-border bg-surface'
-                }`}
+              <DFCPressable
+                onPress={() => {
+                  void Haptics.selectionAsync();
+                  setSide('double');
+                }}
+                scaleTo={0.97}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  alignItems: 'center',
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  backgroundColor: side === 'double' ? 'rgba(106, 90, 205, 0.2)' : '#1F1E24',
+                  borderColor: side === 'double' ? '#6A5ACD' : '#2A2930',
+                }}
               >
-                <T className={`text-[13px] font-semibold ${side === 'double' ? 'text-primary' : 'text-body-strong'}`}>
+                <Text
+                  style={{
+                    fontFamily: 'PlusJakartaSans',
+                    fontSize: 13,
+                    fontWeight: '700',
+                    color: side === 'double' ? '#C8BFFF' : '#E5E1E4',
+                  }}
+                >
                   Back-to-Back (15% Off)
-                </T>
-              </Pressable>
-              <Pressable
-                onPress={() => setSide('single')}
-                className={`flex-1 items-center rounded-xl border py-2.5 ${
-                  side === 'single' ? 'border-primary bg-primary-tint' : 'border-border bg-surface'
-                }`}
+                </Text>
+              </DFCPressable>
+
+              <DFCPressable
+                onPress={() => {
+                  void Haptics.selectionAsync();
+                  setSide('single');
+                }}
+                scaleTo={0.97}
+                style={{
+                  flex: 1,
+                  paddingVertical: 12,
+                  alignItems: 'center',
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  backgroundColor: side === 'single' ? 'rgba(106, 90, 205, 0.2)' : '#1F1E24',
+                  borderColor: side === 'single' ? '#6A5ACD' : '#2A2930',
+                }}
               >
-                <T className={`text-[13px] font-semibold ${side === 'single' ? 'text-primary' : 'text-body-strong'}`}>
+                <Text
+                  style={{
+                    fontFamily: 'PlusJakartaSans',
+                    fontSize: 13,
+                    fontWeight: '700',
+                    color: side === 'single' ? '#C8BFFF' : '#E5E1E4',
+                  }}
+                >
                   Single Sided
-                </T>
-              </Pressable>
+                </Text>
+              </DFCPressable>
             </View>
           </View>
 
-          {/* Binding Option */}
-          <View className="gap-1.5 pt-1">
-            <T className="text-[12px] font-semibold text-body-strong">Binding & Finishing</T>
+          {/* Binding & Finishing */}
+          <View className="mb-4">
+            <Text
+              style={{
+                fontFamily: 'PlusJakartaSans',
+                fontSize: 12,
+                fontWeight: '600',
+                color: '#928F9E',
+                marginBottom: 8,
+              }}
+            >
+              Binding & Finishing
+            </Text>
             <View className="flex-row flex-wrap gap-2">
               {[
                 { k: 'none' as const, l: 'No Binding', p: '₹0' },
                 { k: 'staple' as const, l: 'Corner Staple', p: '+₹5' },
                 { k: 'spiral' as const, l: 'Spiral Bound', p: '+₹40' },
                 { k: 'hard' as const, l: 'Hardcover Book', p: '+₹120' },
-              ].map((b) => (
-                <Pressable
-                  key={b.k}
-                  onPress={() => setBinding(b.k)}
-                  className={`flex-1 min-w-[130px] rounded-xl border p-2.5 ${
-                    binding === b.k ? 'border-primary bg-primary-tint' : 'border-border bg-surface'
-                  }`}
-                >
-                  <T className={`text-[12px] font-semibold ${binding === b.k ? 'text-primary' : 'text-body-strong'}`}>
-                    {b.l}
-                  </T>
-                  <T className="text-[10.5px] text-muted-foreground">{b.p}</T>
-                </Pressable>
-              ))}
+              ].map((b) => {
+                const active = binding === b.k;
+                return (
+                  <DFCPressable
+                    key={b.k}
+                    onPress={() => {
+                      void Haptics.selectionAsync();
+                      setBinding(b.k);
+                    }}
+                    scaleTo={0.96}
+                    style={{
+                      flex: 1,
+                      minWidth: 140,
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      backgroundColor: active ? 'rgba(106, 90, 205, 0.2)' : '#1F1E24',
+                      borderColor: active ? '#6A5ACD' : '#2A2930',
+                      padding: 12,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontFamily: 'PlusJakartaSans',
+                        fontSize: 13,
+                        fontWeight: '700',
+                        color: active ? '#C8BFFF' : '#E5E1E4',
+                      }}
+                    >
+                      {b.l}
+                    </Text>
+                    <Text
+                      style={{
+                        fontFamily: 'PlusJakartaSans',
+                        fontSize: 11,
+                        color: '#928F9E',
+                        marginTop: 2,
+                      }}
+                    >
+                      {b.p}
+                    </Text>
+                  </DFCPressable>
+                );
+              })}
             </View>
           </View>
 
           {/* Copies Stepper */}
-          <View className="flex-row items-center justify-between border-t border-muted pt-3">
+          <View
+            style={{
+              borderTopWidth: 1,
+              borderTopColor: '#26262B',
+              paddingTop: 14,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
             <View>
-              <T className="text-[13px] font-semibold text-body-strong">Number of Sets / Copies</T>
-              <T className="text-[11px] text-muted-foreground">Delivered in sealed weatherproof envelope</T>
+              <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 13, fontWeight: '700', color: '#E5E1E4' }}>
+                Number of Copies
+              </Text>
+              <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 11, color: '#928F9E' }}>
+                Sealed weatherproof packaging
+              </Text>
             </View>
-            <View className="h-8 flex-row items-center rounded-lg border border-primary bg-primary px-1">
+
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: '#26252E',
+                borderRadius: 10,
+                borderWidth: 1,
+                borderColor: '#383742',
+                paddingHorizontal: 4,
+                paddingVertical: 2,
+              }}
+            >
               <Pressable
-                onPress={() => setCopies((c) => Math.max(1, c - 1))}
-                className="size-7 items-center justify-center"
+                onPress={() => {
+                  void Haptics.selectionAsync();
+                  setCopies((c) => Math.max(1, c - 1));
+                }}
+                style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}
               >
-                <Minus size={13} color="#FFFFFF" strokeWidth={2.5} />
+                <Minus size={15} color="#C8BFFF" strokeWidth={2.5} />
               </Pressable>
-              <Num className="min-w-[24px] text-center text-[13px] font-bold text-white">{copies}</Num>
-              <Pressable
-                onPress={() => setCopies((c) => c + 1)}
-                className="size-7 items-center justify-center"
+              <Text
+                style={{
+                  fontFamily: 'PlusJakartaSans',
+                  fontSize: 14,
+                  fontWeight: '800',
+                  color: '#FFFFFF',
+                  minWidth: 28,
+                  textAlign: 'center',
+                }}
               >
-                <Plus size={13} color="#FFFFFF" strokeWidth={2.5} />
+                {copies}
+              </Text>
+              <Pressable
+                onPress={() => {
+                  void Haptics.selectionAsync();
+                  setCopies((c) => c + 1);
+                }}
+                style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Plus size={15} color="#C8BFFF" strokeWidth={2.5} />
               </Pressable>
             </View>
           </View>
         </View>
 
-        {/* Live Calculation Quote Card */}
-        <View className="gap-2.5 rounded-[16px] border border-border bg-background p-4 shadow-sm">
-          <T className="text-[13px] font-bold text-foreground">3. PRICE ESTIMATE</T>
-
-          <View className="gap-1.5 border-b border-muted pb-2.5 text-[12.5px]">
-            <View className="flex-row justify-between">
-              <T className="text-[12px] text-muted-foreground">
-                Printing ({currentDoc.pages} pages × {copies} set)
-              </T>
-              <Num className="text-[12px] font-medium">{formatInr(quote.itemTotalPaise)}</Num>
+        {/* Step 3: Price Calculation & Cart CTA */}
+        <View
+          style={{
+            backgroundColor: '#18181B',
+            borderRadius: 20,
+            borderWidth: 1,
+            borderColor: '#26262B',
+            padding: 16,
+            marginBottom: 20,
+          }}
+        >
+          <View className="flex-row items-center gap-2 mb-3">
+            <View
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: 11,
+                backgroundColor: '#6A5ACD',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 12, fontWeight: '800', color: '#FFFFFF' }}>
+                3
+              </Text>
             </View>
+            <Text
+              style={{
+                fontFamily: 'PlusJakartaSans',
+                fontSize: 13,
+                fontWeight: '700',
+                color: '#E5E1E4',
+                letterSpacing: 0.5,
+              }}
+            >
+              PRICE ESTIMATE
+            </Text>
+          </View>
+
+          <View className="gap-2 border-b border-[#26262B] pb-3 mb-3">
+            <View className="flex-row justify-between">
+              <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 13, color: '#928F9E' }}>
+                Printing ({currentDoc.pages} pages × {copies} set)
+              </Text>
+              <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 13, color: '#E5E1E4', fontWeight: '600' }}>
+                {formatInr(quote.itemTotalPaise)}
+              </Text>
+            </View>
+
             {quote.bindingPaise > 0 ? (
               <View className="flex-row justify-between">
-                <T className="text-[12px] text-muted-foreground">{binding.toUpperCase()} Binding</T>
-                <Num className="text-[12px] font-medium">{formatInr(quote.bindingPaise)}</Num>
+                <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 13, color: '#928F9E' }}>
+                  {binding.toUpperCase()} Binding
+                </Text>
+                <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 13, color: '#E5E1E4', fontWeight: '600' }}>
+                  {formatInr(quote.bindingPaise)}
+                </Text>
               </View>
             ) : null}
+
             <View className="flex-row justify-between">
-              <T className="text-[12px] text-muted-foreground">Express 30-min Delivery</T>
-              <Num className="text-[12px] font-medium">{formatInr(quote.deliveryFeePaise)}</Num>
+              <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 13, color: '#928F9E' }}>
+                Express 30-min Delivery
+              </Text>
+              <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 13, color: '#10B981', fontWeight: '600' }}>
+                {quote.deliveryFeePaise === 0 ? 'FREE' : formatInr(quote.deliveryFeePaise)}
+              </Text>
             </View>
           </View>
 
-          <View className="flex-row items-center justify-between pt-0.5">
-            <T className="text-[14px] font-bold text-foreground">Total Bill</T>
-            <Num className="text-[17px] font-bold text-primary">{formatInr(quote.totalPaise)}</Num>
+          <View className="flex-row items-center justify-between mb-4">
+            <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 15, fontWeight: '700', color: '#E5E1E4' }}>
+              Total Bill
+            </Text>
+            <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 20, fontWeight: '800', color: '#C8BFFF' }}>
+              {formatInr(quote.totalPaise)}
+            </Text>
           </View>
 
-          <Button
-            size="lg"
-            label="Add Print Order to Cart"
-            loading={busy}
+          <DFCPressable
             onPress={() => void onOrderPrint()}
-            className="mt-1"
-          />
+            disabled={busy}
+            scaleTo={0.97}
+            style={{
+              backgroundColor: '#6A5ACD',
+              paddingVertical: 14,
+              borderRadius: 14,
+              alignItems: 'center',
+              justifyContent: 'center',
+              shadowColor: '#6A5ACD',
+              shadowOpacity: 0.3,
+              shadowRadius: 10,
+              elevation: 4,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: 'PlusJakartaSans',
+                fontSize: 15,
+                fontWeight: '700',
+                color: '#FFFFFF',
+              }}
+            >
+              {busy ? 'Adding to Cart...' : 'Add Print Order to Cart →'}
+            </Text>
+          </DFCPressable>
         </View>
       </ScrollView>
     </Screen>

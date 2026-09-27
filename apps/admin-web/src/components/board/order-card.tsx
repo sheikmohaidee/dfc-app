@@ -26,22 +26,20 @@ import { Badge, Card } from '@/components/ui/primitives';
 import { storage } from '@/lib/firebase';
 import { ago, cn, initials } from '@/lib/utils';
 
-const TONE: Record<Category, 'pharmacy' | 'grocery' | 'food' | 'concierge'> = {
-  pharmacy: 'pharmacy',
+const TONE: Partial<Record<Category, 'grocery' | 'food' | 'concierge' | 'verify'>> = {
   grocery: 'grocery',
   food: 'food',
   concierge: 'concierge',
-  print: 'pharmacy',
+  print: 'concierge',
   pickup_drop: 'food',
   buy_deliver: 'grocery',
 };
 
-const DOT: Record<Category, string> = {
-  pharmacy: 'bg-pharmacy',
+const DOT: Partial<Record<Category, string>> = {
   grocery: 'bg-grocery',
   food: 'bg-food',
   concierge: 'bg-concierge',
-  print: 'bg-pharmacy',
+  print: 'bg-concierge',
   pickup_drop: 'bg-food',
   buy_deliver: 'bg-grocery',
 };

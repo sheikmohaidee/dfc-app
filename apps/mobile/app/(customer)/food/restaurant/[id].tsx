@@ -1,12 +1,17 @@
 /**
- * DFC Restaurant Menu Screen - Full Stitch Design Implementation
- * Amma Mess Hero, Category Chips, Bestseller Items, Steppers, and Floating Basket.
+ * Stitch 04 — Restaurant Details & Menu Screen
+ * Immersive dark floating theme for restaurant dining:
+ * - Cover hero banner with gradient backdrop
+ * - Floating details card with rating, ETA, locality & price for two
+ * - Special offer ribbon
+ * - Sticky category filter pills & menu search
+ * - Menu items with veg/non-veg tags, description, price, and tactile stepper
+ * - Floating cart basket bar
  */
 
 import * as React from 'react';
 import {
   Alert,
-  Image,
   Pressable,
   ScrollView,
   Share,
@@ -15,26 +20,57 @@ import {
   View,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Image } from 'expo-image';
 import {
   ArrowLeft,
   Clock,
+  Flame,
   MapPin,
   Minus,
   Plus,
   Search,
   Share2,
   ShoppingBag,
+  Sparkles,
   Star,
   Utensils,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
-import { formatInr } from '@dfc/core';
+import { formatInr, type Product } from '@dfc/core';
+import { DEMO_MODE } from '@/demo/config';
+import { subscribeProducts } from '@/lib/catalogue';
 import { mockRestaurantRepository } from '@/demo/repositories/restaurant.repository';
 import { mockMenuRepository } from '@/demo/repositories/menu.repository';
+import type { MenuItem } from '@/demo/types';
 import { useCart } from '@/providers/cart';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Screen } from '@/ui';
+import { FloatingCard, GlowBadge, Screen } from '@/ui';
+import { DFCPressable } from '@/ui/animated';
+
+function getDishImage(name: string, category?: string) {
+  const n = name.toLowerCase();
+  const c = (category || '').toLowerCase();
+  if (n.includes('biryani') || c.includes('biryani')) {
+    return 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=300&q=80';
+  }
+  if (n.includes('parotta') || n.includes('roti') || n.includes('naan')) {
+    return 'https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?w=300&q=80';
+  }
+  if (n.includes('dosa') || n.includes('idli') || n.includes('vada')) {
+    return 'https://images.unsplash.com/photo-1668236543090-82eba5ee5976?w=300&q=80';
+  }
+  if (n.includes('chicken') || n.includes('mutton') || n.includes('curry') || n.includes('gravy')) {
+    return 'https://images.unsplash.com/photo-1610057099443-fde8c4d50f91?w=300&q=80';
+  }
+  if (n.includes('jigarthanda') || n.includes('shake') || n.includes('juice') || n.includes('dessert') || n.includes('halwa')) {
+    return 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=300&q=80';
+  }
+  if (n.includes('fish') || n.includes('prawn') || n.includes('crab')) {
+    return 'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?w=300&q=80';
+  }
+  return 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=300&q=80';
+}
 
 export default function RestaurantMenuScreen() {
   const router = useRouter();
@@ -44,6 +80,7 @@ export default function RestaurantMenuScreen() {
   const [selectedCategory, setSelectedCategory] = React.useState('All');
   const [searchQuery, setSearchQuery] = React.useState('');
   const [menuVersion, setMenuVersion] = React.useState(0);
+  const [liveProducts, setLiveProducts] = React.useState<Product[]>([]);
 
   React.useEffect(() => {
     return mockMenuRepository.subscribe(() => setMenuVersion((v) => v + 1));
@@ -56,11 +93,34 @@ export default function RestaurantMenuScreen() {
     );
   }, [id]);
 
+  React.useEffect(() => {
+    if (DEMO_MODE || !restaurant?.id) return;
+    return subscribeProducts((prods) => {
+      setLiveProducts(prods);
+    }, undefined, restaurant.id);
+  }, [restaurant?.id]);
+
   const allMenuItems = React.useMemo(() => {
+    if (!DEMO_MODE && liveProducts.length > 0) {
+      const mapped: MenuItem[] = liveProducts.map((p) => ({
+        id: p.id,
+        name: p.name,
+        nameTa: p.nameTa,
+        description: p.unit || undefined,
+        pricePaise: p.sellPaise,
+        category: p.category || 'Mains',
+        isVeg: p.dietary?.includes('pure_veg') ?? false,
+        isBestseller: true,
+        isAvailable: p.stockQty > 0 && p.isActive !== false,
+      }));
+      return mapped;
+    }
+
+    void menuVersion;
     const dynamicItems = mockMenuRepository.getMenuByVendor(restaurant?.id || '');
     if (dynamicItems && dynamicItems.length > 0) return dynamicItems;
     return restaurant?.menu || [];
-  }, [restaurant?.id, restaurant?.menu, menuVersion]);
+  }, [restaurant?.id, restaurant?.menu, menuVersion, liveProducts]);
 
   if (!restaurant) {
     return null;
@@ -71,11 +131,11 @@ export default function RestaurantMenuScreen() {
       await Share.share({
         message: `Order delicious food from ${restaurant.name} on DFC Madurai!`,
       });
-    } catch {}
+    } catch {
+      // User cancelled share dialog
+    }
   };
 
-  // One Food order = one restaurant. A different restaurant starts a new,
-  // separate Food order — existing orders keep running untouched.
   async function addToFoodCart(item: (typeof allMenuItems)[number]) {
     const payload = {
       id: item.id,
@@ -125,36 +185,49 @@ export default function RestaurantMenuScreen() {
   }, [allMenuItems, selectedCategory, searchQuery]);
 
   return (
-    <Screen edges={['top']}>
-      {/* Cover Header Banner */}
-      <View
-        style={{
-          height: 180,
-          backgroundColor: '#5C0427',
-          position: 'relative',
-          justifyContent: 'space-between',
-          paddingHorizontal: 20,
-          paddingTop: 12,
-          paddingBottom: 20,
-        }}
-      >
-        {/* Navigation Bar in Header */}
-        <View className="flex-row items-center justify-between z-10">
+    <Screen edges={['top']} className="bg-surface-container-lowest">
+      {/* Cover Image Banner */}
+      <View style={{ height: 180, position: 'relative' }}>
+        <Image
+          source={{ uri: (restaurant as any).imageUrl || 'https://images.unsplash.com/photo-1589302168068-964664d93dc0?w=800&q=80' }}
+          contentFit="cover"
+          style={{ width: '100%', height: '100%' }}
+        />
+        <View
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundColor: 'rgba(14, 14, 16, 0.65)',
+          }}
+        />
+
+        {/* Header Navigation Bar */}
+        <View
+          style={{
+            position: 'absolute',
+            top: 12,
+            left: 16,
+            right: 16,
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            zIndex: 10,
+          }}
+        >
           <Pressable
             onPress={() => router.back()}
             style={{
               width: 38,
               height: 38,
               borderRadius: 19,
-              backgroundColor: '#FFFFFFE0',
+              backgroundColor: 'rgba(28, 27, 29, 0.85)',
+              borderWidth: 1,
+              borderColor: '#353437',
               alignItems: 'center',
               justifyContent: 'center',
-              shadowColor: '#000',
-              shadowOpacity: 0.1,
-              shadowRadius: 4,
             }}
           >
-            <ArrowLeft size={20} color="#141B2B" strokeWidth={2.2} />
+            <ArrowLeft size={19} color="#E5E1E4" strokeWidth={2.2} />
           </Pressable>
 
           <Pressable
@@ -163,87 +236,84 @@ export default function RestaurantMenuScreen() {
               width: 38,
               height: 38,
               borderRadius: 19,
-              backgroundColor: '#FFFFFFE0',
+              backgroundColor: 'rgba(28, 27, 29, 0.85)',
+              borderWidth: 1,
+              borderColor: '#353437',
               alignItems: 'center',
               justifyContent: 'center',
-              shadowColor: '#000',
-              shadowOpacity: 0.1,
-              shadowRadius: 4,
             }}
           >
-            <Share2 size={18} color="#141B2B" strokeWidth={2} />
+            <Share2 size={17} color="#E5E1E4" strokeWidth={2} />
           </Pressable>
-        </View>
-
-        {/* Backdrop Decorative Glow */}
-        <View className="flex-row items-center gap-2">
-          <Utensils size={18} color="#FFD9DF" />
-          <Text style={{ fontFamily: 'Archivo', fontSize: 13, color: '#FFD9DF', fontWeight: '600' }}>
-            Madurai Famous Kitchens
-          </Text>
         </View>
       </View>
 
       <ScrollView
         contentContainerStyle={{
-          paddingHorizontal: 20,
-          paddingBottom: 110,
+          paddingHorizontal: 16,
+          paddingBottom: itemCount > 0 ? 110 : 40,
         }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Restaurant Card Overlay */}
+        {/* Floating Restaurant Info Card */}
         <View
           style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: 16,
-            padding: 16,
-            marginTop: -28,
+            backgroundColor: '#1C1B1D',
+            borderColor: '#2A2A2C',
             borderWidth: 1,
-            borderColor: '#E9EDFF',
+            borderRadius: 20,
+            padding: 16,
+            marginTop: -36,
             shadowColor: '#000000',
-            shadowOpacity: 0.05,
+            shadowOpacity: 0.35,
             shadowRadius: 10,
-            shadowOffset: { width: 0, height: 4 },
-            elevation: 4,
-            marginBottom: 20,
+            elevation: 5,
+            marginBottom: 14,
           }}
         >
-          <Text
-            style={{
-              fontFamily: 'Archivo',
-              fontSize: 24,
-              fontWeight: '800',
-              color: '#141B2B',
-              letterSpacing: -0.5,
-              marginBottom: 2,
-            }}
-          >
-            {restaurant.name}
-          </Text>
-          <View className="flex-row items-center gap-1 mb-3">
-            <MapPin size={14} color="#554245" />
-            <Text style={{ fontFamily: 'Archivo', fontSize: 13, color: '#554245' }}>
-              {restaurant.localityName}, Madurai
+          <View className="flex-row items-start justify-between mb-1">
+            <View className="flex-1 mr-2">
+              <Text className="text-xl font-extrabold text-on-surface">
+                {restaurant.name}
+              </Text>
+              {restaurant.nameTa ? (
+                <Text className="text-xs text-on-surface-variant font-tamil">
+                  {restaurant.nameTa}
+                </Text>
+              ) : null}
+            </View>
+
+            <GlowBadge
+              label={restaurant.isPureVeg ? 'PURE VEG' : 'MADURAI SPECIAL'}
+              tone={restaurant.isPureVeg ? 'success' : 'secondary'}
+            />
+          </View>
+
+          <View className="flex-row items-center gap-1.5 mb-3">
+            <MapPin size={13} color="#928F9E" />
+            <Text className="text-xs text-on-surface-variant">
+              {restaurant.localityName}, Madurai · {restaurant.cuisines.join(' · ')}
             </Text>
           </View>
 
-          {/* Rating & ETA Bar */}
+          {/* Stats Matrix: Rating, ETA, Price for Two */}
           <View
             style={{
               flexDirection: 'row',
               alignItems: 'center',
-              gap: 16,
+              justifyContent: 'space-between',
               borderTopWidth: 1,
-              borderTopColor: '#DCE2F7',
+              borderTopColor: '#2A2A2C',
               paddingTop: 12,
             }}
           >
-            {/* Rating */}
             <View className="flex-row items-center gap-1.5">
               <View
                 style={{
-                  backgroundColor: '#0A6A32',
-                  borderRadius: 4,
+                  backgroundColor: 'rgba(142, 44, 1, 0.25)',
+                  borderColor: 'rgba(255, 181, 156, 0.3)',
+                  borderWidth: 1,
+                  borderRadius: 6,
                   paddingHorizontal: 6,
                   paddingVertical: 2,
                   flexDirection: 'row',
@@ -251,64 +321,77 @@ export default function RestaurantMenuScreen() {
                   gap: 3,
                 }}
               >
-                <Text style={{ fontFamily: 'Archivo', fontSize: 11, fontWeight: '800', color: '#FFFFFF' }}>
+                <Text style={{ fontSize: 11, fontWeight: '800', color: '#FFB59C' }}>
                   {restaurant.rating.toFixed(1)}
                 </Text>
-                <Star size={10} color="#FFFFFF" fill="#FFFFFF" />
+                <Star size={10} color="#FFB59C" fill="#FFB59C" />
               </View>
-              <Text style={{ fontFamily: 'Archivo', fontSize: 12, color: '#554245' }}>
-                Rating
+              <Text className="text-xs text-on-surface-variant">
+                {restaurant.reviewCount}+ Ratings
               </Text>
             </View>
 
-            <View style={{ width: 1, height: 16, backgroundColor: '#DAC0C4' }} />
+            <View style={{ width: 1, height: 16, backgroundColor: '#353437' }} />
 
-            {/* ETA */}
             <View className="flex-row items-center gap-1.5">
-              <Clock size={16} color="#554245" />
-              <Text style={{ fontFamily: 'Archivo', fontSize: 13, fontWeight: '700', color: '#141B2B' }}>
-                {restaurant.avgPrepMinutes + 10} min ETA
+              <Clock size={13} color="#C8BFFF" />
+              <Text className="text-xs font-semibold text-on-surface">
+                {restaurant.avgPrepMinutes + 10} Mins ETA
               </Text>
             </View>
+
+            <View style={{ width: 1, height: 16, backgroundColor: '#353437' }} />
+
+            <Text className="text-xs text-on-surface-variant">
+              {formatInr(restaurant.priceForTwoPaise)} for 2
+            </Text>
           </View>
         </View>
 
-        {/* Search Menu Input */}
+        {/* Special Offer Ribbon */}
+        <FloatingCard className="p-3 mb-3 bg-surface-container-low border-secondary/20 flex-row items-center gap-2">
+          <Flame size={16} color="#FFB59C" />
+          <Text className="text-xs text-on-surface-variant flex-1">
+            <Text className="font-bold text-secondary">DFC Special:</Text> Flat ₹50 OFF above ₹299 with code <Text className="font-mono font-bold text-primary">DFC50</Text>
+          </Text>
+        </FloatingCard>
+
+        {/* Menu Search Bar */}
         <View
           style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            backgroundColor: '#F1F3FF',
+            backgroundColor: '#1C1B1D',
+            borderColor: '#2A2A2C',
             borderWidth: 1,
-            borderColor: '#DCE2F7',
-            borderRadius: 12,
-            paddingHorizontal: 14,
-            height: 48,
-            marginBottom: 16,
+            borderRadius: 14,
           }}
+          className="h-11 flex-row items-center px-3.5 mb-3"
         >
-          <Search size={18} color="#554245" />
+          <Search size={16} color="#928F9E" />
           <TextInput
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholder="Search menu..."
-            placeholderTextColor="#554245"
+            placeholder="Search within this menu..."
+            placeholderTextColor="#928F9E"
             style={{
               flex: 1,
-              paddingHorizontal: 10,
-              fontFamily: 'Archivo',
-              fontSize: 14,
-              color: '#141B2B',
+              marginLeft: 8,
+              color: '#E5E1E4',
+              fontSize: 13.5,
+              fontWeight: '500',
             }}
           />
+          {searchQuery ? (
+            <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
+              <Text className="text-xs font-semibold text-primary">Clear</Text>
+            </Pressable>
+          ) : null}
         </View>
 
-        {/* Category Filter Chips */}
+        {/* Category Pills */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 8, paddingBottom: 4 }}
-          style={{ marginBottom: 20 }}
+          contentContainerStyle={{ gap: 8, paddingBottom: 14 }}
         >
           {categories.map((cat) => {
             const isSelected = selectedCategory === cat;
@@ -320,22 +403,19 @@ export default function RestaurantMenuScreen() {
                   setSelectedCategory(cat);
                 }}
                 style={{
-                  paddingHorizontal: 16,
-                  paddingVertical: 8,
+                  paddingHorizontal: 14,
+                  paddingVertical: 7,
                   borderRadius: 9999,
-                  backgroundColor: isSelected ? '#7A1F3D' : '#E1E8FD',
-                  shadowColor: '#7A1F3D',
-                  shadowOpacity: isSelected ? 0.2 : 0,
-                  shadowRadius: 4,
-                  elevation: isSelected ? 2 : 0,
+                  backgroundColor: isSelected ? '#6A5ACD' : '#1C1B1D',
+                  borderColor: isSelected ? '#6A5ACD' : '#2A2A2C',
+                  borderWidth: 1,
                 }}
               >
                 <Text
                   style={{
-                    fontFamily: 'Archivo',
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: isSelected ? '700' : '500',
-                    color: isSelected ? '#FFFFFF' : '#141B2B',
+                    color: isSelected ? '#FFFFFF' : '#C9C4D5',
                     textTransform: 'capitalize',
                   }}
                 >
@@ -346,243 +426,182 @@ export default function RestaurantMenuScreen() {
           })}
         </ScrollView>
 
-        {/* Menu Items List */}
-        <View className="gap-5">
+        {/* Menu Items Stack */}
+        <View className="gap-3">
           {filteredMenu.map((item) => {
             const cartItem = cart.items.find((i) => i.id === item.id);
             const qty = cartItem?.quantity || 0;
+            const isAvail = (item as any).isAvailable !== false;
+            const dishImage = (item as any).imageUrl || getDishImage(item.name, item.category);
 
             return (
               <View
                 key={item.id}
                 style={{
+                  backgroundColor: '#1C1B1D',
+                  borderColor: '#2A2A2C',
+                  borderWidth: 1,
+                  borderRadius: 18,
+                  padding: 14,
                   flexDirection: 'row',
                   justifyContent: 'space-between',
-                  paddingBottom: 20,
-                  borderBottomWidth: 1,
-                  borderBottomColor: '#DCE2F7',
+                  alignItems: 'center',
+                  shadowColor: '#000000',
+                  shadowOpacity: 0.15,
+                  shadowRadius: 6,
+                  shadowOffset: { width: 0, height: 2 },
+                  elevation: 2,
                 }}
               >
                 {/* Details */}
                 <View className="flex-1 pr-3">
-                  {/* Veg / Non-Veg Indicator */}
-                  <View className="flex-row items-center gap-2 mb-1.5">
+                  <View className="flex-row items-center gap-2 mb-1">
+                    {/* Veg indicator dot */}
                     <View
                       style={{
-                        width: 16,
-                        height: 16,
+                        width: 14,
+                        height: 14,
                         borderRadius: 3,
                         borderWidth: 1.5,
-                        borderColor: item.isVeg ? '#0A6A32' : '#BA1A1A',
+                        borderColor: item.isVeg ? '#6EE7B7' : '#FFB59C',
                         alignItems: 'center',
                         justifyContent: 'center',
                       }}
                     >
                       <View
                         style={{
-                          width: 7,
-                          height: 7,
-                          borderRadius: 3.5,
-                          backgroundColor: item.isVeg ? '#0A6A32' : '#BA1A1A',
+                          width: 6,
+                          height: 6,
+                          borderRadius: 3,
+                          backgroundColor: item.isVeg ? '#6EE7B7' : '#FFB59C',
                         }}
                       />
                     </View>
 
-                    {item.isPopular ? (
-                      <View
-                        style={{
-                          backgroundColor: '#FFDAD6',
-                          paddingHorizontal: 8,
-                          paddingVertical: 2,
-                          borderRadius: 4,
-                        }}
-                      >
-                        <Text
-                          style={{
-                            fontFamily: 'Archivo',
-                            fontSize: 10,
-                            fontWeight: '800',
-                            color: '#BA1A1A',
-                            letterSpacing: 0.5,
-                            textTransform: 'uppercase',
-                          }}
-                        >
-                          Bestseller
-                        </Text>
-                      </View>
+                    {(item as any).isBestseller || item.isPopular ? (
+                      <Text style={{ fontSize: 10, fontWeight: '800', color: '#FFB59C', letterSpacing: 0.3 }}>
+                        ★ BESTSELLER
+                      </Text>
                     ) : null}
                   </View>
 
-                  {/* Title & Price */}
-                  <Text
-                    style={{
-                      fontFamily: 'Archivo',
-                      fontSize: 16,
-                      fontWeight: '700',
-                      color: '#141B2B',
-                      marginBottom: 2,
-                    }}
-                  >
+                  <Text className="text-sm font-bold text-on-surface mb-0.5">
                     {item.name}
                   </Text>
-                  <Text
-                    style={{
-                      fontFamily: 'Archivo',
-                      fontSize: 15,
-                      fontWeight: '800',
-                      color: '#141B2B',
-                      marginBottom: 4,
-                    }}
-                  >
-                    {formatInr(item.pricePaise)}
-                  </Text>
+                  {item.nameTa ? (
+                    <Text className="text-[11px] text-on-surface-variant font-tamil mb-1">
+                      {item.nameTa}
+                    </Text>
+                  ) : null}
 
                   {item.description ? (
-                    <Text
-                      style={{
-                        fontFamily: 'Archivo',
-                        fontSize: 12,
-                        color: '#554245',
-                        lineHeight: 16,
-                      }}
-                      numberOfLines={2}
-                    >
+                    <Text numberOfLines={2} className="text-xs text-on-surface-variant mb-2">
                       {item.description}
                     </Text>
                   ) : null}
 
-                  {(item as any).isAvailable === false ? (
-                    <View
-                      style={{
-                        alignSelf: 'flex-start',
-                        backgroundColor: '#FEE2E2',
-                        paddingHorizontal: 8,
-                        paddingVertical: 2,
-                        borderRadius: 6,
-                        marginTop: 4,
-                      }}
-                    >
-                      <Text style={{ fontFamily: 'Archivo', fontSize: 11, fontWeight: '700', color: '#BA1A1A' }}>
-                        Currently unavailable
-                      </Text>
-                    </View>
-                  ) : null}
+                  <Text className="text-sm font-bold font-mono text-on-surface">
+                    {formatInr(item.pricePaise)}
+                  </Text>
                 </View>
 
-                {/* Thumbnail & Add / Stepper CTA */}
-                <View style={{ width: 110, height: 110, position: 'relative', alignItems: 'center' }}>
+                {/* Right Action: Dish thumbnail + ADD button or Stepper */}
+                <View style={{ alignItems: 'center', minWidth: 94 }}>
                   <View
                     style={{
-                      width: 100,
-                      height: 100,
-                      borderRadius: 14,
-                      backgroundColor: (item as any).isAvailable === false ? '#F3F4F6' : '#E9EDFF',
-                      alignItems: 'center',
-                      justifyContent: 'center',
+                      width: 80,
+                      height: 64,
+                      borderRadius: 12,
                       overflow: 'hidden',
-                      borderWidth: 1,
-                      borderColor: '#DAC0C4',
-                      opacity: (item as any).isAvailable === false ? 0.6 : 1,
+                      marginBottom: 8,
+                      backgroundColor: '#2A2A2C',
                     }}
                   >
-                    <Utensils size={32} color={(item as any).isAvailable === false ? '#9CA3AF' : '#7A1F3D'} />
+                    <Image
+                      source={{ uri: dishImage }}
+                      contentFit="cover"
+                      style={{ width: '100%', height: '100%' }}
+                      transition={150}
+                    />
                   </View>
 
-                  {/* Button Stepper */}
-                  <View style={{ position: 'absolute', bottom: -2 }}>
-                    {(item as any).isAvailable === false && qty === 0 ? (
-                      <View
-                        style={{
-                          width: 96,
-                          height: 36,
-                          backgroundColor: '#F3F4F6',
-                          borderWidth: 1,
-                          borderColor: '#D1D5DB',
-                          borderRadius: 8,
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        <Text style={{ fontFamily: 'Archivo', fontSize: 10.5, fontWeight: '800', color: '#9CA3AF' }}>
-                          UNAVAILABLE
-                        </Text>
-                      </View>
-                    ) : qty === 0 ? (
+                  {!isAvail && qty === 0 ? (
+                    <View
+                      style={{
+                        paddingHorizontal: 10,
+                        paddingVertical: 6,
+                        backgroundColor: '#2A2A2C',
+                        borderRadius: 8,
+                      }}
+                    >
+                      <Text style={{ fontSize: 10, fontWeight: '700', color: '#928F9E' }}>
+                        SOLD OUT
+                      </Text>
+                    </View>
+                  ) : qty === 0 ? (
+                    <DFCPressable
+                      scaleTo={0.92}
+                      onPress={() => {
+                        if (!isAvail) {
+                          Alert.alert('Unavailable', 'This item is currently out of stock.');
+                          return;
+                        }
+                        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        void addToFoodCart(item);
+                      }}
+                      style={{
+                        paddingHorizontal: 16,
+                        paddingVertical: 6,
+                        backgroundColor: 'rgba(106, 90, 205, 0.2)',
+                        borderColor: '#6A5ACD',
+                        borderWidth: 1.5,
+                        borderRadius: 10,
+                      }}
+                    >
+                      <Text style={{ fontSize: 12, fontWeight: '800', color: '#C8BFFF' }}>
+                        ADD +
+                      </Text>
+                    </DFCPressable>
+                  ) : (
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        backgroundColor: '#2A2A2C',
+                        borderColor: '#353437',
+                        borderWidth: 1,
+                        borderRadius: 10,
+                        paddingHorizontal: 4,
+                        height: 32,
+                      }}
+                    >
                       <Pressable
                         onPress={() => {
-                          if ((item as any).isAvailable === false) {
-                            Alert.alert('Unavailable', 'This item is currently unavailable.');
+                          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          void updateQuantity(item.id, -1);
+                        }}
+                        style={{ paddingHorizontal: 7, paddingVertical: 4 }}
+                      >
+                        <Minus size={13} color="#E5E1E4" strokeWidth={2.5} />
+                      </Pressable>
+                      <Text style={{ fontSize: 13, fontWeight: '800', color: '#FFFFFF', paddingHorizontal: 4 }}>
+                        {qty}
+                      </Text>
+                      <Pressable
+                        onPress={() => {
+                          if (!isAvail) {
+                            Alert.alert('Unavailable', 'This item is currently out of stock.');
                             return;
                           }
                           void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                           void addToFoodCart(item);
                         }}
-                        style={{
-                          width: 88,
-                          height: 36,
-                          backgroundColor: '#FFFFFF',
-                          borderWidth: 1.5,
-                          borderColor: '#7A1F3D',
-                          borderRadius: 8,
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          shadowColor: '#000000',
-                          shadowOpacity: 0.08,
-                          shadowRadius: 6,
-                          elevation: 3,
-                        }}
+                        style={{ paddingHorizontal: 7, paddingVertical: 4 }}
                       >
-                        <Text style={{ fontFamily: 'Archivo', fontSize: 13, fontWeight: '800', color: '#7A1F3D' }}>
-                          ADD
-                        </Text>
+                        <Plus size={13} color="#C8BFFF" strokeWidth={2.5} />
                       </Pressable>
-                    ) : (
-                      <View
-                        style={{
-                          width: 88,
-                          height: 36,
-                          backgroundColor: '#FFFFFF',
-                          borderWidth: 1.5,
-                          borderColor: '#7A1F3D',
-                          borderRadius: 8,
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          paddingHorizontal: 6,
-                          shadowColor: '#000000',
-                          shadowOpacity: 0.08,
-                          shadowRadius: 6,
-                          elevation: 3,
-                        }}
-                      >
-                        <Pressable
-                          onPress={() => {
-                            void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                            void updateQuantity(item.id, -1);
-                          }}
-                          style={{ padding: 4 }}
-                        >
-                          <Minus size={14} color="#7A1F3D" strokeWidth={2.5} />
-                        </Pressable>
-                        <Text style={{ fontFamily: 'Archivo', fontSize: 14, fontWeight: '800', color: '#7A1F3D' }}>
-                          {qty}
-                        </Text>
-                        <Pressable
-                          onPress={() => {
-                            if ((item as any).isAvailable === false) {
-                              Alert.alert('Unavailable', 'This item is currently unavailable.');
-                              return;
-                            }
-                            void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                            void addToFoodCart(item);
-                          }}
-                          style={{ padding: 4 }}
-                        >
-                          <Plus size={14} color="#7A1F3D" strokeWidth={2.5} />
-                        </Pressable>
-                      </View>
-                    )}
-                  </View>
+                    </View>
+                  )}
                 </View>
               </View>
             );
@@ -596,42 +615,41 @@ export default function RestaurantMenuScreen() {
           style={{
             position: 'absolute',
             bottom: Math.max(insets.bottom, 16),
-            left: 20,
-            right: 20,
+            left: 16,
+            right: 16,
             zIndex: 100,
           }}
         >
           <Pressable
             onPress={() => router.push('/(customer)/cart?service=food' as any)}
             style={{
-              backgroundColor: '#7A1F3D',
-              borderRadius: 14,
+              backgroundColor: '#6A5ACD',
+              borderRadius: 18,
               paddingVertical: 14,
-              paddingHorizontal: 18,
+              paddingHorizontal: 16,
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'space-between',
-              shadowColor: '#7A1F3D',
-              shadowOpacity: 0.35,
-              shadowRadius: 14,
-              shadowOffset: { width: 0, height: 6 },
+              shadowColor: '#6A5ACD',
+              shadowOpacity: 0.45,
+              shadowRadius: 12,
               elevation: 8,
             }}
           >
             <View>
-              <Text style={{ fontFamily: 'Archivo', fontSize: 15, fontWeight: '800', color: '#FFFFFF' }}>
-                {itemCount} {itemCount === 1 ? 'Item' : 'Items'} | {formatInr(totalPaise)}
+              <Text style={{ fontSize: 14, fontWeight: '800', color: '#FFFFFF' }}>
+                {itemCount} {itemCount === 1 ? 'Item' : 'Items'} · {formatInr(totalPaise)}
               </Text>
-              <Text style={{ fontFamily: 'Archivo', fontSize: 11, color: '#FFD9DF' }}>
-                Extra charges may apply
+              <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)' }}>
+                From {restaurant.name}
               </Text>
             </View>
 
             <View className="flex-row items-center gap-2">
-              <Text style={{ fontFamily: 'Archivo', fontSize: 14, fontWeight: '800', color: '#FFFFFF' }}>
+              <Text style={{ fontSize: 13, fontWeight: '800', color: '#FFFFFF' }}>
                 View Basket
               </Text>
-              <ShoppingBag size={18} color="#FFFFFF" strokeWidth={2.2} />
+              <ShoppingBag size={17} color="#FFFFFF" strokeWidth={2.2} />
             </View>
           </Pressable>
         </View>

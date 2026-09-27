@@ -18,12 +18,13 @@ import {
   where,
   type Unsubscribe,
 } from 'firebase/firestore';
-import { Linking, Platform } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 
 import {
   COL,
+  SEED_ORDERS,
   buildInvoice,
   withStatus,
   buildUpiUrl,
@@ -41,7 +42,8 @@ import {
   orderPaymentStatus,
 } from '@dfc/core';
 
-import { app, db } from './firebase';
+import { app, db, isConfigured } from './firebase';
+import { openFirstAvailable } from './linking';
 import { DEMO_MODE } from '@/demo/config';
 import { demoStorage } from '@/demo/storage';
 import { mockPaymentRepository } from '@/demo/repositories/payment.repository';
@@ -90,6 +92,10 @@ export function subscribePayment(
     });
   }
 
+  if (!isConfigured) {
+    onData(null);
+    return () => {};
+  }
   const q = query(
     collection(db(), COL.payments),
     where('orderId', '==', orderId),
@@ -117,6 +123,10 @@ export function subscribeInvoice(
     return () => {};
   }
 
+  if (!isConfigured) {
+    onData(null);
+    return () => {};
+  }
   return onSnapshot(
     doc(db(), COL.invoices, orderId),
     (s) => onData(s.exists() ? (s.data() as Invoice) : null),
@@ -159,6 +169,10 @@ async function readOrder(orderId: string): Promise<Order> {
     if (!o) throw new Error('That order no longer exists.');
     return o;
   }
+  if (!isConfigured) {
+    const seed = SEED_ORDERS.find((o) => o.id === orderId);
+    if (seed) return seed;
+  }
   const snap = await getDoc(doc(db(), COL.orders, orderId));
   if (!snap.exists()) throw new Error('That order no longer exists.');
   return { ...(snap.data() as Order), id: snap.id };
@@ -177,11 +191,6 @@ export async function startPayment(
   }
 
   const id = `${order.id}_${method}`;
-  const ref = doc(db(), COL.payments, id);
-
-  const existing = await getDoc(ref);
-  if (existing.exists()) return { ...(existing.data() as Payment), id };
-
   const payment = newPayment({
     id,
     orderId: order.id,
@@ -190,6 +199,14 @@ export async function startPayment(
     method,
     amountPaise: order.pricing.totalPaise,
   });
+
+  if (!isConfigured) {
+    return payment;
+  }
+
+  const ref = doc(db(), COL.payments, id);
+  const existing = await getDoc(ref);
+  if (existing.exists()) return { ...(existing.data() as Payment), id };
 
   await setDoc(ref, payment);
   return payment;
@@ -202,6 +219,17 @@ export class UpiUnavailableError extends Error {
   }
 }
 
+/**
+ * Opens a UPI app with the amount and reference pre-filled.
+ *
+ * Android resolves `upi://` to a system chooser, so the generic link is the
+ * better experience there. iOS has no chooser, so we try the specific app's
+ * scheme first and fall back to the generic one.
+ *
+ * Returns nothing useful on purpose — whatever the UPI app reports back cannot
+ * be trusted, so the caller's next step is always "ask the customer to
+ * confirm", never "mark it paid".
+ */
 export async function openUpiApp(payment: Payment, app: UpiApp): Promise<void> {
   if (DEMO_MODE) {
     await new Promise((res) => setTimeout(res, 800));
@@ -220,23 +248,18 @@ export async function openUpiApp(payment: Payment, app: UpiApp): Promise<void> {
     orderCode: payment.orderCode,
   });
 
-  const url = Platform.OS === 'ios' ? upiUrlFor(app, base) : base;
+  // Most specific first. Android goes straight to the generic link because
+  // the system chooser handles the picking, and naming one app there would
+  // only take that choice away.
+  const opened = await openFirstAvailable(
+    Platform.OS === 'ios' && app.iosScheme ? [upiUrlFor(app, base), base] : [base],
+  );
 
-  const can = await Linking.canOpenURL(url).catch(() => false);
-  if (!can) {
-    if (Platform.OS === 'ios' && app.iosScheme) {
-      const fallback = await Linking.canOpenURL(base).catch(() => false);
-      if (fallback) {
-        await Linking.openURL(base);
-        return;
-      }
-    }
+  if (!opened) {
     throw new UpiUnavailableError(
       `${app.name} is not installed. Try another UPI app, or pay cash on delivery.`,
     );
   }
-
-  await Linking.openURL(url);
 }
 
 export async function claimUpiPaid(payment: Payment, utr?: string): Promise<void> {
@@ -252,6 +275,9 @@ export async function claimUpiPaid(payment: Payment, utr?: string): Promise<void
     return;
   }
 
+  if (!isConfigured) {
+    return;
+  }
   await updateDoc(doc(db(), COL.payments, payment.id), {
     ...withPaymentState(payment, 'awaiting_confirmation', {
       ...(utr ? { utr: utr.trim() } : {}),
@@ -269,6 +295,10 @@ export async function chooseCashOnDelivery(order: Order, uid: string): Promise<P
   }
 
   const payment = await startPayment(order, 'cash');
+
+  if (!isConfigured) {
+    return payment;
+  }
 
   if (order.status === 'awaiting_payment') {
     await updateDoc(doc(db(), COL.orders, order.id), {
@@ -293,6 +323,14 @@ export async function payWithGateway(orderId: string): Promise<void> {
     if (order) {
       await mockPaymentRepository.simulatePayment(order, 'gateway');
     }
+    return;
+  }
+
+  if (!isConfigured) {
+    Alert.alert(
+      'Demo Checkout',
+      'Online gateway is in demo mode. Choose UPI or Cash on Delivery to test order fulfilment end-to-end.',
+    );
     return;
   }
 

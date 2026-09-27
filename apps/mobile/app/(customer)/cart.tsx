@@ -1,6 +1,7 @@
 /**
- * DFC Basket & Checkout Screen - Full Stitch Design Implementation
- * Your Basket Card, Steppers, Delivery Address Card, UPI/Card/COD Payment Radio, Bill Breakdown, and Fixed Place Order Button.
+ * DFC Basket & Checkout Screen — Stitch Dark Floating Theme
+ * Basket Items List, Steppers, Delivery Address Card, UPI/Card/COD Payment Radio,
+ * Bill Breakdown, and Fixed Place Order Button with tactile feedback.
  */
 
 import * as React from 'react';
@@ -30,22 +31,27 @@ import {
   ShoppingBag,
   Truck,
   Utensils,
+  Trash2,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
-import { formatInr, type Category, type PaymentMethod } from '@dfc/core';
+import { formatInr, type Category, type PaymentMethod, type UserProfile } from '@dfc/core';
+import { DEMO_MODE } from '@/demo/config';
+import { createOrderFromCart } from '@/lib/orders';
+import { useAuth } from '@/providers/auth';
 import { mockOrderRepository } from '@/demo/repositories/order.repository';
 import { mockProfileRepository } from '@/demo/repositories/profile.repository';
 import { mockMenuRepository } from '@/demo/repositories/menu.repository';
 import { useCart } from '@/providers/cart';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Screen } from '@/ui';
+import { DFCPressable } from '@/ui/animated';
+import { StitchHeader } from '@/ui/stitch-header';
 
 export default function CartScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  // The checkout always belongs to exactly one service — the one whose cart
-  // bar was tapped. Other service carts and active orders are untouched.
+  const { profile } = useAuth();
   const { service: serviceParam } = useLocalSearchParams<{ service?: string }>();
   const service = (serviceParam as Category) || 'food';
   const {
@@ -69,6 +75,7 @@ export default function CartScreen() {
   }, []);
 
   const unavailableItems = React.useMemo(() => {
+    void menuVer;
     return cart.items.filter((item) => !mockMenuRepository.isItemAvailable(item.id));
   }, [cart.items, menuVer]);
 
@@ -80,12 +87,24 @@ export default function CartScreen() {
   const [couponError, setCouponError] = React.useState<string | null>(null);
   const [placingOrder, setPlacingOrder] = React.useState(false);
 
-  const addresses = mockProfileRepository.getAddresses();
-  const currentAddress = addresses.find((a) => a.id === selectedAddrId) || addresses[0]!;
+  const addresses = React.useMemo(() => {
+    if (
+      profile &&
+      (profile as any).addresses &&
+      Array.isArray((profile as any).addresses) &&
+      (profile as any).addresses.length > 0
+    ) {
+      return (profile as any).addresses;
+    }
+    return mockProfileRepository.getAddresses();
+  }, [profile]);
+
+  const currentAddress = addresses.find((a: any) => a.id === selectedAddrId) || addresses[0]!;
 
   const handleApplyCoupon = async () => {
     setCouponError(null);
     if (!couponInput.trim()) return;
+    void Haptics.selectionAsync();
     const res = await applyCoupon(couponInput);
     if (!res.success) {
       setCouponError(res.message);
@@ -100,12 +119,25 @@ export default function CartScreen() {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     try {
-      const order = await mockOrderRepository.createFromCart(
-        cart,
-        currentAddress,
-        paymentMethod,
-      );
+      let order;
+      if (!DEMO_MODE && profile) {
+        order = await createOrderFromCart({
+          customer: profile,
+          cart,
+          address: currentAddress,
+          paymentMethod,
+        });
+        await clearCart();
+      } else {
+        order = await mockOrderRepository.createFromCart(
+          cart,
+          currentAddress,
+          paymentMethod,
+        );
+      }
       router.replace(`/(customer)/order/${order.id}` as any);
+    } catch (err: any) {
+      Alert.alert('Order Placement Failed', err?.message || 'Please check your connection and try again.');
     } finally {
       setPlacingOrder(false);
     }
@@ -113,68 +145,64 @@ export default function CartScreen() {
 
   if (itemCount === 0) {
     return (
-      <Screen edges={['top']}>
-        {/* Header */}
-        <View
-          style={{
-            height: 60,
-            backgroundColor: '#F9F9FF',
-            paddingHorizontal: 20,
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 12,
-            borderBottomWidth: 1,
-            borderBottomColor: '#DAC0C430',
-          }}
-        >
-          <Pressable
-            onPress={() => router.back()}
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: 19,
-              backgroundColor: '#E9EDFF',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <ArrowLeft size={20} color="#7A1F3D" strokeWidth={2.2} />
-          </Pressable>
-          <Text style={{ fontFamily: 'Archivo', fontSize: 20, fontWeight: '800', color: '#7A1F3D' }}>
-            Checkout
-          </Text>
-        </View>
+      <Screen edges={['top']} style={{ backgroundColor: '#0E0E10' }}>
+        <StitchHeader showBack={true} title="Checkout" showNotifications={false} />
 
         <View className="flex-1 items-center justify-center gap-4 px-6">
           <View
             style={{
-              width: 72,
-              height: 72,
-              borderRadius: 36,
-              backgroundColor: '#E9EDFF',
+              width: 76,
+              height: 76,
+              borderRadius: 38,
+              backgroundColor: '#1E1D26',
+              borderWidth: 1,
+              borderColor: '#2E2D38',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <ShoppingBag size={32} color="#7A1F3D" />
+            <ShoppingBag size={34} color="#6A5ACD" />
           </View>
-          <Text style={{ fontFamily: 'Archivo', fontSize: 20, fontWeight: '800', color: '#141B2B' }}>
+          <Text
+            style={{
+              fontFamily: 'PlusJakartaSans',
+              fontSize: 20,
+              fontWeight: '800',
+              color: '#E5E1E4',
+            }}
+          >
             Your basket is empty
           </Text>
-          <Text style={{ fontFamily: 'Archivo', fontSize: 13, color: '#554245', textAlign: 'center', maxWidth: 280 }}>
-            Explore authentic Madurai kitchens, medicines, groceries, or book an express errand.
+          <Text
+            style={{
+              fontFamily: 'PlusJakartaSans',
+              fontSize: 13,
+              color: '#928F9E',
+              textAlign: 'center',
+              maxWidth: 290,
+              lineHeight: 18,
+            }}
+          >
+            Explore authentic Madurai restaurants, daily fresh groceries, or summon a courier runner.
           </Text>
           <Pressable
             onPress={() => router.push('/(customer)/food')}
             style={{
-              backgroundColor: '#7A1F3D',
-              borderRadius: 12,
+              backgroundColor: '#6A5ACD',
+              borderRadius: 14,
               paddingHorizontal: 24,
-              paddingVertical: 12,
-              marginTop: 8,
+              paddingVertical: 13,
+              marginTop: 10,
             }}
           >
-            <Text style={{ fontFamily: 'Archivo', fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>
+            <Text
+              style={{
+                fontFamily: 'PlusJakartaSans',
+                fontSize: 14,
+                fontWeight: '700',
+                color: '#FFFFFF',
+              }}
+            >
               Explore Food & Stores
             </Text>
           </Pressable>
@@ -184,74 +212,74 @@ export default function CartScreen() {
   }
 
   return (
-    <Screen edges={['top']}>
+    <Screen edges={['top']} style={{ backgroundColor: '#0E0E10' }}>
       {/* Header */}
-      <View
-        style={{
-          height: 60,
-          backgroundColor: '#F9F9FF',
-          paddingHorizontal: 20,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          borderBottomWidth: 1,
-          borderBottomColor: '#DAC0C430',
-        }}
-      >
-        <View className="flex-row items-center gap-3">
+      <StitchHeader
+        showBack={true}
+        title="Checkout"
+        showNotifications={false}
+        rightAction={
           <Pressable
-            onPress={() => router.back()}
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: 19,
-              backgroundColor: '#E9EDFF',
-              alignItems: 'center',
-              justifyContent: 'center',
+            onPress={() => {
+              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              void clearCart();
             }}
+            hitSlop={8}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
           >
-            <ArrowLeft size={20} color="#7A1F3D" strokeWidth={2.2} />
+            <Trash2 size={15} color="#F87171" />
+            <Text
+              style={{
+                fontFamily: 'PlusJakartaSans',
+                fontSize: 12,
+                fontWeight: '700',
+                color: '#F87171',
+              }}
+            >
+              Clear
+            </Text>
           </Pressable>
-          <Text style={{ fontFamily: 'Archivo', fontSize: 22, fontWeight: '800', color: '#7A1F3D' }}>
-            Checkout
-          </Text>
-        </View>
-
-        <Pressable onPress={() => void clearCart()}>
-          <Text style={{ fontFamily: 'Archivo', fontSize: 13, fontWeight: '600', color: '#BA1A1A' }}>
-            Clear
-          </Text>
-        </Pressable>
-      </View>
+        }
+      />
 
       <ScrollView
         contentContainerStyle={{
-          paddingHorizontal: 20,
+          paddingHorizontal: 16,
           paddingTop: 16,
-          paddingBottom: 120 + Math.max(insets.bottom, 16),
+          paddingBottom: 130 + Math.max(insets.bottom, 16),
         }}
         showsVerticalScrollIndicator={false}
       >
         {/* Your Basket Card */}
         <View
           style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: 16,
+            backgroundColor: '#18181B',
+            borderRadius: 20,
             borderWidth: 1,
-            borderColor: '#DAC0C4',
+            borderColor: '#26262B',
             padding: 16,
             marginBottom: 16,
-            shadowColor: '#000000',
-            shadowOpacity: 0.04,
-            shadowRadius: 10,
-            elevation: 2,
           }}
         >
-          <View className="flex-row items-center justify-between mb-3 pb-2 border-b border-[#DAC0C4]/30">
-            <Text style={{ fontFamily: 'Archivo', fontSize: 16, fontWeight: '700', color: '#141B2B' }}>
+          <View className="flex-row items-center justify-between mb-3.5 pb-2.5 border-b border-[#26262B]">
+            <Text
+              style={{
+                fontFamily: 'PlusJakartaSans',
+                fontSize: 15,
+                fontWeight: '700',
+                color: '#E5E1E4',
+              }}
+            >
               Your Basket ({itemCount} {itemCount === 1 ? 'item' : 'items'})
             </Text>
-            <Text style={{ fontFamily: 'Archivo', fontSize: 12, color: '#554245' }}>
+            <Text
+              style={{
+                fontFamily: 'PlusJakartaSans',
+                fontSize: 12,
+                color: '#C8BFFF',
+                fontWeight: '600',
+              }}
+            >
               {cart.items[0]?.sourceName || 'DFC Express'}
             </Text>
           </View>
@@ -259,10 +287,10 @@ export default function CartScreen() {
           {hasUnavailableItems ? (
             <View
               style={{
-                backgroundColor: '#FEF2F2',
+                backgroundColor: 'rgba(239, 68, 68, 0.15)',
                 borderWidth: 1,
-                borderColor: '#FECACA',
-                borderRadius: 10,
+                borderColor: 'rgba(239, 68, 68, 0.3)',
+                borderRadius: 12,
                 padding: 12,
                 marginBottom: 12,
                 flexDirection: 'row',
@@ -270,13 +298,28 @@ export default function CartScreen() {
                 gap: 8,
               }}
             >
-              <AlertTriangle size={16} color="#BA1A1A" style={{ marginTop: 2 }} />
+              <AlertTriangle size={16} color="#F87171" style={{ marginTop: 2 }} />
               <View style={{ flex: 1 }}>
-                <Text style={{ fontFamily: 'Archivo', fontSize: 13, fontWeight: '700', color: '#BA1A1A' }}>
-                  {unavailableItems.length === 1 ? '1 item is' : `${unavailableItems.length} items are`} currently unavailable
+                <Text
+                  style={{
+                    fontFamily: 'PlusJakartaSans',
+                    fontSize: 13,
+                    fontWeight: '700',
+                    color: '#F87171',
+                  }}
+                >
+                  {unavailableItems.length === 1 ? '1 item is' : `${unavailableItems.length} items are`} currently
+                  unavailable
                 </Text>
-                <Text style={{ fontFamily: 'Archivo', fontSize: 12, color: '#7F1D1D', marginTop: 2 }}>
-                  Please remove unavailable items before continuing.
+                <Text
+                  style={{
+                    fontFamily: 'PlusJakartaSans',
+                    fontSize: 11,
+                    color: '#FCA5A5',
+                    marginTop: 2,
+                  }}
+                >
+                  Please remove unavailable items before continuing checkout.
                 </Text>
               </View>
             </View>
@@ -286,61 +329,81 @@ export default function CartScreen() {
             {cart.items.map((item) => {
               const isUnavailable = unavailableItems.some((u) => u.id === item.id);
               return (
-              <View key={item.id} className="flex-row items-center justify-between" style={isUnavailable ? { opacity: 0.5 } : undefined}>
-                <View className="flex-1 pr-3">
-                  <Text style={{ fontFamily: 'Archivo', fontSize: 15, fontWeight: '700', color: isUnavailable ? '#9CA3AF' : '#141B2B' }}>
-                    {item.name}{isUnavailable ? ' (Unavailable)' : ''}
-                  </Text>
-                  <Text style={{ fontFamily: 'Archivo', fontSize: 13, fontWeight: '700', color: '#7A1F3D', marginTop: 2 }}>
-                    {formatInr(item.pricePaise * item.quantity)}
-                  </Text>
-                </View>
-
-                {/* Stepper */}
                 <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    backgroundColor: '#FFFFFF',
-                    borderWidth: 1.5,
-                    borderColor: '#7A1F3D',
-                    borderRadius: 8,
-                    paddingHorizontal: 6,
-                    height: 32,
-                  }}
+                  key={item.id}
+                  className="flex-row items-center justify-between"
+                  style={isUnavailable ? { opacity: 0.5 } : undefined}
                 >
-                  <Pressable
-                    onPress={() => {
-                      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      void updateQuantity(item.id, -1);
-                    }}
-                    style={{ padding: 4 }}
-                  >
-                    <Minus size={12} color="#7A1F3D" strokeWidth={2.5} />
-                  </Pressable>
-                  <Text
+                  <View className="flex-1 pr-3">
+                    <Text
+                      style={{
+                        fontFamily: 'PlusJakartaSans',
+                        fontSize: 14,
+                        fontWeight: '600',
+                        color: isUnavailable ? '#71717A' : '#E5E1E4',
+                      }}
+                    >
+                      {item.name}
+                      {isUnavailable ? ' (Unavailable)' : ''}
+                    </Text>
+                    <Text
+                      style={{
+                        fontFamily: 'PlusJakartaSans',
+                        fontSize: 13,
+                        fontWeight: '700',
+                        color: '#C8BFFF',
+                        marginTop: 2,
+                      }}
+                    >
+                      {formatInr(item.pricePaise * item.quantity)}
+                    </Text>
+                  </View>
+
+                  {/* Stepper */}
+                  <View
                     style={{
-                      fontFamily: 'Archivo',
-                      fontSize: 13,
-                      fontWeight: '800',
-                      color: '#7A1F3D',
-                      minWidth: 20,
-                      textAlign: 'center',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      backgroundColor: '#26252E',
+                      borderWidth: 1,
+                      borderColor: '#383742',
+                      borderRadius: 8,
+                      paddingHorizontal: 4,
+                      height: 32,
                     }}
                   >
-                    {item.quantity}
-                  </Text>
-                  <Pressable
-                    onPress={() => {
-                      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      void updateQuantity(item.id, 1);
-                    }}
-                    style={{ padding: 4 }}
-                  >
-                    <Plus size={12} color="#7A1F3D" strokeWidth={2.5} />
-                  </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        void updateQuantity(item.id, -1);
+                      }}
+                      style={{ padding: 4 }}
+                    >
+                      <Minus size={12} color="#C8BFFF" strokeWidth={2.5} />
+                    </Pressable>
+                    <Text
+                      style={{
+                        fontFamily: 'PlusJakartaSans',
+                        fontSize: 13,
+                        fontWeight: '800',
+                        color: '#FFFFFF',
+                        minWidth: 20,
+                        textAlign: 'center',
+                      }}
+                    >
+                      {item.quantity}
+                    </Text>
+                    <Pressable
+                      onPress={() => {
+                        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        void updateQuantity(item.id, 1);
+                      }}
+                      style={{ padding: 4 }}
+                    >
+                      <Plus size={12} color="#C8BFFF" strokeWidth={2.5} />
+                    </Pressable>
+                  </View>
                 </View>
-              </View>
               );
             })}
           </View>
@@ -356,9 +419,21 @@ export default function CartScreen() {
                   : '/(customer)/food') as any,
               )
             }
-            style={{ marginTop: 14, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#DAC0C430' }}
+            style={{
+              marginTop: 14,
+              paddingTop: 10,
+              borderTopWidth: 1,
+              borderTopColor: '#26262B',
+            }}
           >
-            <Text style={{ fontFamily: 'Archivo', fontSize: 13, fontWeight: '700', color: '#7A1F3D' }}>
+            <Text
+              style={{
+                fontFamily: 'PlusJakartaSans',
+                fontSize: 13,
+                fontWeight: '700',
+                color: '#C8BFFF',
+              }}
+            >
               + Add more items
             </Text>
           </Pressable>
@@ -367,36 +442,62 @@ export default function CartScreen() {
         {/* Delivery Address Card */}
         <View
           style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: 16,
+            backgroundColor: '#18181B',
+            borderRadius: 20,
             borderWidth: 1,
-            borderColor: '#DAC0C4',
+            borderColor: '#26262B',
             padding: 16,
             marginBottom: 16,
-            shadowColor: '#000000',
-            shadowOpacity: 0.04,
-            shadowRadius: 10,
-            elevation: 2,
           }}
         >
           <View className="flex-row items-center justify-between mb-2">
             <View className="flex-row items-center gap-2">
-              <MapPin size={18} color="#7A1F3D" />
-              <Text style={{ fontFamily: 'Archivo', fontSize: 15, fontWeight: '700', color: '#141B2B' }}>
+              <MapPin size={17} color="#C8BFFF" />
+              <Text
+                style={{
+                  fontFamily: 'PlusJakartaSans',
+                  fontSize: 15,
+                  fontWeight: '700',
+                  color: '#E5E1E4',
+                }}
+              >
                 Delivery Address
               </Text>
             </View>
             <Pressable onPress={() => router.push('/(customer)/account/addresses')}>
-              <Text style={{ fontFamily: 'Archivo', fontSize: 13, fontWeight: '700', color: '#7A1F3D' }}>
+              <Text
+                style={{
+                  fontFamily: 'PlusJakartaSans',
+                  fontSize: 13,
+                  fontWeight: '700',
+                  color: '#C8BFFF',
+                }}
+              >
                 Change
               </Text>
             </Pressable>
           </View>
 
-          <Text style={{ fontFamily: 'Archivo', fontSize: 14, fontWeight: '700', color: '#141B2B', marginBottom: 2 }}>
+          <Text
+            style={{
+              fontFamily: 'PlusJakartaSans',
+              fontSize: 14,
+              fontWeight: '700',
+              color: '#E5E1E4',
+              marginBottom: 2,
+            }}
+          >
             {currentAddress.title} - {currentAddress.label}
           </Text>
-          <Text style={{ fontFamily: 'Archivo', fontSize: 13, color: '#554245', lineHeight: 18, marginBottom: 10 }}>
+          <Text
+            style={{
+              fontFamily: 'PlusJakartaSans',
+              fontSize: 13,
+              color: '#928F9E',
+              lineHeight: 18,
+              marginBottom: 10,
+            }}
+          >
             {currentAddress.street}, {currentAddress.pincode}
           </Text>
 
@@ -407,17 +508,24 @@ export default function CartScreen() {
               flexDirection: 'row',
               alignItems: 'center',
               gap: 6,
-              backgroundColor: '#ECFDF5',
+              backgroundColor: 'rgba(16, 185, 129, 0.15)',
               paddingHorizontal: 10,
               paddingVertical: 4,
               borderRadius: 9999,
               borderWidth: 1,
-              borderColor: '#05966930',
+              borderColor: 'rgba(16, 185, 129, 0.3)',
             }}
           >
-            <Clock size={12} color="#059669" />
-            <Text style={{ fontFamily: 'Archivo', fontSize: 11, fontWeight: '700', color: '#065F46' }}>
-              Delivery in 25-30 mins
+            <Clock size={12} color="#10B981" />
+            <Text
+              style={{
+                fontFamily: 'PlusJakartaSans',
+                fontSize: 11,
+                fontWeight: '700',
+                color: '#34D399',
+              }}
+            >
+              Express Doorstep · 20-30 mins
             </Text>
           </View>
         </View>
@@ -425,18 +533,25 @@ export default function CartScreen() {
         {/* Coupons & Promo Codes */}
         <View
           style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: 16,
+            backgroundColor: '#18181B',
+            borderRadius: 20,
             borderWidth: 1,
-            borderColor: '#DAC0C4',
+            borderColor: '#26262B',
             padding: 16,
             marginBottom: 16,
           }}
         >
           <View className="flex-row items-center gap-2 mb-3">
-            <Percent size={16} color="#D97706" />
-            <Text style={{ fontFamily: 'Archivo', fontSize: 14, fontWeight: '700', color: '#141B2B' }}>
-              Offers & Promo Codes
+            <Percent size={16} color="#FBBF24" />
+            <Text
+              style={{
+                fontFamily: 'PlusJakartaSans',
+                fontSize: 14,
+                fontWeight: '700',
+                color: '#E5E1E4',
+              }}
+            >
+              Offers & Coupons
             </Text>
           </View>
 
@@ -446,23 +561,37 @@ export default function CartScreen() {
                 flexDirection: 'row',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                backgroundColor: '#ECFDF5',
-                padding: 10,
-                borderRadius: 8,
+                backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                padding: 12,
+                borderRadius: 12,
                 borderWidth: 1,
-                borderColor: '#05966930',
+                borderColor: 'rgba(16, 185, 129, 0.3)',
               }}
             >
               <View>
-                <Text style={{ fontFamily: 'Archivo', fontSize: 13, fontWeight: '700', color: '#065F46' }}>
+                <Text
+                  style={{
+                    fontFamily: 'PlusJakartaSans',
+                    fontSize: 13,
+                    fontWeight: '700',
+                    color: '#34D399',
+                  }}
+                >
                   '{cart.appliedCoupon}' Applied!
                 </Text>
-                <Text style={{ fontFamily: 'Archivo', fontSize: 11, color: '#047857' }}>
+                <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 11, color: '#6EE7B7' }}>
                   You saved {formatInr(discountPaise)}
                 </Text>
               </View>
               <Pressable onPress={() => void removeCoupon()}>
-                <Text style={{ fontFamily: 'Archivo', fontSize: 12, fontWeight: '700', color: '#BA1A1A' }}>
+                <Text
+                  style={{
+                    fontFamily: 'PlusJakartaSans',
+                    fontSize: 12,
+                    fontWeight: '700',
+                    color: '#F87171',
+                  }}
+                >
                   Remove
                 </Text>
               </Pressable>
@@ -474,39 +603,53 @@ export default function CartScreen() {
                   value={couponInput}
                   onChangeText={setCouponInput}
                   placeholder="Enter code (DFC50 or FIRSTORDER)"
-                  placeholderTextColor="#887275"
+                  placeholderTextColor="#5C5A64"
                   autoCapitalize="characters"
                   style={{
                     flex: 1,
-                    height: 42,
+                    height: 44,
                     borderWidth: 1,
-                    borderColor: '#DAC0C4',
-                    borderRadius: 8,
+                    borderColor: '#2D2C34',
+                    borderRadius: 12,
                     paddingHorizontal: 12,
-                    fontFamily: 'Archivo',
+                    fontFamily: 'PlusJakartaSans',
                     fontSize: 13,
-                    color: '#141B2B',
-                    backgroundColor: '#F9F9FF',
+                    color: '#E5E1E4',
+                    backgroundColor: '#121215',
                   }}
                 />
                 <Pressable
                   onPress={handleApplyCoupon}
                   style={{
-                    height: 42,
-                    backgroundColor: '#7A1F3D',
-                    borderRadius: 8,
+                    height: 44,
+                    backgroundColor: '#6A5ACD',
+                    borderRadius: 12,
                     paddingHorizontal: 16,
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
                 >
-                  <Text style={{ fontFamily: 'Archivo', fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>
+                  <Text
+                    style={{
+                      fontFamily: 'PlusJakartaSans',
+                      fontSize: 13,
+                      fontWeight: '700',
+                      color: '#FFFFFF',
+                    }}
+                  >
                     Apply
                   </Text>
                 </Pressable>
               </View>
               {couponError ? (
-                <Text style={{ fontFamily: 'Archivo', fontSize: 12, color: '#BA1A1A', marginTop: 4 }}>
+                <Text
+                  style={{
+                    fontFamily: 'PlusJakartaSans',
+                    fontSize: 12,
+                    color: '#F87171',
+                    marginTop: 6,
+                  }}
+                >
                   {couponError}
                 </Text>
               ) : null}
@@ -517,16 +660,24 @@ export default function CartScreen() {
         {/* Payment Method Selector */}
         <View
           style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: 16,
+            backgroundColor: '#18181B',
+            borderRadius: 20,
             borderWidth: 1,
-            borderColor: '#DAC0C4',
+            borderColor: '#26262B',
             padding: 16,
             marginBottom: 16,
           }}
         >
-          <Text style={{ fontFamily: 'Archivo', fontSize: 14, fontWeight: '700', color: '#141B2B', marginBottom: 12 }}>
-            Payment Method
+          <Text
+            style={{
+              fontFamily: 'PlusJakartaSans',
+              fontSize: 14,
+              fontWeight: '700',
+              color: '#E5E1E4',
+              marginBottom: 12,
+            }}
+          >
+            Payment Mode
           </Text>
 
           <View className="gap-2.5">
@@ -534,23 +685,24 @@ export default function CartScreen() {
               {
                 id: 'upi_intent' as const,
                 title: 'UPI (Google Pay / PhonePe / Paytm)',
-                icon: <QrCode size={18} color="#7A1F3D" />,
+                icon: <QrCode size={18} color="#C8BFFF" />,
               },
               {
                 id: 'gateway' as const,
-                title: 'Credit / Debit Card',
-                icon: <CreditCard size={18} color="#7A1F3D" />,
+                title: 'Credit / Debit Card / Net Banking',
+                icon: <CreditCard size={18} color="#C8BFFF" />,
               },
               {
                 id: 'cash' as const,
                 title: 'Cash on Delivery (COD)',
-                icon: <Truck size={18} color="#7A1F3D" />,
+                icon: <Truck size={18} color="#C8BFFF" />,
               },
             ].map((method) => {
               const isSelected = paymentMethod === method.id;
               return (
-                <Pressable
+                <DFCPressable
                   key={method.id}
+                  scaleTo={0.98}
                   onPress={() => {
                     void Haptics.selectionAsync();
                     setPaymentMethod(method.id);
@@ -559,21 +711,21 @@ export default function CartScreen() {
                     flexDirection: 'row',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    padding: 12,
-                    borderRadius: 10,
+                    padding: 14,
+                    borderRadius: 14,
                     borderWidth: 1,
-                    borderColor: isSelected ? '#7A1F3D' : '#DAC0C4',
-                    backgroundColor: isSelected ? '#FDF2F5' : '#FFFFFF',
+                    borderColor: isSelected ? '#6A5ACD' : '#26262B',
+                    backgroundColor: isSelected ? '#1F1E26' : '#121215',
                   }}
                 >
                   <View className="flex-row items-center gap-3">
                     {method.icon}
                     <Text
                       style={{
-                        fontFamily: 'Archivo',
-                        fontSize: 14,
+                        fontFamily: 'PlusJakartaSans',
+                        fontSize: 13,
                         fontWeight: isSelected ? '700' : '500',
-                        color: '#141B2B',
+                        color: isSelected ? '#FFFFFF' : '#C9C5D0',
                       }}
                     >
                       {method.title}
@@ -586,16 +738,16 @@ export default function CartScreen() {
                       height: 20,
                       borderRadius: 10,
                       borderWidth: 2,
-                      borderColor: isSelected ? '#7A1F3D' : '#DAC0C4',
+                      borderColor: isSelected ? '#6A5ACD' : '#35343A',
                       alignItems: 'center',
                       justifyContent: 'center',
                     }}
                   >
                     {isSelected ? (
-                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#7A1F3D' }} />
+                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#6A5ACD' }} />
                     ) : null}
                   </View>
-                </Pressable>
+                </DFCPressable>
               );
             })}
           </View>
@@ -604,46 +756,54 @@ export default function CartScreen() {
         {/* Bill Summary */}
         <View
           style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: 16,
+            backgroundColor: '#18181B',
+            borderRadius: 20,
             borderWidth: 1,
-            borderColor: '#DAC0C4',
+            borderColor: '#26262B',
             padding: 16,
             marginBottom: 20,
           }}
         >
-          <Text style={{ fontFamily: 'Archivo', fontSize: 14, fontWeight: '700', color: '#141B2B', marginBottom: 12 }}>
+          <Text
+            style={{
+              fontFamily: 'PlusJakartaSans',
+              fontSize: 14,
+              fontWeight: '700',
+              color: '#E5E1E4',
+              marginBottom: 12,
+            }}
+          >
             Bill Details
           </Text>
 
-          <View className="gap-2 pb-3 border-b border-[#DAC0C4]/40">
+          <View className="gap-2 pb-3 border-b border-[#26262B]">
             <View className="flex-row items-center justify-between">
-              <Text style={{ fontFamily: 'Archivo', fontSize: 13, color: '#554245' }}>Item Total</Text>
-              <Text style={{ fontFamily: 'Archivo', fontSize: 13, fontWeight: '600', color: '#141B2B' }}>
+              <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 13, color: '#928F9E' }}>Item Total</Text>
+              <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 13, fontWeight: '600', color: '#E5E1E4' }}>
                 {formatInr(subtotalPaise)}
               </Text>
             </View>
 
             <View className="flex-row items-center justify-between">
-              <Text style={{ fontFamily: 'Archivo', fontSize: 13, color: '#554245' }}>Delivery Fee</Text>
-              <Text style={{ fontFamily: 'Archivo', fontSize: 13, fontWeight: '600', color: '#141B2B' }}>
-                {formatInr(deliveryFeePaise)}
+              <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 13, color: '#928F9E' }}>Delivery Partner Fee</Text>
+              <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 13, fontWeight: '600', color: '#E5E1E4' }}>
+                {deliveryFeePaise === 0 ? 'FREE' : formatInr(deliveryFeePaise)}
               </Text>
             </View>
 
             <View className="flex-row items-center justify-between">
-              <Text style={{ fontFamily: 'Archivo', fontSize: 13, color: '#554245' }}>Taxes & Charges</Text>
-              <Text style={{ fontFamily: 'Archivo', fontSize: 13, fontWeight: '600', color: '#141B2B' }}>
+              <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 13, color: '#928F9E' }}>Taxes & Handling</Text>
+              <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 13, fontWeight: '600', color: '#E5E1E4' }}>
                 {formatInr(taxPaise + platformFeePaise)}
               </Text>
             </View>
 
             {discountPaise > 0 ? (
               <View className="flex-row items-center justify-between">
-                <Text style={{ fontFamily: 'Archivo', fontSize: 13, fontWeight: '600', color: '#059669' }}>
-                  Promo Discount
+                <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 13, fontWeight: '600', color: '#34D399' }}>
+                  Coupon Discount
                 </Text>
-                <Text style={{ fontFamily: 'Archivo', fontSize: 13, fontWeight: '700', color: '#059669' }}>
+                <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 13, fontWeight: '700', color: '#34D399' }}>
                   -{formatInr(discountPaise)}
                 </Text>
               </View>
@@ -651,10 +811,10 @@ export default function CartScreen() {
           </View>
 
           <View className="flex-row items-center justify-between pt-3">
-            <Text style={{ fontFamily: 'Archivo', fontSize: 16, fontWeight: '800', color: '#141B2B' }}>
+            <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 16, fontWeight: '800', color: '#E5E1E4' }}>
               Grand Total
             </Text>
-            <Text style={{ fontFamily: 'Archivo', fontSize: 20, fontWeight: '800', color: '#7A1F3D' }}>
+            <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 20, fontWeight: '800', color: '#C8BFFF' }}>
               {formatInr(totalPaise)}
             </Text>
           </View>
@@ -668,43 +828,43 @@ export default function CartScreen() {
           bottom: 0,
           left: 0,
           right: 0,
-          backgroundColor: '#FFFFFF',
+          backgroundColor: '#18181B',
           borderTopWidth: 1,
-          borderTopColor: '#DAC0C4',
-          paddingHorizontal: 20,
+          borderTopColor: '#26262B',
+          paddingHorizontal: 16,
           paddingTop: 12,
           paddingBottom: Math.max(insets.bottom, 16),
           shadowColor: '#000000',
-          shadowOpacity: 0.08,
+          shadowOpacity: 0.2,
           shadowRadius: 10,
           elevation: 8,
         }}
       >
-        <Pressable
+        <DFCPressable
+          scaleTo={0.97}
           onPress={handlePlaceOrder}
           disabled={placingOrder || hasUnavailableItems}
           style={{
-            backgroundColor: hasUnavailableItems ? '#D1D5DB' : '#7A1F3D',
+            backgroundColor: hasUnavailableItems ? '#35343A' : '#6A5ACD',
             height: 52,
-            borderRadius: 12,
+            borderRadius: 14,
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
-            shadowColor: '#7A1F3D',
-            shadowOpacity: hasUnavailableItems ? 0 : 0.3,
-            shadowRadius: 8,
-            shadowOffset: { width: 0, height: 4 },
+            shadowColor: '#6A5ACD',
+            shadowOpacity: hasUnavailableItems ? 0 : 0.4,
+            shadowRadius: 10,
             elevation: hasUnavailableItems ? 0 : 4,
           }}
         >
-          <Text style={{ fontFamily: 'Archivo', fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>
+          <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 16, fontWeight: '800', color: '#FFFFFF' }}>
             {hasUnavailableItems
-              ? 'Remove unavailable items to continue'
+              ? 'Remove unavailable items to proceed'
               : placingOrder
-                ? 'Placing Order...'
-                : `Place Order • Pay ${formatInr(totalPaise)} →`}
+              ? 'Confirming Order...'
+              : `Place Order • Pay ${formatInr(totalPaise)} →`}
           </Text>
-        </Pressable>
+        </DFCPressable>
       </View>
     </Screen>
   );

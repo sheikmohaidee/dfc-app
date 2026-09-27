@@ -1,38 +1,74 @@
 /**
- * The customer app.
- *
- * Conversational thread with AI parser + Quick Service Hub + Locality Selector
+ * Stitch 01 — Flagship Customer Home Screen
+ * Replaces legacy burgundy chat with modern Stitch dark floating ecosystem:
+ * - Dynamic greeting & 22-min dispatch pill
+ * - Active order live tracking card with progress indicator
+ * - Spatial search bar with mic & filter triggers
+ * - 3×2 Core Service Matrix (Food, Grocery, Print, Genie, Pickup/Drop, Buy/Deliver)
+ * - Multimodal Shopping List spotlight card
+ * - "Craving Something Delicious?" restaurant carousel
+ * - "Daily Essentials" grocery carousel
+ * - AI conversational ordering thread (Photo/Voice/Text/AR) intact
+ * - StitchHeader & StitchNav (5-tab floating pill)
  */
 
 import * as React from 'react';
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   TextInput,
   View,
+  Text,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   FadeIn,
   FadeInUp,
-  Layout,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { Camera, Check, ChevronDown, ChevronRight, MapPin, Mic, User } from 'lucide-react-native';
+import {
+  Camera,
+  Check,
+  ChevronRight,
+  Clock,
+  Flame,
+  ListChecks,
+  MapPin,
+  Mic,
+  Navigation,
+  Package,
+  Printer,
+  Search,
+  ShoppingBag,
+  SlidersHorizontal,
+  Sparkles,
+  Star,
+  Truck,
+  Utensils,
+  ShoppingBag as BagIcon,
+  Zap,
+} from 'lucide-react-native';
 
-import { COPY, formatInr, isTerminal, localityById, type Order } from '@dfc/core';
+import { COPY, formatInr, isTerminal, localityById, predictContextualCart, type Order } from '@dfc/core';
+import { ArDishModal } from '@/ui/ar-dish-modal';
+import { usePlatformStatus } from '@/hooks/usePlatformStatus';
+import { SleepModeBanner, RainSurgeBanner } from '@/ui/sleep-mode-sheet';
 
 import { useAuth } from '@/providers/auth';
-import { useCartsSummary } from '@/providers/cart';
+import { useCart, useCartsSummary } from '@/providers/cart';
 import { mockLocationRepository } from '@/demo/repositories/location.repository';
+import { mockRestaurantRepository } from '@/demo/repositories/restaurant.repository';
+import { mockGroceryRepository } from '@/demo/repositories/grocery.repository';
 import { DEMO_LOCALITIES } from '@/demo/data/localities';
 import { extractOrder, fallbackExtraction } from '@/lib/ai';
 import {
@@ -52,12 +88,14 @@ import {
   subscribeMyOrders,
   toggleItem,
 } from '@/lib/orders';
-import { Badge, Chip, ErrorNote, Num, Screen, T, Ta } from '@/ui';
+import { Badge, Chip, ErrorNote, FloatingCard, GlowBadge, Num, Screen, SpatialSearchBar, T, Ta } from '@/ui';
+import { DFCPressable } from '@/ui/animated';
+import { SectionHeader, StatusBadge } from '@/ui/cards';
 import { PressableScale, PulseDot } from '@/ui/glass';
 import { OrderTemplateCard } from '@/ui/order-card';
 import { OrderReviewCard } from '@/ui/review-card';
-import { DFCBottomNav } from '@/ui/bottom-nav';
-import { ServiceHub } from '@/ui/service-hub';
+import { StitchHeader } from '@/ui/stitch-header';
+import { StitchNav } from '@/ui/stitch-nav';
 
 type Turn =
   | { id: string; kind: 'bot-text'; text: string; textTa?: string }
@@ -68,43 +106,6 @@ type Turn =
   | { id: string; kind: 'status'; text: string; tone: 'working' | 'ok' };
 
 const rid = () => Math.random().toString(36).slice(2, 10);
-
-// ---------------------------------------------------------------------------
-
-function Header({ onOpenLocality }: { onOpenLocality: () => void }) {
-  const router = useRouter();
-  const currentLocality = mockLocationRepository.getCurrentLocality();
-
-  return (
-    <View className="flex-row items-center gap-2.5 border-b border-muted bg-background px-4 pb-3 pt-3.5">
-      <View className="size-[30px] items-center justify-center rounded-[9px] bg-primary">
-        <T className="text-[13px] font-semibold tracking-tight text-primary-foreground">D</T>
-      </View>
-      <View className="flex-1">
-        <T className="text-[14.5px] font-semibold tracking-tight">DFC</T>
-        <Ta className="text-[10.5px]">{COPY.appName.ta}</Ta>
-      </View>
-      <Pressable
-        onPress={onOpenLocality}
-        className="flex-row items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1.5"
-      >
-        <MapPin size={13} color="#16A34A" strokeWidth={2.5} />
-        <T className="text-xs font-medium text-body-strong">{currentLocality.name}</T>
-        <ChevronDown size={12} color="#A1A1AA" strokeWidth={2.2} />
-      </Pressable>
-
-      <Pressable
-        onPress={() => router.push('/(customer)/account' as any)}
-        hitSlop={8}
-        accessibilityRole="button"
-        accessibilityLabel="Account"
-        className="size-9 items-center justify-center rounded-full bg-muted"
-      >
-        <User size={17} color="#52525B" strokeWidth={2} />
-      </Pressable>
-    </View>
-  );
-}
 
 function Waveform({ active }: { active?: boolean }) {
   const bars = [8, 15, 22, 12, 26, 18, 9, 20, 24, 11, 16, 7];
@@ -146,7 +147,7 @@ function AnimatedBar({
   return (
     <Animated.View
       style={style}
-      className="w-[2.5px] rounded-full bg-primary-foreground/80"
+      className="w-[2.5px] rounded-full bg-primary-container"
     />
   );
 }
@@ -183,22 +184,46 @@ function MicButton({
         disabled={disabled}
         accessibilityRole="button"
         accessibilityLabel="Hold to speak"
-        className={`size-[46px] items-center justify-center rounded-[12px] ${
-          recording ? 'bg-destructive' : 'bg-primary'
-        }`}
+        style={{
+          width: 44,
+          height: 44,
+          borderRadius: 14,
+          backgroundColor: recording ? '#93000A' : '#6A5ACD',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
       >
-        <Mic size={22} color="#FFFFFF" strokeWidth={2.2} />
+        <Mic size={20} color="#FFFFFF" strokeWidth={2.2} />
       </Pressable>
     </Animated.View>
   );
 }
 
-// ---------------------------------------------------------------------------
-
-export default function Chat() {
+export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user, profile, updateProfile } = useAuth();
   const summary = useCartsSummary();
+  const groceryCart = useCart('grocery');
+
+  const [keyboardOpen, setKeyboardOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardOpen(true),
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardOpen(false),
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const navClearance = Math.max(insets.bottom, Platform.OS === 'ios' ? 16 : 10) + 64;
 
   const [turns, setTurns] = React.useState<Turn[]>([]);
   const [orders, setOrders] = React.useState<Record<string, Order>>({});
@@ -207,13 +232,35 @@ export default function Chat() {
   const [recording, setRecording] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [showLocalityModal, setShowLocalityModal] = React.useState(false);
+  const [arModalVisible, setArModalVisible] = React.useState(false);
+  const [arDishKey, setArDishKey] = React.useState('bun-parotta');
+  const [dietaryFilter, setDietaryFilter] = React.useState<'all' | 'veg'>('all');
+  const platform = usePlatformStatus();
+  const [sleepBannerDismissed, setSleepBannerDismissed] = React.useState(false);
+  const [rainBannerDismissed, setRainBannerDismissed] = React.useState(false);
 
   const scrollRef = React.useRef<ScrollView>(null);
 
-  // Completed and cancelled orders drop out of this count automatically.
-  const activeOrderCount = React.useMemo(
-    () => Object.values(orders).filter((o) => !isTerminal(o.status)).length,
+  const activeOrders = React.useMemo(
+    () => Object.values(orders).filter((o) => !isTerminal(o.status)),
     [orders],
+  );
+  const activeOrderCount = activeOrders.length;
+  const latestActiveOrder = activeOrders[0];
+
+  const currentLocality = mockLocationRepository.getCurrentLocality();
+  const restaurants = React.useMemo(
+    () => mockRestaurantRepository.getForCurrentLocality(dietaryFilter === 'veg'),
+    [dietaryFilter, currentLocality],
+  );
+  const groceryItems = React.useMemo(
+    () => mockGroceryRepository.getAllProducts().slice(0, 8),
+    [],
+  );
+
+  const predictiveCard = React.useMemo(
+    () => predictContextualCart(Object.values(orders), profile?.localityId ?? 'kk-nagar'),
+    [orders, profile?.localityId],
   );
 
   const restored = React.useRef(false);
@@ -226,7 +273,7 @@ export default function Chat() {
       if (restored.current || list.length === 0) return;
       restored.current = true;
 
-      const recent = list.slice(0, 6).reverse();
+      const recent = list.slice(0, 4).reverse();
       setTurns((prev) => [
         ...prev,
         ...recent.flatMap((o): Turn[] => [
@@ -246,19 +293,6 @@ export default function Chat() {
       ]);
     });
   }, [user]);
-
-  React.useEffect(() => {
-    if (turns.length === 0 && profile) {
-      setTurns([
-        {
-          id: 'greeting',
-          kind: 'bot-text',
-          text: `${COPY.greeting.en}, ${profile.name.split(' ').slice(-1)[0]}.`,
-          textTa: COPY.chatHint.ta,
-        },
-      ]);
-    }
-  }, [profile, turns.length]);
 
   const push = React.useCallback((t: Turn) => {
     setTurns((prev) => [...prev, t]);
@@ -300,7 +334,7 @@ export default function Chat() {
           ? uploadCapture(user.uid, args.capture).catch(() => undefined)
           : Promise.resolve(undefined);
 
-        const order = await createOrderFromExtraction({
+        const newOrder = await createOrderFromExtraction({
           customer: profile,
           extraction: result.extraction,
           source: {
@@ -338,7 +372,7 @@ export default function Chat() {
           ),
         );
 
-        push({ id: rid(), kind: 'order', orderId: order.id, variant: args.variant });
+        push({ id: rid(), kind: 'order', orderId: newOrder.id, variant: args.variant });
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch (e) {
         setTurns((prev) => prev.filter((t) => t.id !== statusId));
@@ -358,7 +392,7 @@ export default function Chat() {
         id: rid(),
         kind: 'user-photo',
         uri: capture.uri,
-        label: `prescription.jpg · ${(capture.sizeBytes / 1_000_000).toFixed(1)} MB`,
+        label: `photo.jpg · ${(capture.sizeBytes / 1_000_000).toFixed(1)} MB`,
       });
       await run({ kind: 'photo', capture, variant: 'review' });
     } catch (e) {
@@ -401,17 +435,46 @@ export default function Chat() {
     push({
       id: rid(),
       kind: 'bot-text',
-      text: `Confirmed. ${formatInr(order.pricing.totalPaise)} — choose how you would like to pay.`,
+      text: `Confirmed #${order.code}. ${formatInr(order.pricing.totalPaise)} — select payment method.`,
     });
     router.push(`/(customer)/pay/${order.id}` as any);
   }
 
-  // -------------------------------------------------------------------------
+  const getTimeGreeting = () => {
+    const hr = new Date().getHours();
+    if (hr < 12) return 'Good Morning';
+    if (hr < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  };
+
+  const customerName = profile?.name ? profile.name.split(' ')[0] : 'Karthik';
 
   return (
-    <Screen edges={['top']}>
-      <Header onOpenLocality={() => setShowLocalityModal(true)} />
-      <ServiceHub />
+    <Screen edges={['top']} className="bg-surface-container-lowest">
+      <StitchHeader
+        title={currentLocality.name}
+        subtitle={`${currentLocality.nameTa} · Madurai`}
+        onLocationPress={() => setShowLocalityModal(true)}
+        showNotifications
+        showCart
+      />
+
+      {/* Platform Sleep & Monsoon Banners */}
+      {platform.status === 'sleep' && !sleepBannerDismissed ? (
+        <SleepModeBanner
+          nextOpenTime={platform.nextOpenTime}
+          onPreOrderPress={() => router.push('/subscriptions' as never)}
+          onDismiss={() => setSleepBannerDismissed(true)}
+        />
+      ) : null}
+
+      {platform.rainSurge.active && !rainBannerDismissed ? (
+        <RainSurgeBanner
+          bonusAmount={`₹${Math.round(platform.rainSurge.riderSafetyBonusPaise / 100)}`}
+          multiplier={`${platform.rainSurge.multiplier}x`}
+          onDismiss={() => setRainBannerDismissed(true)}
+        />
+      ) : null}
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -420,226 +483,787 @@ export default function Chat() {
       >
         <ScrollView
           ref={scrollRef}
-          className="flex-1"
-          contentContainerClassName="gap-4 px-4 py-4 pb-20"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 120 }}
           keyboardShouldPersistTaps="handled"
-          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
         >
-          {turns.map((turn) => {
-            switch (turn.kind) {
-              case 'bot-text':
-                return (
-                  <Animated.View key={turn.id} entering={FadeInUp.duration(220)} className="gap-1">
-                    <T className="text-[15px] leading-[22px]">{turn.text}</T>
-                    {turn.textTa ? <Ta className="text-[13px]">{turn.textTa}</Ta> : null}
-                  </Animated.View>
-                );
+          {/* Greeting Section */}
+          <View className="px-4 pt-4 pb-2">
+            <View className="flex-row items-center justify-between">
+              <View>
+                <Text className="text-xs font-semibold text-primary uppercase tracking-wider">
+                  Vanakkam · {getTimeGreeting()}
+                </Text>
+                <Text className="text-2xl font-extrabold text-on-surface tracking-tight">
+                  {customerName}
+                </Text>
+              </View>
 
-              case 'user-text':
-                return (
-                  <Animated.View
-                    key={turn.id}
-                    entering={FadeInUp.duration(220)}
-                    className="items-end"
-                  >
-                    <View className="max-w-[80%] rounded-[18px] rounded-br-[4px] bg-primary px-4 py-2.5">
-                      <T className="text-[14.5px] text-primary-foreground">{turn.text}</T>
-                    </View>
-                  </Animated.View>
-                );
+              <View
+                style={{
+                  backgroundColor: 'rgba(106, 90, 205, 0.16)',
+                  borderColor: 'rgba(200, 191, 255, 0.25)',
+                  borderWidth: 1,
+                  borderRadius: 9999,
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                }}
+                className="flex-row items-center gap-1.5"
+              >
+                <Zap size={14} color="#C8BFFF" />
+                <Text style={{ fontSize: 11, fontWeight: '700', color: '#C8BFFF' }}>
+                  22 Mins Dispatch
+                </Text>
+              </View>
+            </View>
+          </View>
 
-              case 'user-photo':
-                return (
-                  <Animated.View
-                    key={turn.id}
-                    entering={FadeInUp.duration(220)}
-                    className="items-end gap-1.5"
-                  >
-                    <View className="overflow-hidden rounded-[18px] rounded-br-[4px] border border-border bg-background">
-                      <Image
-                        source={{ uri: turn.uri }}
-                        contentFit="cover"
-                        className="h-[180px] w-[220px]"
-                      />
-                      <View className="px-3 py-1.5">
-                        <T className="font-mono text-[11px] text-muted-foreground">
-                          {turn.label}
-                        </T>
-                      </View>
-                    </View>
-                  </Animated.View>
-                );
-
-              case 'user-voice':
-                return (
-                  <Animated.View
-                    key={turn.id}
-                    entering={FadeInUp.duration(220)}
-                    className="items-end gap-1"
-                  >
-                    <View className="flex-row items-center gap-3 rounded-[18px] rounded-br-[4px] bg-foreground px-4 py-2.5">
-                      <Waveform active />
-                      <Num className="text-[12px] font-medium text-background">
-                        {(turn.durationMs / 1000).toFixed(1)}s
-                      </Num>
-                    </View>
-                    {turn.transcript ? (
-                      <T className="max-w-[80%] text-right text-[12px] italic text-muted-foreground">
-                        “{turn.transcript}”
-                      </T>
-                    ) : null}
-                  </Animated.View>
-                );
-
-              case 'status':
-                return (
-                  <Animated.View
-                    key={turn.id}
-                    entering={FadeIn.duration(180)}
-                    className="flex-row items-center gap-2"
-                  >
-                    {turn.tone === 'working' ? (
-                      <PulseDot color="#2563EB" size={7} />
-                    ) : (
-                      <View className="size-4 items-center justify-center rounded-full bg-grocery-tint">
-                        <Check size={11} color="#15803D" strokeWidth={3} />
-                      </View>
-                    )}
-                    <T className="font-mono text-[12px] text-muted-foreground">{turn.text}</T>
-                  </Animated.View>
-                );
-
-              case 'order': {
-                const o = orders[turn.orderId];
-                if (!o) return null;
-                return (
-                  <View key={turn.id} className="gap-2">
-                    {turn.variant === 'review' ? (
-                      <OrderReviewCard
-                        order={o}
-                        onToggle={(itemId) => void toggleItem(o.id, itemId)}
-                        onQuantity={(itemId, q) => void setQuantity(o.id, itemId, q)}
-                        onEdit={(itemId, patch) => void editItem(o.id, itemId, patch)}
-                        onAdd={(input) => void addItem(o.id, input)}
-                        onRemove={(itemId) => void removeItem(o.id, itemId)}
-                        onConfirm={() => onConfirm(o)}
-                      />
-                    ) : (
-                      <OrderTemplateCard
-                        order={o}
-                        onConfirm={() => onConfirm(o)}
-                      />
-                    )}
-                    <Pressable
-                      onPress={() => router.push(`/(customer)/order/${o.id}` as any)}
-                      className="items-center py-1"
-                    >
-                      <T className="text-[12px] font-semibold text-primary">Track this order →</T>
-                    </Pressable>
+          {/* Active Order Live Pill (if any) */}
+          {latestActiveOrder ? (
+            <View className="px-4 pt-2 pb-2">
+              <DFCPressable
+                onPress={() => router.push(`/(customer)/order/${latestActiveOrder.id}` as any)}
+                scaleTo={0.98}
+                style={{
+                  backgroundColor: '#1C1B1D',
+                  borderColor: '#2A2A2C',
+                  borderWidth: 1,
+                  borderRadius: 20,
+                  padding: 14,
+                  shadowColor: '#000000',
+                  shadowOpacity: 0.25,
+                  shadowRadius: 8,
+                  elevation: 4,
+                }}
+              >
+                <View className="flex-row items-center justify-between mb-2">
+                  <View className="flex-row items-center gap-2">
+                    <PulseDot color="#7BD0FF" size={8} />
+                    <Text className="text-xs font-bold text-on-surface uppercase tracking-wider">
+                      Live Order #{latestActiveOrder.code}
+                    </Text>
                   </View>
-                );
-              }
-            }
-          })}
+                  <GlowBadge
+                    label={latestActiveOrder.status.toUpperCase()}
+                    tone={latestActiveOrder.status === 'out_for_delivery' ? 'success' : 'primary'}
+                  />
+                </View>
 
-          {error ? <ErrorNote message={error} /> : null}
+                <Text className="text-sm font-semibold text-on-surface mb-2">
+                  {latestActiveOrder.storeName || 'DFC Express Delivery'}
+                </Text>
+
+                {/* Segmented Progress Bar */}
+                <View className="flex-row items-center gap-1 mb-2.5">
+                  <View className="h-1 flex-1 rounded-full bg-primary" />
+                  <View
+                    className={`h-1 flex-1 rounded-full ${
+                      latestActiveOrder.status !== 'incoming' ? 'bg-primary' : 'bg-surface-container-highest'
+                    }`}
+                  />
+                  <View
+                    className={`h-1 flex-1 rounded-full ${
+                      latestActiveOrder.status === 'out_for_delivery' || latestActiveOrder.status === 'delivered'
+                        ? 'bg-primary'
+                        : 'bg-surface-container-highest'
+                    }`}
+                  />
+                </View>
+
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-xs text-on-surface-variant font-medium">
+                    {latestActiveOrder.items.length} items · {formatInr(latestActiveOrder.pricing.totalPaise)}
+                  </Text>
+                  <View className="flex-row items-center gap-1">
+                    <Text className="text-xs font-bold text-primary">Live Tracking</Text>
+                    <ChevronRight size={13} color="#C8BFFF" strokeWidth={2.5} />
+                  </View>
+                </View>
+              </DFCPressable>
+            </View>
+          ) : null}
+
+          {/* Spatial Search Bar */}
+          <View className="px-4 py-2">
+            <SpatialSearchBar
+              placeholder="Search dishes, groceries, errands..."
+              onPress={() => router.push('/(customer)/search')}
+              onPressMic={() => void onMicDown()}
+              onPressFilter={() => setDietaryFilter((prev) => (prev === 'veg' ? 'all' : 'veg'))}
+              editable={false}
+            />
+          </View>
+
+          {/* 3×2 Core Service Matrix */}
+          <View className="px-4 py-2">
+            <View className="flex-row items-center justify-between mb-3">
+              <Text className="text-sm font-bold text-on-surface uppercase tracking-wider">
+                Services Ecosystem
+              </Text>
+              <Pressable onPress={() => router.push('/(customer)/services' as any)}>
+                <Text className="text-xs font-semibold text-primary">View All (6) →</Text>
+              </Pressable>
+            </View>
+
+            <View className="flex-row flex-wrap justify-between gap-y-3">
+              {[
+                {
+                  id: 'food',
+                  title: 'Food & Mess',
+                  ta: 'உணவு',
+                  badge: 'HOT',
+                  icon: <Utensils size={20} color="#FFB59C" />,
+                  bg: 'rgba(142, 44, 1, 0.25)',
+                  border: 'rgba(255, 181, 156, 0.25)',
+                  route: '/(customer)/food',
+                },
+                {
+                  id: 'grocery',
+                  title: 'Supermarket',
+                  ta: 'மளிகை',
+                  badge: '15m',
+                  icon: <ShoppingBag size={20} color="#6EE7B7" />,
+                  bg: 'rgba(6, 78, 59, 0.25)',
+                  border: 'rgba(110, 231, 183, 0.25)',
+                  route: '/(customer)/grocery',
+                },
+                {
+                  id: 'print',
+                  title: 'Print & Xerox',
+                  ta: 'பிரிண்டிங்',
+                  badge: 'DOCS',
+                  icon: <Printer size={20} color="#7BD0FF" />,
+                  bg: 'rgba(0, 115, 156, 0.25)',
+                  border: 'rgba(123, 208, 255, 0.25)',
+                  route: '/(customer)/print',
+                },
+                {
+                  id: 'genie',
+                  title: 'Genie Runner',
+                  ta: 'ஜீனி',
+                  badge: 'TASK',
+                  icon: <Package size={20} color="#C8BFFF" />,
+                  bg: 'rgba(106, 90, 205, 0.25)',
+                  border: 'rgba(200, 191, 255, 0.25)',
+                  route: '/(customer)/genie',
+                },
+                {
+                  id: 'pickup_drop',
+                  title: 'Pickup & Drop',
+                  ta: 'பிக்அப்',
+                  badge: 'POINT',
+                  icon: <Truck size={20} color="#FCD34D" />,
+                  bg: 'rgba(217, 119, 6, 0.2)',
+                  border: 'rgba(253, 230, 138, 0.25)',
+                  route: '/(customer)/pickup-drop',
+                },
+                {
+                  id: 'buy_deliver',
+                  title: 'Buy & Deliver',
+                  ta: 'வாங்கி தருதல்',
+                  badge: 'STORE',
+                  icon: <BagIcon size={20} color="#7BD0FF" />,
+                  bg: 'rgba(0, 115, 156, 0.25)',
+                  border: 'rgba(123, 208, 255, 0.25)',
+                  route: '/(customer)/buy-deliver',
+                },
+              ].map((item) => (
+                <DFCPressable
+                  key={item.id}
+                  scaleTo={0.94}
+                  onPress={() => {
+                    void Haptics.selectionAsync();
+                    router.push(item.route as any);
+                  }}
+                  style={{
+                    width: '31.5%',
+                    backgroundColor: '#1C1B1D',
+                    borderColor: '#2A2A2C',
+                    borderWidth: 1,
+                    borderRadius: 18,
+                    padding: 12,
+                    alignItems: 'center',
+                    shadowColor: '#000000',
+                    shadowOpacity: 0.15,
+                    shadowRadius: 5,
+                    shadowOffset: { width: 0, height: 2 },
+                    elevation: 2,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 42,
+                      height: 42,
+                      borderRadius: 14,
+                      backgroundColor: item.bg,
+                      borderColor: item.border,
+                      borderWidth: 1,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginBottom: 8,
+                    }}
+                  >
+                    {item.icon}
+                  </View>
+                  <Text
+                    numberOfLines={1}
+                    className="text-xs font-bold text-on-surface text-center"
+                  >
+                    {item.title}
+                  </Text>
+                  <Text
+                    numberOfLines={1}
+                    className="text-[10px] text-on-surface-variant font-tamil text-center"
+                  >
+                    {item.ta}
+                  </Text>
+                </DFCPressable>
+              ))}
+            </View>
+          </View>
+
+          {/* Smart Shopping List Spotlight Card */}
+          <View className="px-4 py-2">
+            <FloatingCard
+              glow
+              onPress={() => router.push('/(customer)/shopping-list' as any)}
+              className="p-4 bg-surface-container-low border-primary/30"
+            >
+              <View className="flex-row items-center justify-between mb-2">
+                <View className="flex-row items-center gap-1.5">
+                  <Sparkles size={16} color="#C8BFFF" />
+                  <Text className="text-xs font-bold text-primary tracking-wider uppercase">
+                    AI Multimodal Scanner
+                  </Text>
+                </View>
+                <GlowBadge label="NEW" tone="primary" />
+              </View>
+
+              <Text className="text-lg font-bold text-on-surface mb-1">
+                Smart Shopping List
+              </Text>
+              <Text className="text-xs text-on-surface-variant leading-5 mb-3">
+                Photograph handwritten paper lists or voice-dictate items. Our AI matches products and builds your cart instantly.
+              </Text>
+
+              <View className="flex-row items-center justify-between pt-2 border-t border-surface-container-highest">
+                <View className="flex-row items-center gap-2">
+                  <ListChecks size={14} color="#928F9E" />
+                  <Text className="text-xs text-on-surface-variant font-medium">
+                    OCR + Voice + Template Matching
+                  </Text>
+                </View>
+                <View className="flex-row items-center gap-1">
+                  <Text className="text-xs font-bold text-primary">Open Scanner</Text>
+                  <ChevronRight size={14} color="#C8BFFF" strokeWidth={2.5} />
+                </View>
+              </View>
+            </FloatingCard>
+          </View>
+
+          {/* "Craving Something Delicious?" Restaurant Carousel */}
+          <View className="pt-4 pb-2">
+            <View className="flex-row items-center justify-between px-4 mb-3">
+              <View>
+                <Text className="text-base font-bold text-on-surface">
+                  Craving Something Delicious?
+                </Text>
+                <Text className="text-xs text-on-surface-variant">
+                  Top-rated kitchens in {currentLocality.name}
+                </Text>
+              </View>
+              <Pressable onPress={() => router.push('/(customer)/food')}>
+                <Text className="text-xs font-semibold text-primary">See All →</Text>
+              </Pressable>
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
+            >
+              {restaurants.slice(0, 6).map((res) => (
+                <DFCPressable
+                  key={res.id}
+                  scaleTo={0.96}
+                  onPress={() => router.push(`/(customer)/food/restaurant/${res.id}` as any)}
+                  style={{
+                    width: 220,
+                    backgroundColor: '#1C1B1D',
+                    borderColor: '#2A2A2C',
+                    borderWidth: 1,
+                    borderRadius: 18,
+                    overflow: 'hidden',
+                    shadowColor: '#000000',
+                    shadowOpacity: 0.2,
+                    shadowRadius: 6,
+                    shadowOffset: { width: 0, height: 2 },
+                    elevation: 3,
+                  }}
+                >
+                  <Image
+                    source={{ uri: (res as any).imageUrl || 'https://images.unsplash.com/photo-1589302168068-964664d93dc0?w=600&q=80' }}
+                    contentFit="cover"
+                    style={{ width: '100%', height: 115 }}
+                  />
+                  <View className="p-3">
+                    <View className="flex-row items-center justify-between mb-1">
+                      <Text
+                        numberOfLines={1}
+                        className="text-sm font-bold text-on-surface flex-1 mr-2"
+                      >
+                        {res.name}
+                      </Text>
+                      <View className="flex-row items-center gap-0.5 bg-secondary-container/30 px-1.5 py-0.5 rounded-md">
+                        <Star size={11} color="#FFB59C" fill="#FFB59C" />
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: '#FFB59C' }}>
+                          {res.rating}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <Text numberOfLines={1} className="text-xs text-on-surface-variant mb-2">
+                      {res.cuisines.join(' · ')}
+                    </Text>
+
+                    <View className="flex-row items-center justify-between pt-2 border-t border-surface-container-highest">
+                      <View className="flex-row items-center gap-1">
+                        <Clock size={12} color="#928F9E" />
+                        <Text className="text-[11px] text-on-surface-variant">
+                          {res.avgPrepMinutes}-{res.avgPrepMinutes + 15}m
+                        </Text>
+                      </View>
+                      <Text className="text-[11px] font-semibold text-primary">
+                        {res.distanceKm.toFixed(1)} km
+                      </Text>
+                    </View>
+                  </View>
+                </DFCPressable>
+              ))}
+            </ScrollView>
+          </View>
+
+          {/* "Daily Essentials" Grocery Carousel */}
+          <View className="pt-3 pb-2">
+            <View className="flex-row items-center justify-between px-4 mb-3">
+              <View>
+                <Text className="text-base font-bold text-on-surface">
+                  Daily Essentials
+                </Text>
+                <Text className="text-xs text-on-surface-variant">
+                  Dispatched from local partner hubs
+                </Text>
+              </View>
+              <Pressable onPress={() => router.push('/(customer)/grocery')}>
+                <Text className="text-xs font-semibold text-primary">Supermarket →</Text>
+              </Pressable>
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}
+            >
+              {groceryItems.map((prod) => (
+                <DFCPressable
+                  key={prod.id}
+                  scaleTo={0.96}
+                  onPress={() => router.push('/(customer)/grocery')}
+                  style={{
+                    width: 140,
+                    backgroundColor: '#1C1B1D',
+                    borderColor: '#2A2A2C',
+                    borderWidth: 1,
+                    borderRadius: 16,
+                    padding: 10,
+                    shadowColor: '#000000',
+                    shadowOpacity: 0.15,
+                    shadowRadius: 5,
+                    shadowOffset: { width: 0, height: 2 },
+                    elevation: 2,
+                  }}
+                >
+                  <Image
+                    source={{ uri: (prod as any).imageUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&q=80' }}
+                    contentFit="cover"
+                    style={{ width: '100%', height: 80, borderRadius: 10, marginBottom: 8 }}
+                  />
+                  <Text
+                    numberOfLines={1}
+                    className="text-xs font-bold text-on-surface mb-0.5"
+                  >
+                    {prod.name}
+                  </Text>
+                  <Text className="text-[10px] text-on-surface-variant mb-2">
+                    {prod.unit}
+                  </Text>
+                  <View className="flex-row items-center justify-between mt-auto">
+                    <Text className="text-xs font-bold font-mono text-on-surface">
+                      {formatInr(prod.sellPaise)}
+                    </Text>
+                    <DFCPressable
+                      scaleTo={0.88}
+                      onPress={async () => {
+                        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        await groceryCart.addItem({
+                          id: prod.id,
+                          sourceId: prod.storeId,
+                          sourceName: prod.storeName,
+                          sourceCategory: 'grocery',
+                          localityId: 'central-madurai',
+                          name: prod.name,
+                          unit: prod.unit,
+                          pricePaise: prod.sellPaise,
+                          quantity: 1,
+                        });
+                      }}
+                      style={{
+                        backgroundColor: '#6A5ACD',
+                        paddingHorizontal: 8,
+                        paddingVertical: 4,
+                        borderRadius: 8,
+                      }}
+                    >
+                      <Text style={{ fontSize: 11, fontWeight: '800', color: '#FFFFFF' }}>
+                        +ADD
+                      </Text>
+                    </DFCPressable>
+                  </View>
+                </DFCPressable>
+              ))}
+            </ScrollView>
+          </View>
+
+          {/* Predictive Contextual Reorder (if applicable) */}
+          <View className="px-4 py-2">
+            <FloatingCard className="p-3.5 bg-surface-container-low border-primary/20">
+              <View className="flex-row items-center justify-between mb-1">
+                <Text className="text-[10px] font-extrabold tracking-wider text-primary uppercase">
+                  {predictiveCard.kicker.en}
+                </Text>
+                <GlowBadge label="AI AFFINITY" tone="primary" />
+              </View>
+              <Text className="text-sm font-bold text-on-surface mb-0.5">
+                {predictiveCard.title.en}
+              </Text>
+              <Text className="text-xs text-on-surface-variant font-tamil mb-2">
+                {predictiveCard.title.ta}
+              </Text>
+
+              <View className="rounded-lg bg-surface-container p-2.5 gap-1 mb-2.5 border border-surface-container-highest">
+                {predictiveCard.suggestedItems.map((item, idx) => (
+                  <View key={idx} className="flex-row justify-between">
+                    <Text className="text-xs text-on-surface-variant">
+                      {item.quantity}× {item.name}
+                    </Text>
+                    <Text className="text-xs font-mono font-semibold text-on-surface">
+                      {formatInr(item.pricePaise * item.quantity)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+
+              <Pressable
+                onPress={() => {
+                  const query =
+                    predictiveCard.suggestedItems
+                      .map((i) => `${i.quantity} ${i.name}`)
+                      .join(', ') + ` from ${predictiveCard.storeName}`;
+                  void run({ kind: 'text', text: query, variant: 'review' });
+                }}
+                style={{
+                  backgroundColor: '#6A5ACD',
+                  paddingVertical: 9,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  flexDirection: 'row',
+                  justifyContent: 'center',
+                  gap: 6,
+                }}
+              >
+                <Sparkles size={14} color="#FFFFFF" />
+                <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}>
+                  1-Tap Reorder · {formatInr(predictiveCard.totalPaise)}
+                </Text>
+              </Pressable>
+            </FloatingCard>
+          </View>
+
+          {/* AI Conversational Section & Active Turns */}
+          {turns.length > 0 ? (
+            <View className="px-4 pt-3 gap-3">
+              <View className="flex-row items-center gap-2">
+                <Sparkles size={16} color="#C8BFFF" />
+                <Text className="text-xs font-bold text-primary uppercase tracking-wider">
+                  AI Assistant & Active Requests
+                </Text>
+              </View>
+
+              {turns.map((turn) => {
+                switch (turn.kind) {
+                  case 'bot-text':
+                    return (
+                      <Animated.View key={turn.id} entering={FadeInUp.duration(200)} className="gap-1">
+                        <Text className="text-sm text-on-surface leading-5">{turn.text}</Text>
+                        {turn.textTa ? (
+                          <Text className="text-xs text-on-surface-variant font-tamil">{turn.textTa}</Text>
+                        ) : null}
+                      </Animated.View>
+                    );
+
+                  case 'user-text':
+                    return (
+                      <Animated.View
+                        key={turn.id}
+                        entering={FadeInUp.duration(200)}
+                        className="items-end"
+                      >
+                        <View className="max-w-[85%] rounded-2xl rounded-br-sm bg-primary-container px-4 py-2.5">
+                          <Text className="text-sm font-medium text-white">{turn.text}</Text>
+                        </View>
+                      </Animated.View>
+                    );
+
+                  case 'user-photo':
+                    return (
+                      <Animated.View
+                        key={turn.id}
+                        entering={FadeInUp.duration(200)}
+                        className="items-end gap-1.5"
+                      >
+                        <View className="overflow-hidden rounded-2xl rounded-br-sm border border-surface-container-highest bg-surface-container">
+                          <Image
+                            source={{ uri: turn.uri }}
+                            contentFit="cover"
+                            style={{ height: 160, width: 200 }}
+                          />
+                          <View className="px-3 py-1.5">
+                            <Text className="font-mono text-[11px] text-on-surface-variant">
+                              {turn.label}
+                            </Text>
+                          </View>
+                        </View>
+                      </Animated.View>
+                    );
+
+                  case 'user-voice':
+                    return (
+                      <Animated.View
+                        key={turn.id}
+                        entering={FadeInUp.duration(200)}
+                        className="items-end gap-1"
+                      >
+                        <View className="flex-row items-center gap-3 rounded-2xl rounded-br-sm bg-surface-container-high px-4 py-2.5">
+                          <Waveform active />
+                          <Num style={{ fontSize: 12, fontWeight: '600', color: '#E5E1E4' }}>
+                            {(turn.durationMs / 1000).toFixed(1)}s
+                          </Num>
+                        </View>
+                        {turn.transcript ? (
+                          <Text className="max-w-[80%] text-right text-xs italic text-on-surface-variant">
+                            “{turn.transcript}”
+                          </Text>
+                        ) : null}
+                      </Animated.View>
+                    );
+
+                  case 'status':
+                    return (
+                      <Animated.View
+                        key={turn.id}
+                        entering={FadeIn.duration(160)}
+                        className="flex-row items-center gap-2"
+                      >
+                        {turn.tone === 'working' ? (
+                          <PulseDot color="#7BD0FF" size={7} />
+                        ) : (
+                          <View className="w-4 h-4 items-center justify-center rounded-full bg-emerald-950 border border-emerald-500/40">
+                            <Check size={10} color="#6EE7B7" strokeWidth={3} />
+                          </View>
+                        )}
+                        <Text className="font-mono text-xs text-on-surface-variant">{turn.text}</Text>
+                      </Animated.View>
+                    );
+
+                  case 'order': {
+                    const o = orders[turn.orderId];
+                    if (!o) return null;
+                    return (
+                      <View key={turn.id} className="gap-2">
+                        {turn.variant === 'review' ? (
+                          <OrderReviewCard
+                            order={o}
+                            onToggle={(itemId) => void toggleItem(o.id, itemId)}
+                            onQuantity={(itemId, q) => void setQuantity(o.id, itemId, q)}
+                            onEdit={(itemId, patch) => void editItem(o.id, itemId, patch)}
+                            onAdd={(input) => void addItem(o.id, input)}
+                            onRemove={(itemId) => void removeItem(o.id, itemId)}
+                            onConfirm={() => onConfirm(o)}
+                          />
+                        ) : (
+                          <OrderTemplateCard order={o} onConfirm={() => onConfirm(o)} />
+                        )}
+                        <Pressable
+                          onPress={() => router.push(`/(customer)/order/${o.id}` as any)}
+                          className="items-center py-1"
+                        >
+                          <Text className="text-xs font-semibold text-primary">Track this order →</Text>
+                        </Pressable>
+                      </View>
+                    );
+                  }
+                }
+              })}
+
+              {error ? <ErrorNote message={error} /> : null}
+            </View>
+          ) : null}
         </ScrollView>
 
-        {/* Current order area: Active Orders tag + floating cart indicator */}
-        {activeOrderCount > 0 ? (
-          <View className="px-4 pb-2">
-            <PressableScale
-              to={0.96}
-              onPress={() => router.push('/(customer)/active-orders' as any)}
-              className="flex-row items-center justify-between rounded-xl border border-border bg-background px-4 py-2.5 shadow-md"
-            >
-              <View className="flex-row items-center gap-2">
-                <PulseDot color="#2563EB" size={8} />
-                <T className="text-[12.5px] font-bold text-foreground">
-                  ACTIVE ORDERS ({activeOrderCount})
-                </T>
-              </View>
-              <View className="flex-row items-center gap-1.5">
-                <T className="text-[11px] font-medium text-muted-foreground">Tap to view</T>
-                <ChevronRight size={14} color="#A1A1AA" strokeWidth={2.4} />
-              </View>
-            </PressableScale>
-          </View>
-        ) : null}
-
-        {/* Floating Cart Indicator */}
+        {/* Floating Cart Pill (if items exist) */}
         {summary.itemCount > 0 ? (
           <View className="px-4 pb-2">
-            <PressableScale
-              to={0.96}
+            <Pressable
               onPress={() =>
                 router.push(
                   `/(customer)/cart?service=${summary.serviceWithItems ?? 'food'}` as any,
                 )
               }
-              className="flex-row items-center justify-between rounded-xl bg-primary px-4 py-2.5 shadow-md"
+              style={{
+                backgroundColor: '#6A5ACD',
+                borderRadius: 16,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                shadowColor: '#6A5ACD',
+                shadowOpacity: 0.4,
+                shadowRadius: 10,
+                elevation: 6,
+              }}
             >
-              <T className="text-[12.5px] font-bold text-primary-foreground">
+              <Text style={{ fontSize: 12.5, fontWeight: '800', color: '#FFFFFF' }}>
                 🛒 {summary.itemCount} {summary.itemCount === 1 ? 'ITEM' : 'ITEMS'} IN CART
-              </T>
+              </Text>
               <View className="flex-row items-center gap-2">
-                <Num className="text-[14px] font-bold text-primary-foreground">{formatInr(summary.totalPaise)}</Num>
-                <T className="text-[11px] font-bold text-white/90">VIEW →</T>
+                <Text style={{ fontSize: 14, fontWeight: '800', color: '#FFFFFF', fontFamily: 'GeistMono' }}>
+                  {formatInr(summary.totalPaise)}
+                </Text>
+                <Text style={{ fontSize: 11, fontWeight: '800', color: 'rgba(255,255,255,0.9)' }}>
+                  VIEW →
+                </Text>
               </View>
-            </PressableScale>
+            </Pressable>
           </View>
         ) : null}
 
-        {/* Bottom dock: camera, text, mic */}
-        <View className="gap-2.5 border-t border-muted bg-background px-4 pb-5 pt-2.5">
+        {/* Bottom AI Ordering Bar */}
+        <View
+          style={{
+            backgroundColor: '#0E0E10',
+            borderTopColor: '#201F21',
+            borderTopWidth: 1,
+            paddingHorizontal: 16,
+            paddingTop: 10,
+            paddingBottom: keyboardOpen ? (Platform.OS === 'ios' ? 12 : 8) : navClearance,
+          }}
+          className="gap-2"
+        >
           {recording ? (
             <Animated.View
               entering={FadeIn}
-              className="flex-row items-center gap-2.5 rounded-control bg-destructive-tint px-3 py-2"
+              style={{
+                backgroundColor: 'rgba(147, 0, 10, 0.25)',
+                borderColor: 'rgba(255, 180, 171, 0.3)',
+                borderWidth: 1,
+                borderRadius: 12,
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+              }}
+              className="flex-row items-center gap-2"
             >
-              <PulseDot color="#DC2626" size={8} />
-              <T className="flex-1 text-[12.5px] font-medium text-destructive-fg">
+              <PulseDot color="#FFB4AB" size={8} />
+              <Text className="flex-1 text-xs font-semibold text-error">
                 {COPY.listening.en}
-              </T>
-              <Ta className="text-[11px] text-destructive-fg">{COPY.recordingHint.ta}</Ta>
+              </Text>
+              <Text className="text-[11px] text-error font-tamil">{COPY.recordingHint.ta}</Text>
             </Animated.View>
           ) : (
-            <View className="flex-row gap-2">
-              <Pressable onPress={() => router.push('/(customer)/medicine' as any)}>
-                <Chip label={COPY.pharmacy.en} />
-              </Pressable>
-              <Pressable onPress={() => router.push('/(customer)/grocery' as any)}>
-                <Chip label={COPY.grocery.en} />
-              </Pressable>
-              <Pressable onPress={() => router.push('/(customer)/genie' as any)}>
-                <Chip label={COPY.concierge.en} />
-              </Pressable>
-            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 6 }}
+            >
+              {[
+                { label: '🍛 Order Dinner', text: 'Dinner for 2: 4 Parottas and Salna' },
+                { label: '🥛 2L Milk', text: '2 Litre Aavin Green Milk' },
+                { label: '📄 Print PDF', text: 'Doorstep Xerox 10 copies' },
+                { label: '🏃 Courier', text: 'Pickup keys from Anna Nagar' },
+              ].map((quick) => (
+                <Pressable
+                  key={quick.label}
+                  onPress={() => void run({ kind: 'text', text: quick.text, variant: 'review' })}
+                  style={{
+                    backgroundColor: '#1C1B1D',
+                    borderColor: '#2A2A2C',
+                    borderWidth: 1,
+                    borderRadius: 9999,
+                    paddingHorizontal: 10,
+                    paddingVertical: 5,
+                  }}
+                >
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: '#C9C4D5' }}>
+                    {quick.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
           )}
 
-          <View className="flex-row items-center gap-2.5">
-            <PressableScale
-              to={0.93}
-              haptic
+          <View className="flex-row items-center gap-2">
+            <Pressable
               onPress={() => void onCamera()}
               disabled={thinking}
-              accessibilityRole="button"
-              accessibilityLabel="Photograph a prescription or list"
-              className="size-[46px] items-center justify-center rounded-[12px] border border-border bg-background"
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 14,
+                backgroundColor: '#1C1B1D',
+                borderColor: '#2A2A2C',
+                borderWidth: 1,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
             >
-              <Camera size={20} color="#3F3F46" strokeWidth={1.9} />
-            </PressableScale>
+              <Camera size={19} color="#C8BFFF" strokeWidth={2} />
+            </Pressable>
 
-            <View className="h-[46px] flex-1 justify-center rounded-[10px] border border-border bg-background px-3.5">
+            <View
+              style={{
+                height: 44,
+                flex: 1,
+                borderRadius: 14,
+                backgroundColor: '#1C1B1D',
+                borderColor: '#2A2A2C',
+                borderWidth: 1,
+                justifyContent: 'center',
+                paddingHorizontal: 14,
+              }}
+            >
               <TextInput
                 value={text}
                 onChangeText={setText}
                 onSubmitEditing={() => void onSend()}
                 editable={!thinking}
-                placeholder={COPY.typeOrPaste.en}
-                placeholderTextColor="#A1A1AA"
+                placeholder="Ask AI or type an order..."
+                placeholderTextColor="#928F9E"
                 returnKeyType="send"
-                className="font-sans text-[13.5px] text-foreground"
+                style={{
+                  color: '#E5E1E4',
+                  fontSize: 13.5,
+                  fontWeight: '500',
+                }}
               />
             </View>
 
@@ -655,22 +1279,30 @@ export default function Chat() {
 
       {/* Locality Selector Modal */}
       {showLocalityModal ? (
-        <View className="absolute inset-0 z-50 justify-end bg-black/50">
-          <View className="max-h-[75%] gap-3 rounded-t-[24px] bg-background p-5">
-            <View className="flex-row items-center justify-between border-b border-muted pb-3">
+        <View className="absolute inset-0 z-50 justify-end bg-black/70">
+          <View
+            style={{
+              backgroundColor: '#1C1B1D',
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              padding: 20,
+              maxHeight: '75%',
+            }}
+            className="gap-3"
+          >
+            <View className="flex-row items-center justify-between border-b border-surface-container-highest pb-3">
               <View>
-                <T className="text-[16px] font-bold text-foreground">Select Madurai Locality</T>
-                <T className="text-[11.5px] text-muted-foreground">Sets delivery hub & restaurant filtering</T>
+                <Text className="text-base font-bold text-on-surface">Select Madurai Locality</Text>
+                <Text className="text-xs text-on-surface-variant">Sets delivery hub & restaurant filtering</Text>
               </View>
               <Pressable onPress={() => setShowLocalityModal(false)} className="p-1">
-                <T className="text-[13px] font-bold text-primary">Done</T>
+                <Text className="text-xs font-bold text-primary">Done</Text>
               </Pressable>
             </View>
 
             <ScrollView className="gap-2">
               {DEMO_LOCALITIES.map((loc) => {
-                const currentLocId = mockLocationRepository.getCurrentLocality().id;
-                const isSelected = currentLocId === loc.id;
+                const isSelected = currentLocality.id === loc.id;
                 return (
                   <Pressable
                     key={loc.id}
@@ -679,18 +1311,26 @@ export default function Chat() {
                       void updateProfile({ localityId: loc.id });
                       setShowLocalityModal(false);
                     }}
-                    className={`flex-row items-center justify-between rounded-xl border p-3 ${
-                      isSelected ? 'border-primary bg-primary-tint' : 'border-border bg-surface'
-                    }`}
+                    style={{
+                      backgroundColor: isSelected ? 'rgba(106, 90, 205, 0.2)' : '#131315',
+                      borderColor: isSelected ? '#6A5ACD' : '#2A2A2C',
+                      borderWidth: 1,
+                      borderRadius: 16,
+                      padding: 12,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: 8,
+                    }}
                   >
                     <View className="flex-1">
                       <View className="flex-row items-center gap-2">
-                        <T className="text-[14px] font-bold text-foreground">{loc.name}</T>
-                        <Ta className="text-[11px] text-muted-foreground">{loc.nameTa}</Ta>
+                        <Text className="text-sm font-bold text-on-surface">{loc.name}</Text>
+                        <Text className="text-xs text-on-surface-variant font-tamil">{loc.nameTa}</Text>
                       </View>
-                      <T className="text-[11px] text-muted-foreground">{loc.tagline}</T>
+                      <Text className="text-xs text-on-surface-variant">{loc.tagline}</Text>
                     </View>
-                    {isSelected ? <Check size={16} color="#2563EB" strokeWidth={3} /> : null}
+                    {isSelected ? <Check size={18} color="#C8BFFF" strokeWidth={3} /> : null}
                   </Pressable>
                 );
               })}
@@ -699,11 +1339,17 @@ export default function Chat() {
         </View>
       ) : null}
 
-      <View className="hidden">
-        <Badge label="DFC" />
-      </View>
+      {/* 3D AR Dish Explorer Modal */}
+      <ArDishModal
+        visible={arModalVisible}
+        dishKey={arDishKey}
+        onClose={() => setArModalVisible(false)}
+        onAddToCart={(d) => {
+          void run({ kind: 'text', text: `1 ${d.name} from ${d.storeName}`, variant: 'review' });
+        }}
+      />
 
-      <DFCBottomNav activeTab="home" />
+      <StitchNav activeTab="home" />
     </Screen>
   );
 }

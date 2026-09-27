@@ -1,7 +1,7 @@
 /**
- * DFC Orders History Screen - Full Stitch Design Implementation
- * Includes Active / Completed / Cancelled tabs, Order Cards with Status Stripes,
- * and Pickup & Drop timeline routes.
+ * DFC Orders History Screen — Stitch Dark Floating Theme
+ * Features segmented tabs (Active, Completed, Cancelled), tactile dark floating cards,
+ * route node timeline previews, live pulse badges, and 1-tap reorder/tracking.
  */
 
 import * as React from 'react';
@@ -22,6 +22,9 @@ import {
   ShoppingBag,
   Sparkles,
   Utensils,
+  Truck,
+  Package,
+  RotateCcw,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
@@ -29,8 +32,9 @@ import { formatInr, isTerminal, type Order } from '@dfc/core';
 import { useAuth } from '@/providers/auth';
 import { subscribeMyOrders } from '@/lib/orders';
 import { Screen } from '@/ui';
-import { TopAppBar } from '@/ui/top-app-bar';
-import { DFCBottomNav } from '@/ui/bottom-nav';
+import { DFCPressable } from '@/ui/animated';
+import { StitchHeader } from '@/ui/stitch-header';
+import { StitchNav } from '@/ui/stitch-nav';
 
 type OrderTab = 'active' | 'completed' | 'cancelled';
 
@@ -49,6 +53,8 @@ export default function OrdersScreen() {
     });
   }, [user]);
 
+  const activeCount = React.useMemo(() => orders.filter((o) => !isTerminal(o.status)).length, [orders]);
+
   const filteredOrders = React.useMemo(() => {
     if (activeTab === 'active') {
       return orders.filter((o) => !isTerminal(o.status));
@@ -61,68 +67,143 @@ export default function OrdersScreen() {
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
-      case 'pharmacy':
-        return <Pill size={16} color="#1E40AF" />;
       case 'grocery':
-        return <ShoppingBag size={16} color="#065F46" />;
+        return <ShoppingBag size={16} color="#6EE7B7" />;
       case 'print':
-        return <Printer size={16} color="#7A1F3D" />;
+        return <Printer size={16} color="#C4B5FD" />;
+      case 'pickup_drop':
+      case 'buy_deliver':
+        return <Truck size={16} color="#FDE047" />;
+      case 'genie':
+      case 'concierge':
+        return <Package size={16} color="#F472B6" />;
       default:
-        return <Utensils size={16} color="#7A1F3D" />;
+        return <Utensils size={16} color="#C8BFFF" />;
+    }
+  };
+
+  const getCategoryBg = (category: string) => {
+    switch (category) {
+      case 'grocery':
+        return 'rgba(16, 185, 129, 0.15)';
+      case 'print':
+        return 'rgba(139, 92, 246, 0.15)';
+      case 'pickup_drop':
+      case 'buy_deliver':
+        return 'rgba(234, 179, 8, 0.15)';
+      case 'genie':
+      case 'concierge':
+        return 'rgba(236, 72, 153, 0.15)';
+      default:
+        return 'rgba(106, 90, 205, 0.15)';
     }
   };
 
   const getStatusPill = (status: string) => {
     switch (status) {
       case 'in_transit':
+      case 'out_for_delivery':
       case 'delivering':
-        return { label: 'IN TRANSIT', bg: '#FFD9E0', text: '#782C44' };
+        return { label: 'IN TRANSIT', bg: 'rgba(245, 158, 11, 0.15)', text: '#FBBF24', dot: '#F59E0B' };
       case 'preparing':
       case 'packing':
-        return { label: 'PREPARING', bg: '#FFD9E0', text: '#782C44' };
+      case 'vendor_accepted':
+        return { label: 'PREPARING', bg: 'rgba(106, 90, 205, 0.18)', text: '#C8BFFF', dot: '#8B7EF8' };
       case 'delivered':
       case 'settled':
-        return { label: 'DELIVERED', bg: '#ECFDF5', text: '#065F46' };
+        return { label: 'DELIVERED', bg: 'rgba(16, 185, 129, 0.15)', text: '#34D399', dot: '#10B981' };
       case 'cancelled':
       case 'rejected':
-        return { label: 'CANCELLED', bg: '#FFDAD6', text: '#BA1A1A' };
+        return { label: 'CANCELLED', bg: 'rgba(239, 68, 68, 0.15)', text: '#F87171', dot: '#EF4444' };
       default:
-        return { label: 'CONFIRMED', bg: '#E9EDFF', text: '#1E40AF' };
+        return { label: 'CONFIRMED', bg: 'rgba(59, 130, 246, 0.15)', text: '#60A5FA', dot: '#3B82F6' };
     }
   };
 
   return (
-    <Screen edges={['top']}>
-      <TopAppBar title="Anna Nagar" showNotifications={true} />
+    <Screen edges={['top']} style={{ backgroundColor: '#0E0E10' }}>
+      <StitchHeader showNotifications={true} showCart={true} />
 
       <ScrollView
         contentContainerStyle={{
-          paddingHorizontal: 20,
+          paddingHorizontal: 16,
           paddingTop: 16,
-          paddingBottom: 40,
+          paddingBottom: 110,
         }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Page Title */}
-        <Text
-          style={{
-            fontFamily: 'Archivo',
-            fontSize: 28,
-            fontWeight: '800',
-            color: '#141B2B',
-            letterSpacing: -0.6,
-            marginBottom: 16,
-          }}
-        >
-          Your Orders
-        </Text>
+        {/* Header Title with Live Counter */}
+        <View className="flex-row items-center justify-between mb-4">
+          <View>
+            <Text
+              style={{
+                fontFamily: 'PlusJakartaSans',
+                fontSize: 26,
+                fontWeight: '800',
+                color: '#E5E1E4',
+                letterSpacing: -0.6,
+              }}
+            >
+              Your Orders
+            </Text>
+            <Text
+              style={{
+                fontFamily: 'PlusJakartaSans',
+                fontSize: 13,
+                color: '#928F9E',
+                marginTop: 2,
+              }}
+            >
+              Track live deliveries & past purchase receipts
+            </Text>
+          </View>
 
-        {/* Tabs: Active / Completed / Cancelled */}
+          {activeCount > 1 ? (
+            <Pressable
+              onPress={() => router.push('/(customer)/active-orders')}
+              style={{
+                backgroundColor: 'rgba(106, 90, 205, 0.15)',
+                borderWidth: 1,
+                borderColor: 'rgba(106, 90, 205, 0.4)',
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderRadius: 20,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 5,
+              }}
+            >
+              <View
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: 4,
+                  backgroundColor: '#10B981',
+                }}
+              />
+              <Text
+                style={{
+                  fontFamily: 'PlusJakartaSans',
+                  fontSize: 11,
+                  fontWeight: '700',
+                  color: '#C8BFFF',
+                }}
+              >
+                {activeCount} Live
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+
+        {/* Tab Switcher Pills */}
         <View
           style={{
             flexDirection: 'row',
-            borderBottomWidth: 1,
-            borderBottomColor: '#DAC0C4',
+            backgroundColor: '#18181B',
+            borderRadius: 14,
+            padding: 4,
+            borderWidth: 1,
+            borderColor: '#26262B',
             marginBottom: 20,
           }}
         >
@@ -137,23 +218,46 @@ export default function OrdersScreen() {
                 }}
                 style={{
                   flex: 1,
-                  paddingVertical: 10,
+                  paddingVertical: 9,
                   alignItems: 'center',
-                  borderBottomWidth: isSelected ? 2.5 : 0,
-                  borderBottomColor: '#7A1F3D',
+                  borderRadius: 10,
+                  backgroundColor: isSelected ? '#2A2930' : 'transparent',
                 }}
               >
-                <Text
-                  style={{
-                    fontFamily: 'Archivo',
-                    fontSize: 14,
-                    fontWeight: isSelected ? '700' : '500',
-                    color: isSelected ? '#7A1F3D' : '#554245',
-                    textTransform: 'capitalize',
-                  }}
-                >
-                  {tab}
-                </Text>
+                <View className="flex-row items-center gap-1.5">
+                  <Text
+                    style={{
+                      fontFamily: 'PlusJakartaSans',
+                      fontSize: 13,
+                      fontWeight: isSelected ? '700' : '500',
+                      color: isSelected ? '#FFFFFF' : '#928F9E',
+                      textTransform: 'capitalize',
+                    }}
+                  >
+                    {tab}
+                  </Text>
+                  {tab === 'active' && activeCount > 0 ? (
+                    <View
+                      style={{
+                        backgroundColor: '#6A5ACD',
+                        paddingHorizontal: 6,
+                        paddingVertical: 1,
+                        borderRadius: 10,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontFamily: 'PlusJakartaSans',
+                          fontSize: 10,
+                          fontWeight: '800',
+                          color: '#FFFFFF',
+                        }}
+                      >
+                        {activeCount}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
               </Pressable>
             );
           })}
@@ -163,39 +267,77 @@ export default function OrdersScreen() {
         {filteredOrders.length === 0 ? (
           <View
             style={{
-              backgroundColor: '#FFFFFF',
-              borderRadius: 16,
+              backgroundColor: '#18181B',
+              borderRadius: 20,
               borderWidth: 1,
-              borderColor: '#DAC0C4',
-              padding: 32,
+              borderColor: '#26262B',
+              padding: 36,
               alignItems: 'center',
               justifyContent: 'center',
-              marginTop: 12,
+              marginTop: 10,
             }}
           >
-            <ShoppingBag size={40} color="#DAC0C4" />
+            <View
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                backgroundColor: '#201F24',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 16,
+              }}
+            >
+              <ShoppingBag size={28} color="#6A5ACD" />
+            </View>
             <Text
               style={{
-                fontFamily: 'Archivo',
-                fontSize: 16,
+                fontFamily: 'PlusJakartaSans',
+                fontSize: 17,
                 fontWeight: '700',
-                color: '#141B2B',
-                marginTop: 12,
+                color: '#E5E1E4',
+                marginBottom: 6,
               }}
             >
               No {activeTab} orders
             </Text>
             <Text
               style={{
-                fontFamily: 'Archivo',
+                fontFamily: 'PlusJakartaSans',
                 fontSize: 13,
-                color: '#554245',
+                color: '#928F9E',
                 textAlign: 'center',
-                marginTop: 4,
+                lineHeight: 18,
+                marginBottom: 20,
               }}
             >
-              Your {activeTab} order history will appear right here.
+              {activeTab === 'active'
+                ? "You don't have any ongoing deliveries right now. Order food, fresh groceries, or summon a Genie!"
+                : `Your ${activeTab} delivery orders will be archived right here.`}
             </Text>
+
+            {activeTab === 'active' ? (
+              <Pressable
+                onPress={() => router.push('/(customer)/services' as any)}
+                style={{
+                  backgroundColor: '#6A5ACD',
+                  paddingHorizontal: 20,
+                  paddingVertical: 11,
+                  borderRadius: 12,
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: 'PlusJakartaSans',
+                    fontSize: 13,
+                    fontWeight: '700',
+                    color: '#FFFFFF',
+                  }}
+                >
+                  Explore Services
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
         ) : (
           <View className="gap-4">
@@ -205,51 +347,54 @@ export default function OrdersScreen() {
               const storeTitle =
                 order.storeName ||
                 (order.category === 'food'
-                  ? 'Murugan Idli Shop, Madurai Main'
-                  : order.category === 'pharmacy'
-                  ? 'Meenakshi Medicals'
-                  : 'Reliance Fresh, KK Nagar');
+                  ? 'Murugan Idli Shop'
+                  : order.category === 'grocery'
+                  ? 'Reliance Smart Bazar'
+                  : 'Doorstep Courier Hub');
 
               return (
-                <Pressable
+                <DFCPressable
                   key={order.id}
+                  scaleTo={0.975}
                   onPress={() => router.push(`/(customer)/order/${order.id}`)}
                   style={{
-                    backgroundColor: '#FFFFFF',
-                    borderRadius: 16,
+                    backgroundColor: '#18181B',
+                    borderRadius: 20,
                     borderWidth: 1,
-                    borderColor: '#DAC0C4',
+                    borderColor: isLive ? 'rgba(106, 90, 205, 0.4)' : '#26262B',
                     padding: 16,
-                    shadowColor: '#000000',
-                    shadowOpacity: 0.04,
-                    shadowRadius: 10,
-                    shadowOffset: { width: 0, height: 3 },
-                    elevation: 2,
                     position: 'relative',
                     overflow: 'hidden',
+                    shadowColor: '#000000',
+                    shadowOpacity: 0.2,
+                    shadowRadius: 8,
+                    shadowOffset: { width: 0, height: 3 },
+                    elevation: 3,
                   }}
                 >
-                  {/* Status Indicator Stripe */}
-                  <View
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      right: 0,
-                      width: 5,
-                      height: '100%',
-                      backgroundColor: isLive ? '#7A1F3D' : '#9CA3AF',
-                    }}
-                  />
+                  {/* Subtle live indicator strip */}
+                  {isLive ? (
+                    <View
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: 3,
+                        backgroundColor: '#6A5ACD',
+                      }}
+                    />
+                  ) : null}
 
                   {/* Header Row */}
-                  <View className="flex-row items-start justify-between mb-3 pr-2">
+                  <View className="flex-row items-start justify-between mb-3.5">
                     <View className="flex-row items-center gap-3">
                       <View
                         style={{
-                          width: 38,
-                          height: 38,
-                          borderRadius: 19,
-                          backgroundColor: '#FDF2F5',
+                          width: 42,
+                          height: 42,
+                          borderRadius: 14,
+                          backgroundColor: getCategoryBg(order.category),
                           alignItems: 'center',
                           justifyContent: 'center',
                         }}
@@ -257,21 +402,44 @@ export default function OrdersScreen() {
                         {getCategoryIcon(order.category)}
                       </View>
                       <View>
-                        <Text style={{ fontFamily: 'Archivo', fontSize: 16, fontWeight: '700', color: '#141B2B' }}>
+                        <Text
+                          style={{
+                            fontFamily: 'PlusJakartaSans',
+                            fontSize: 16,
+                            fontWeight: '700',
+                            color: '#E5E1E4',
+                          }}
+                        >
                           {order.category === 'food'
-                            ? 'Food Delivery'
-                            : order.category === 'pharmacy'
-                            ? 'Pharmacy Order'
-                            : 'Grocery Run'}
+                            ? 'Food Order'
+                            : order.category === 'grocery'
+                            ? 'Grocery Basket'
+                            : order.category === 'print'
+                            ? 'Print & Xerox'
+                            : 'Express Task'}
                         </Text>
-                        <Text style={{ fontFamily: 'Archivo', fontSize: 12, color: '#554245' }}>
+                        <Text
+                          style={{
+                            fontFamily: 'PlusJakartaSans',
+                            fontSize: 12,
+                            color: '#928F9E',
+                            marginTop: 1,
+                          }}
+                        >
                           ORD-{order.code}
                         </Text>
                       </View>
                     </View>
 
                     <View className="items-end">
-                      <Text style={{ fontFamily: 'Archivo', fontSize: 16, fontWeight: '800', color: '#141B2B' }}>
+                      <Text
+                        style={{
+                          fontFamily: 'PlusJakartaSans',
+                          fontSize: 16,
+                          fontWeight: '800',
+                          color: '#E5E1E4',
+                        }}
+                      >
                         {formatInr(order.pricing.totalPaise)}
                       </Text>
                       <View
@@ -279,17 +447,28 @@ export default function OrdersScreen() {
                           backgroundColor: statusPill.bg,
                           paddingHorizontal: 8,
                           paddingVertical: 3,
-                          borderRadius: 9999,
+                          borderRadius: 8,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 4,
                           marginTop: 4,
                         }}
                       >
+                        <View
+                          style={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: 3,
+                            backgroundColor: statusPill.dot,
+                          }}
+                        />
                         <Text
                           style={{
-                            fontFamily: 'Archivo',
+                            fontFamily: 'PlusJakartaSans',
                             fontSize: 10,
                             fontWeight: '800',
                             color: statusPill.text,
-                            letterSpacing: 0.5,
+                            letterSpacing: 0.4,
                           }}
                         >
                           {statusPill.label}
@@ -298,60 +477,75 @@ export default function OrdersScreen() {
                     </View>
                   </View>
 
-                  {/* Pickup & Drop Timeline Nodes */}
-                  <View style={{ paddingLeft: 12, marginVertical: 8, position: 'relative' }}>
-                    {/* Connecting Line */}
-                    <View
-                      style={{
-                        position: 'absolute',
-                        left: 17,
-                        top: 8,
-                        bottom: 8,
-                        width: 2,
-                        backgroundColor: '#DAC0C4',
-                      }}
-                    />
-
-                    {/* Pickup Node */}
-                    <View className="flex-row items-start gap-3 mb-3">
+                  {/* Pickup & Drop Route Mini Preview */}
+                  <View
+                    style={{
+                      backgroundColor: '#121215',
+                      borderRadius: 12,
+                      padding: 12,
+                      marginVertical: 4,
+                    }}
+                  >
+                    <View style={{ paddingLeft: 10, position: 'relative' }}>
+                      {/* Connecting Line */}
                       <View
                         style={{
-                          width: 10,
-                          height: 10,
-                          borderRadius: 5,
-                          backgroundColor: '#887275',
-                          marginTop: 4,
+                          position: 'absolute',
+                          left: 14,
+                          top: 8,
+                          bottom: 8,
+                          width: 1.5,
+                          backgroundColor: '#2E2D34',
                         }}
                       />
-                      <View>
-                        <Text style={{ fontFamily: 'Archivo', fontSize: 11, fontWeight: '600', color: '#554245' }}>
-                          Pickup
-                        </Text>
-                        <Text style={{ fontFamily: 'Archivo', fontSize: 13, fontWeight: '500', color: '#141B2B' }}>
+
+                      {/* Pickup */}
+                      <View className="flex-row items-center gap-2.5 mb-2.5">
+                        <View
+                          style={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: 4,
+                            backgroundColor: '#928F9E',
+                          }}
+                        />
+                        <Text
+                          numberOfLines={1}
+                          style={{
+                            fontFamily: 'PlusJakartaSans',
+                            fontSize: 12,
+                            fontWeight: '500',
+                            color: '#C9C5D0',
+                            flex: 1,
+                          }}
+                        >
                           {storeTitle}
                         </Text>
                       </View>
-                    </View>
 
-                    {/* Drop Node */}
-                    <View className="flex-row items-start gap-3">
-                      <View
-                        style={{
-                          width: 12,
-                          height: 12,
-                          borderRadius: 6,
-                          backgroundColor: '#7A1F3D',
-                          borderWidth: 2,
-                          borderColor: '#FFFFFF',
-                          marginTop: 3,
-                        }}
-                      />
-                      <View>
-                        <Text style={{ fontFamily: 'Archivo', fontSize: 11, fontWeight: '600', color: '#554245' }}>
-                          Drop
-                        </Text>
-                        <Text style={{ fontFamily: 'Archivo', fontSize: 13, fontWeight: '500', color: '#141B2B' }}>
-                          Home - Anna Nagar
+                      {/* Drop */}
+                      <View className="flex-row items-center gap-2.5">
+                        <View
+                          style={{
+                            width: 9,
+                            height: 9,
+                            borderRadius: 5,
+                            backgroundColor: '#6A5ACD',
+                            borderWidth: 1.5,
+                            borderColor: '#C8BFFF',
+                          }}
+                        />
+                        <Text
+                          numberOfLines={1}
+                          style={{
+                            fontFamily: 'PlusJakartaSans',
+                            fontSize: 12,
+                            fontWeight: '600',
+                            color: '#E5E1E4',
+                            flex: 1,
+                          }}
+                        >
+                          {order.addressLine || 'Home · Anna Nagar, Madurai'}
                         </Text>
                       </View>
                     </View>
@@ -361,15 +555,21 @@ export default function OrdersScreen() {
                   <View
                     style={{
                       borderTopWidth: 1,
-                      borderTopColor: '#DAC0C440',
-                      paddingTop: 10,
-                      marginTop: 6,
+                      borderTopColor: '#26262B',
+                      paddingTop: 12,
+                      marginTop: 10,
                       flexDirection: 'row',
                       alignItems: 'center',
                       justifyContent: 'space-between',
                     }}
                   >
-                    <Text style={{ fontFamily: 'Archivo', fontSize: 12, color: '#554245' }}>
+                    <Text
+                      style={{
+                        fontFamily: 'PlusJakartaSans',
+                        fontSize: 12,
+                        color: '#928F9E',
+                      }}
+                    >
                       {new Date(order.createdAt).toLocaleDateString('en-IN', {
                         day: 'numeric',
                         month: 'short',
@@ -378,18 +578,28 @@ export default function OrdersScreen() {
                       })}
                     </Text>
 
-                    <Text style={{ fontFamily: 'Archivo', fontSize: 13, fontWeight: '700', color: '#7A1F3D' }}>
-                      {isLive ? 'Track Order →' : 'View Details →'}
-                    </Text>
+                    <View className="flex-row items-center gap-1.5">
+                      <Text
+                        style={{
+                          fontFamily: 'PlusJakartaSans',
+                          fontSize: 13,
+                          fontWeight: '700',
+                          color: isLive ? '#C8BFFF' : '#A1A1AA',
+                        }}
+                      >
+                        {isLive ? 'Track Live' : 'View Receipt'}
+                      </Text>
+                      <ChevronRight size={15} color={isLive ? '#C8BFFF' : '#A1A1AA'} />
+                    </View>
                   </View>
-                </Pressable>
+                </DFCPressable>
               );
             })}
           </View>
         )}
       </ScrollView>
 
-      <DFCBottomNav activeTab="orders" />
+      <StitchNav activeTab="orders" />
     </Screen>
   );
 }

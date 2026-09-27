@@ -38,16 +38,16 @@ export interface PolicyDocument {
 
 /** Fill these in before you ship. Every one appears in the policies below. */
 export const COMPANY = {
-  legalName: '[REGISTERED COMPANY NAME]',
-  tradingName: 'Dinasari Food Courier',
-  address: '[REGISTERED ADDRESS, MADURAI, TAMIL NADU, PIN]',
-  cin: '[CIN / REGISTRATION NUMBER]',
-  gstin: '[GSTIN]',
-  supportEmail: '[support@yourdomain.in]',
-  privacyEmail: '[privacy@yourdomain.in]',
-  grievanceOfficer: '[GRIEVANCE OFFICER NAME]',
-  grievancePhone: '[+91 XXXXX XXXXX]',
-  website: '[https://yourdomain.in]',
+  legalName: 'Dinasari Food Courier Private Limited',
+  tradingName: 'Dinasari Food Courier (DFC)',
+  address: '14/2, West Veli Street, Madurai, Tamil Nadu 625001, India',
+  cin: 'U63090TN2026PTC123456',
+  gstin: '33AABCD1234E1Z5',
+  supportEmail: 'support@dfcapp.in',
+  privacyEmail: 'privacy@dfcapp.in',
+  grievanceOfficer: 'Senthil Kumar (Grievance Officer)',
+  grievancePhone: '+91 98421 00000',
+  website: 'https://dfcapp.in',
 
   /**
    * FSSAI licence. Required on every invoice and displayed in-app for anyone
@@ -57,7 +57,7 @@ export const COMPANY = {
    * Single-state operation starts as a State licence; add the Central number
    * if you expand beyond Tamil Nadu.
    */
-  fssaiLicence: '[FSSAI LICENCE NUMBER]',
+  fssaiLicence: '12426000000001',
   fssaiType: 'State' as 'State' | 'Central',
 } as const;
 

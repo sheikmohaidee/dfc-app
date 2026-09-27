@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack -p 3000",
-    "build": "next build",
+    "build": "cross-env NODE_ENV=production next build",
     "start": "next start -p 3000",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"
@@ -38,6 +38,7 @@
     "@types/react-dom": "19.1.6",
     "@types/three": "^0.171.0",
     "autoprefixer": "^10.4.20",
+    "cross-env": "^7.0.3",
     "eslint": "^9.39.5",
     "eslint-plugin-react-hooks": "^6.1.1",
     "postcss": "^8.4.49",

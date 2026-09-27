@@ -116,6 +116,7 @@ export async function registerForPush(uid: string, role: Role): Promise<PushRegi
 
     const projectId =
       Constants.expoConfig?.extra?.eas?.projectId ??
+      process.env.EXPO_PUBLIC_EAS_PROJECT_ID ??
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (Constants as any).easConfig?.projectId;
 

@@ -6,17 +6,33 @@
  */
 
 import * as React from 'react';
-import { Boxes, LogOut, Megaphone, Package, Plus, Search } from 'lucide-react';
+import {
+  AlertTriangle,
+  Bike,
+  Boxes,
+  CloudRain,
+  Flame,
+  Layers,
+  LogOut,
+  Moon,
+  Package,
+  Plus,
+  Route,
+  Search,
+  Sliders,
+  Sparkles,
+  UtensilsCrossed,
+} from 'lucide-react';
 import Link from 'next/link';
 
 import { COPY, type Category } from '@dfc/core';
+import { mockStore } from '@/lib/mock-store';
 import { Button, Input, Kbd } from '@/components/ui/primitives';
 import { cn, initials } from '@/lib/utils';
 import type { CategoryFilter, Density } from '@/hooks/useBoard';
 
 const FILTERS: { key: CategoryFilter; label: string; dot?: string }[] = [
   { key: 'all', label: 'All' },
-  { key: 'pharmacy', label: 'Pharmacy', dot: 'bg-pharmacy' },
   { key: 'grocery', label: 'Grocery', dot: 'bg-grocery' },
   { key: 'food', label: 'Food', dot: 'bg-food' },
   { key: 'concierge', label: 'Concierge', dot: 'bg-concierge' },
@@ -28,14 +44,29 @@ export function TopBar({
   liveCount,
   userName,
   onSignOut,
+  onOpenRiders,
+  onOpenFoodRescue,
+  onOpenBatching,
+  onOpenAutomations,
 }: {
   search: string;
   onSearch: (v: string) => void;
   liveCount: number;
   userName: string;
   onSignOut: () => void;
+  onOpenRiders?: () => void;
+  onOpenFoodRescue?: () => void;
+  onOpenBatching?: () => void;
+  onOpenAutomations?: () => void;
 }) {
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const [config, setConfig] = React.useState(() => mockStore.getPlatformConfig());
+
+  React.useEffect(() => {
+    return mockStore.subscribe(() => {
+      setConfig(mockStore.getPlatformConfig());
+    });
+  }, []);
 
   // ⌘K / Ctrl-K focuses search. An admin lives in this field.
   React.useEffect(() => {
@@ -97,12 +128,54 @@ export function TopBar({
         </div>
       </div>
 
-      <div className="flex items-center gap-3.5">
+      <div className="flex items-center gap-3">
         <nav className="hidden items-center gap-1.5 lg:flex">
+          {onOpenFoodRescue && (
+            <button
+              onClick={onOpenFoodRescue}
+              className="flex items-center gap-1.5 rounded-md border border-orange-500/30 bg-orange-500/10 px-2.5 py-1.5 text-[11.5px] font-medium text-orange-600 dark:text-orange-400 transition-colors hover:bg-orange-500/20"
+            >
+              <Flame className="size-3.5" />
+              Food Rescue
+            </button>
+          )}
+
+          {onOpenBatching && (
+            <button
+              onClick={onOpenBatching}
+              className="flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-[11.5px] font-medium text-primary transition-colors hover:bg-primary/20"
+            >
+              <Route className="size-3.5" />
+              Smart Batching
+            </button>
+          )}
+
+          {onOpenRiders ? (
+            <button
+              onClick={onOpenRiders}
+              className="flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[11.5px] font-medium text-body-strong transition-colors hover:bg-muted"
+            >
+              <Bike className="size-3.5" />
+              Captains &amp; Audits
+            </button>
+          ) : null}
+
+          {onOpenAutomations && (
+            <button
+              onClick={onOpenAutomations}
+              className="flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-[11.5px] font-medium text-primary transition-colors hover:bg-primary/20"
+            >
+              <Sliders className="size-3.5" />
+              Ops &amp; Automations
+            </button>
+          )}
+
           {[
-            { href: '/live', icon: Boxes, label: 'Live ops' },
+            { href: '/live', icon: Boxes, label: '3D Live Map' },
+            { href: '/kds', icon: UtensilsCrossed, label: 'Kitchen KDS' },
             { href: '/catalogue', icon: Package, label: 'Stock' },
-            { href: '/promotions', icon: Megaphone, label: 'Ads' },
+            { href: '/inventory-bom', icon: Layers, label: 'BOM Recipes' },
+            { href: '/ads', icon: Sparkles, label: 'Ads Auction' },
           ].map(({ href, icon: Icon, label }) => (
             <Link
               key={href}
@@ -114,12 +187,46 @@ export function TopBar({
             </Link>
           ))}
         </nav>
-        <span className="flex items-center gap-1.5 rounded-full border border-grocery-border bg-grocery-tint px-2.5 py-1">
-          <span className="size-1.5 rounded-full bg-grocery animate-dfc-pulse" />
-          <span className="text-[11.5px] font-semibold text-grocery-fg">
-            {liveCount} {COPY.live.en}
-          </span>
-        </span>
+
+        {config.status === 'sleep' ? (
+          <button
+            onClick={onOpenAutomations}
+            title="Madurai Sleep Mode Active - Click to change"
+            className="flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/15 px-2.5 py-1 text-amber-600 dark:text-amber-400 hover:bg-amber-500/25 transition-colors"
+          >
+            <Moon className="size-3.5" />
+            <span className="text-[11.5px] font-bold">SLEEP MODE</span>
+          </button>
+        ) : config.status === 'emergency_pause' ? (
+          <button
+            onClick={onOpenAutomations}
+            title="Emergency Rain Pause Active - Click to change"
+            className="flex items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/15 px-2.5 py-1 text-red-600 dark:text-red-400 hover:bg-red-500/25 transition-colors"
+          >
+            <AlertTriangle className="size-3.5" />
+            <span className="text-[11.5px] font-bold">RAIN PAUSE</span>
+          </button>
+        ) : config.rainSurge.active ? (
+          <button
+            onClick={onOpenAutomations}
+            title="Monsoon Rain Surge Active - Click to configure"
+            className="flex items-center gap-1.5 rounded-full border border-blue-500/40 bg-blue-500/15 px-2.5 py-1 text-blue-600 dark:text-blue-400 hover:bg-blue-500/25 transition-colors"
+          >
+            <CloudRain className="size-3.5" />
+            <span className="text-[11.5px] font-bold">RAIN SURGE 1.25x</span>
+          </button>
+        ) : (
+          <button
+            onClick={onOpenAutomations}
+            title="Live Operations - Click to manage"
+            className="flex items-center gap-1.5 rounded-full border border-grocery-border bg-grocery-tint px-2.5 py-1 hover:bg-grocery/20 transition-colors"
+          >
+            <span className="size-1.5 rounded-full bg-grocery animate-dfc-pulse" />
+            <span className="text-[11.5px] font-semibold text-grocery-fg">
+              {liveCount} {COPY.live.en}
+            </span>
+          </button>
+        )}
         <span className="tnum hidden text-[11.5px] text-placeholder xl:inline">{now}</span>
         <button
           onClick={onSignOut}
@@ -140,12 +247,18 @@ export function FilterBar({
   density,
   onDensity,
   onManualOrder,
+  onOpenRiders,
+  onOpenFoodRescue,
+  onOpenBatching,
 }: {
   filter: CategoryFilter;
   onFilter: (f: CategoryFilter) => void;
   density: Density;
   onDensity: (d: Density) => void;
   onManualOrder: () => void;
+  onOpenRiders?: () => void;
+  onOpenFoodRescue?: () => void;
+  onOpenBatching?: () => void;
 }) {
   return (
     <div className="flex h-12 shrink-0 items-center gap-2 overflow-x-auto border-b px-5 scroll-slim">
@@ -169,6 +282,27 @@ export function FilterBar({
       })}
 
       <span className="flex-1" />
+
+      {onOpenFoodRescue && (
+        <Button variant="outline" size="sm" onClick={onOpenFoodRescue} className="shrink-0 gap-1 text-orange-500 lg:hidden">
+          <Flame className="size-3.5" />
+          Rescue
+        </Button>
+      )}
+
+      {onOpenBatching && (
+        <Button variant="outline" size="sm" onClick={onOpenBatching} className="shrink-0 gap-1 text-primary lg:hidden">
+          <Route className="size-3.5" />
+          Batching
+        </Button>
+      )}
+
+      {onOpenRiders ? (
+        <Button variant="outline" size="sm" onClick={onOpenRiders} className="shrink-0 gap-1.5 lg:hidden">
+          <Bike className="size-3.5" />
+          Riders
+        </Button>
+      ) : null}
 
       <div className="flex h-7 shrink-0 overflow-hidden rounded-md border">
         {(['comfortable', 'dense'] as Density[]).map((d, i) => (

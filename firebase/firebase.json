@@ -6,6 +6,9 @@
   "storage": {
     "rules": "storage.rules"
   },
+  "remoteconfig": {
+    "template": "remoteconfig.template.json"
+  },
   "hosting": {
     "public": "apps/admin-web/out",
     "ignore": ["**/.*", "**/node_modules/**"],

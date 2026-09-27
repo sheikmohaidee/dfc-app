@@ -39,27 +39,27 @@ import {
   patchPromotion,
   subscribePromotions,
 } from '@/lib/catalogue';
+import { AdminShell } from '@/components/admin-shell';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 
 const ACCENTS: (Category | 'neutral')[] = [
   'neutral',
-  'pharmacy',
   'grocery',
   'food',
   'concierge',
 ];
 
 function accentHex(a: Category | 'neutral') {
-  return a === 'neutral' ? tokens.neutral.primary : tokens.category[a].solid;
+  return a === 'neutral' ? tokens.neutral.primary : tokens.category[a === 'pharmacy' ? 'concierge' : a].solid;
 }
 function accentTint(a: Category | 'neutral') {
-  return a === 'neutral' ? tokens.neutral.muted : tokens.category[a].tint;
+  return a === 'neutral' ? tokens.neutral.muted : tokens.category[a === 'pharmacy' ? 'concierge' : a].tint;
 }
 
 const STATUS_TONE = {
   live: 'grocery',
-  scheduled: 'pharmacy',
+  scheduled: 'concierge',
   paused: 'verify',
   draft: 'neutral',
   ended: 'neutral',
@@ -570,78 +570,84 @@ export default function PromotionsPage() {
 
   if (authLoading || !user) {
     return (
-      <main className="grid min-h-dvh place-items-center">
-        <span className="size-5 animate-spin rounded-full border-2 border-border border-t-foreground" />
+      <main className="grid min-h-dvh place-items-center bg-[#0E0E10]">
+        <span className="size-6 animate-spin rounded-full border-2 border-white/10 border-t-[#6A5ACD]" />
       </main>
     );
   }
 
   return (
-    <main className="flex h-dvh flex-col overflow-hidden">
-      <div className="flex h-14 shrink-0 items-center gap-4 border-b px-5">
-        <Link
-          href="/"
-          className="flex items-center gap-2 text-[13px] font-medium text-body-strong transition-colors hover:text-foreground"
-        >
-          <ArrowLeft className="size-4" />
-          Board
-        </Link>
-        <div className="flex flex-col leading-none">
-          <span className="text-[13.5px] font-semibold tracking-tight">Promotions &amp; ads</span>
-          <span className="ta mt-0.5 text-[10px] text-placeholder">சலுகைகள் & விளம்பரங்கள்</span>
-        </div>
-        <div className="flex-1" />
-        <Button
-          size="sm"
-          className="gap-1.5"
-          onClick={() => void createPromotion(user.uid).then(setOpenId)}
-        >
-          <Plus className="size-3.5" strokeWidth={2.4} />
-          New campaign
-        </Button>
-      </div>
-
-      <div className="flex shrink-0 gap-3 border-b px-5 py-3">
-        {[
-          { l: 'LIVE NOW', v: String(totals.live) },
-          { l: 'DISCOUNT GIVEN', v: formatInr(totals.spend) },
-          { l: 'REVENUE DRIVEN', v: formatInr(totals.revenue) },
-          { l: 'REDEMPTIONS', v: totals.redemptions.toLocaleString('en-IN') },
-        ].map((s) => (
-          <Card key={s.l} className="flex-1 px-4 py-2.5">
-            <span className="text-[10px] font-bold tracking-[0.1em] text-placeholder">{s.l}</span>
-            <div className="tnum mt-1 text-lg font-semibold tracking-tight">{s.v}</div>
-          </Card>
-        ))}
-      </div>
-
-      {open ? (
-        <Composer promo={open} onClose={() => setOpenId(null)} />
-      ) : (
-        <div className="scroll-slim min-h-0 flex-1 overflow-y-auto">
-          {loading ? (
-            <div className="space-y-2 p-5">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-20 w-full" />
-              ))}
+    <AdminShell
+      title="Promotions & Campaigns"
+      subtitle="சலுகைகள் & விளம்பரங்கள் · Hyperlocal coupons, thread banners & conversion analytics"
+    >
+      <div className="space-y-6">
+        {/* KPI metrics */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { l: 'ACTIVE CAMPAIGNS', v: String(totals.live), tone: 'text-white' },
+            { l: 'DISCOUNT INVESTED', v: formatInr(totals.spend), tone: 'text-rose-400' },
+            { l: 'REVENUE DRIVEN', v: formatInr(totals.revenue), tone: 'text-emerald-400 font-bold' },
+            { l: 'TOTAL REDEMPTIONS', v: totals.redemptions.toLocaleString('en-IN'), tone: 'text-[#FF7F50] font-bold' },
+          ].map((s) => (
+            <div key={s.l} className="bg-[#18191B] border border-white/5 rounded-2xl p-4 shadow-xl">
+              <span className="text-[10px] font-bold tracking-[0.1em] text-slate-400">{s.l}</span>
+              <div className={cn('tnum mt-1 text-2xl font-bold tracking-tight', s.tone)}>{s.v}</div>
             </div>
-          ) : promos.length === 0 ? (
-            <div className="grid h-64 place-items-center text-center">
-              <div>
-                <p className="text-[14px] font-medium">No campaigns yet</p>
-                <p className="mx-auto mt-1 max-w-sm text-[12.5px] leading-relaxed text-muted-foreground">
-                  Run a free-delivery hour in one locality, or a coupon for first-time pharmacy
-                  orders. Both show up in the customer&apos;s thread, not on a page nobody visits.
-                </p>
+          ))}
+        </div>
+
+        {/* Toolbar */}
+        <div className="flex items-center justify-between bg-[#18191B] border border-white/5 rounded-2xl p-4 shadow-xl">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-white">Campaign Directory</span>
+            <span className="text-xs text-slate-500">· Real-time in-app thread placements</span>
+          </div>
+          <button
+            onClick={() => void createPromotion(user.uid).then(setOpenId)}
+            className="flex items-center gap-2 h-9 px-4 rounded-xl bg-[#6A5ACD] hover:bg-[#5848b8] text-white text-xs font-semibold shadow-lg shadow-[#6A5ACD]/25 transition-all"
+          >
+            <Plus className="size-4" strokeWidth={2.4} />
+            Create Campaign
+          </button>
+        </div>
+
+        {open ? (
+          <div className="bg-[#18191B] border border-white/5 rounded-2xl p-6 shadow-xl">
+            <Composer promo={open} onClose={() => setOpenId(null)} />
+          </div>
+        ) : (
+          <div className="bg-[#18191B] border border-white/5 rounded-2xl shadow-xl overflow-hidden divide-y divide-white/5">
+            {loading ? (
+              <div className="space-y-3 p-5">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-20 w-full bg-[#222327]" />
+                ))}
               </div>
-            </div>
-          ) : (
-            promos.map((p) => (
-              <PromoRow key={p.id} promo={p} onOpen={() => setOpenId(p.id)} />
-            ))
-          )}
-        </div>
-      )}
-    </main>
+            ) : promos.length === 0 ? (
+              <div className="grid h-64 place-items-center text-center p-8">
+                <div>
+                  <p className="text-sm font-semibold text-white">No campaigns created yet</p>
+                  <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-slate-400">
+                    Run a free-delivery hour in one locality, or a coupon for first-time customer
+                    orders. Promotions show up directly in the customer&apos;s conversation thread.
+                  </p>
+                  <button
+                    onClick={() => void createPromotion(user.uid).then(setOpenId)}
+                    className="mt-4 inline-flex items-center gap-2 h-9 px-4 rounded-xl bg-[#6A5ACD] text-white text-xs font-semibold"
+                  >
+                    <Plus className="size-4" /> Start First Campaign
+                  </button>
+                </div>
+              </div>
+            ) : (
+              promos.map((p) => (
+                <PromoRow key={p.id} promo={p} onOpen={() => setOpenId(p.id)} />
+              ))
+            )}
+          </div>
+        )}
+      </div>
+    </AdminShell>
   );
 }

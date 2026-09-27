@@ -17,6 +17,13 @@ import {
 import { Geist_400Regular, Geist_500Medium, Geist_600SemiBold, Geist_700Bold } from '@expo-google-fonts/geist';
 import { GeistMono_400Regular, GeistMono_500Medium, GeistMono_600SemiBold } from '@expo-google-fonts/geist-mono';
 import {
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+  PlusJakartaSans_800ExtraBold,
+} from '@expo-google-fonts/plus-jakarta-sans';
+import {
   HindMadurai_400Regular,
   HindMadurai_500Medium,
   HindMadurai_600SemiBold,
@@ -40,6 +47,11 @@ export default function RootLayout() {
   );
 
   const [loaded, error] = useFonts({
+    PlusJakartaSans: PlusJakartaSans_400Regular,
+    PlusJakartaSansMedium: PlusJakartaSans_500Medium,
+    PlusJakartaSansSemiBold: PlusJakartaSans_600SemiBold,
+    PlusJakartaSansBold: PlusJakartaSans_700Bold,
+    PlusJakartaSansExtraBold: PlusJakartaSans_800ExtraBold,
     Archivo: Archivo_400Regular,
     ArchivoMedium: Archivo_500Medium,
     ArchivoSemiBold: Archivo_600SemiBold,
@@ -65,8 +77,11 @@ export default function RootLayout() {
 
   if (!loaded && !error) return null;
 
-  // RNGH 3's root view already fills its parent; its props type no longer
-  // accepts `style`, so there is nothing to pass here.
+  // The previous note here said RNGH 3 no longer accepts `style` on this view.
+  // The app is on gesture-handler 2.28, where it does — the component takes
+  // ViewProps and falls back to `flex: 1` when style is omitted. Same result
+  // either way; stating the fill explicitly just means the next person can
+  // change it without first disproving the comment.
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider style={{ flex: 1 }}>
@@ -77,11 +92,11 @@ export default function RootLayout() {
                   white screen and a force-quit, which is costly on a rider's phone
                   at somebody's door. */}
               <ErrorBoundary>
-                <StatusBar style="dark" />
+                <StatusBar style="light" />
                 <Stack
                   screenOptions={{
                     headerShown: false,
-                    contentStyle: { backgroundColor: '#F7F8F9' },
+                    contentStyle: { backgroundColor: '#0E0E10' },
                     animation: 'slide_from_right',
                   }}
                 >

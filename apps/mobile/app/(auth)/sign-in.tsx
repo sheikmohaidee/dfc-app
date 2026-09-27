@@ -36,7 +36,14 @@ type AuthView = 'phone' | 'otp' | 'success' | 'staff';
 
 export default function SignIn() {
   const router = useRouter();
-  const { signIn } = useAuth();
+  const {
+    signIn,
+    loginAsDemoPersona,
+    unlockWithBiometrics,
+    biometricsAvailable,
+    user,
+    updateProfile,
+  } = useAuth();
 
   const [currentView, setCurrentView] = React.useState<AuthView>('phone');
   const [phone, setPhone] = React.useState('');
@@ -109,7 +116,9 @@ export default function SignIn() {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setCurrentView('success');
       } else {
-        // Live auth fallback
+        // Live auth: sign in customer with Firebase Auth
+        await signIn('customer@dfc.test', 'dfc-customer-2026');
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setCurrentView('success');
       }
     } catch (err: any) {

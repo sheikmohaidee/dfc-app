@@ -83,7 +83,7 @@ const badgeVariants = cva(
   {
     variants: {
       tone: {
-        pharmacy: 'text-pharmacy-fg bg-pharmacy-tint border-pharmacy-border',
+        primary: 'text-primary bg-primary/15 border-primary/30',
         grocery: 'text-grocery-fg bg-grocery-tint border-grocery-border',
         food: 'text-food-fg bg-food-tint border-food-border',
         concierge: 'text-concierge-fg bg-concierge-tint border-concierge-border',
@@ -91,8 +91,13 @@ const badgeVariants = cva(
         destructive: 'text-destructive-fg bg-destructive-tint border-destructive-border',
         neutral: 'text-muted-foreground bg-muted border-border',
       },
+      variant: {
+        default: 'bg-primary text-primary-foreground border-transparent',
+        secondary: 'bg-secondary text-secondary-foreground border-transparent',
+        outline: 'text-foreground border-border',
+        destructive: 'bg-destructive text-white border-transparent',
+      },
     },
-    defaultVariants: { tone: 'neutral' },
   },
 );
 
@@ -100,8 +105,8 @@ export interface BadgeProps
   extends React.HTMLAttributes<HTMLSpanElement>,
     VariantProps<typeof badgeVariants> {}
 
-export function Badge({ className, tone, ...props }: BadgeProps) {
-  return <span className={cn(badgeVariants({ tone }), className)} {...props} />;
+export function Badge({ className, tone, variant, ...props }: BadgeProps) {
+  return <span className={cn(badgeVariants({ tone: tone ?? (variant ? undefined : 'neutral'), variant }), className)} {...props} />;
 }
 
 // ---------------------------------------------------------------------------

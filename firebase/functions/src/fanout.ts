@@ -42,8 +42,10 @@ export interface PlannedPush {
 export const CUSTOMER_MILESTONES: Partial<Record<OrderStatus, string>> = {
   paid: 'Order confirmed',
   vendor_accepted: 'The store is preparing your order',
-  ready_for_pickup: 'Ready — a rider is on the way to collect it',
-  out_for_delivery: 'Your order is on the way',
+  ready_for_pickup: 'Ready — store preparing pickup',
+  dispatched: 'Rider assigned to your order',
+  picked_up: 'Order picked up from store',
+  out_for_delivery: 'Your order is on the way to you',
   delivered: 'Delivered. Thank you.',
   rejected: 'We could not fulfil this order',
   cancelled: 'Your order was cancelled',

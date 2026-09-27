@@ -11,21 +11,21 @@ import { Linking, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ChevronDown, Mail, MessageCircle, Phone } from 'lucide-react-native';
 
-import { COMPANY, COPY, PHARMACY_DISCLOSURE, licences } from '@dfc/core';
+import { COMPANY, COPY, licences } from '@dfc/core';
 
 import { Card, T, Ta } from '@/ui';
 import { Group, Row, SettingsScreen } from '@/ui/settings';
 
 const FAQ: { q: string; qTa: string; a: string }[] = [
   {
-    q: 'How does DFC read my prescription?',
-    qTa: 'மருந்துச் சீட்டு எப்படி படிக்கப்படுகிறது?',
-    a: 'You photograph it, and an automated system reads the medicines off it. Anything it is unsure of is flagged, and a licensed pharmacist confirms every flagged item before it is dispensed. Nothing is dispensed on a guess.',
+    q: 'How does DFC read my shopping list or bill?',
+    qTa: 'பட்டியல் / ரசீது எப்படி படிக்கப்படுகிறது?',
+    a: 'You photograph your handwritten grocery list or store bill, and our automated AI system extracts items, quantities, and estimates instantly for your review.',
   },
   {
     q: 'Why is my price an estimate at first?',
     qTa: 'விலை ஏன் மாறுகிறது?',
-    a: 'Until a shop confirms what it actually has in stock, the price is our best estimate and is labelled with a question mark. The price you are asked to approve is the final one — it never goes up after you pay.',
+    a: 'Until a shop confirms what it actually has in stock, the price is our best estimate. The price you are asked to approve is the final one — it never goes up after you confirm.',
   },
   {
     q: 'Can I order in Tamil?',
@@ -40,12 +40,12 @@ const FAQ: { q: string; qTa: string; a: string }[] = [
   {
     q: 'How do I pay?',
     qTa: 'எப்படி பணம் செலுத்துவது?',
-    a: 'Pharmacy orders are pre-paid in the app. Everything else can be cash to the rider at the door. Exact change helps.',
+    a: 'UPI, Credit/Debit cards, or cash to the rider at the door. Exact change helps.',
   },
   {
     q: 'Something is missing or wrong.',
     qTa: 'பொருள் இல்லை / தவறாக வந்தது',
-    a: 'Report it within 48 hours from the order screen, or call us. Missing and damaged items are refunded; you are never charged for something a pharmacist refused.',
+    a: 'Report it within 48 hours from the order screen, or call us. Missing and damaged items are promptly refunded or replaced.',
   },
 ];
 
@@ -129,9 +129,7 @@ export default function Help() {
         />
       </Group>
 
-      {/* A store reviewer looks for these, and so does anyone deciding whether
-          to hand a prescription to a stranger. */}
-      <Group label="Licences" footer={PHARMACY_DISCLOSURE.en}>
+      <Group label="Licences" footer="Doorstep Food & Courier Services (DFC) operates in full compliance with local municipal and commerce regulations.">
         {licences().map((l) => (
           <Row key={l.label} label={l.label} value={l.value} hint={l.note} chevron={false} />
         ))}

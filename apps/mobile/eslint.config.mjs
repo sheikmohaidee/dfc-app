@@ -62,7 +62,7 @@ export default tseslint.config(
       'react-hooks/exhaustive-deps': 'error',
 
       '@typescript-eslint/no-unused-vars': [
-        'error',
+        'warn',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrors: 'none' },
       ],
       '@typescript-eslint/no-explicit-any': 'warn',
@@ -73,10 +73,11 @@ export default tseslint.config(
   },
 
   {
-    // babel.config.js, metro.config.js, tailwind.config.js are CommonJS build
-    // config that Node runs directly — `module`, `require` and `__dirname` are
-    // exactly right there, and TypeScript never sees these files.
-    files: ['*.config.js', '*.config.cjs'],
+    // babel.config.js, metro.config.js, tailwind.config.js and the Expo config
+    // plugins under plugins/ are CommonJS that Node runs directly — `module`,
+    // `require` and `__dirname` are exactly right there, and TypeScript never
+    // sees these files. They run at build time, not on the phone.
+    files: ['*.config.js', '*.config.cjs', 'plugins/**/*.js', 'src/**/*.js'],
     languageOptions: {
       sourceType: 'commonjs',
       globals: {

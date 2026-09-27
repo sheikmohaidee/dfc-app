@@ -107,3 +107,96 @@ export const frames = {
   riderAndroid: { w: 360, h: 800 },
   adminDesktop: { w: 1440, h: 900 },
 } as const;
+
+// ---------------------------------------------------------------------------
+// Stitch Dark Floating Theme — Customer App Visual Redesign
+// ---------------------------------------------------------------------------
+
+export const stitch = {
+  // Core brand
+  primary: '#C8BFFF',
+  primaryContainer: '#6A5ACD',
+  onPrimary: '#2D128F',
+  onPrimaryContainer: '#F0EBFF',
+  primaryFixed: '#E5DEFF',
+  primaryFixedDim: '#C8BFFF',
+
+  secondary: '#FFB59C',
+  secondaryContainer: '#8E2C01',
+  onSecondary: '#5C1A00',
+  onSecondaryContainer: '#FFAA8D',
+
+  tertiary: '#7BD0FF',
+  tertiaryContainer: '#00739C',
+  onTertiary: '#00354A',
+  onTertiaryContainer: '#DBF0FF',
+
+  error: '#FFB4AB',
+  errorContainer: '#93000A',
+  onError: '#690005',
+  onErrorContainer: '#FFDAD6',
+
+  // Surface hierarchy (darkest → brightest)
+  surfaceContainerLowest: '#0E0E10',
+  surfaceDim: '#131315',
+  surface: '#131315',
+  surfaceContainerLow: '#1C1B1D',
+  surfaceContainer: '#201F21',
+  surfaceContainerHigh: '#2A2A2C',
+  surfaceContainerHighest: '#353437',
+  surfaceVariant: '#353437',
+  surfaceBright: '#39393B',
+  surfaceTint: '#C8BFFF',
+
+  // On-surface
+  onSurface: '#E5E1E4',
+  onSurfaceVariant: '#C9C4D5',
+  onBackground: '#E5E1E4',
+  background: '#131315',
+
+  // Outline
+  outline: '#928F9E',
+  outlineVariant: '#474553',
+
+  // Inverse
+  inverseSurface: '#E5E1E4',
+  inverseOnSurface: '#313032',
+  inversePrimary: '#5D4CBF',
+} as const;
+
+/** Stitch typography ramp — maps to Plus Jakarta Sans weights. */
+export const stitchType = {
+  'display-lg': { size: 32, lineHeight: 38, tracking: -0.03 * 32, weight: '800' as const },
+  'display-md': { size: 26, lineHeight: 32, tracking: -0.02 * 26, weight: '700' as const },
+  'headline-lg': { size: 22, lineHeight: 28, tracking: -0.015 * 22, weight: '700' as const },
+  'headline-sm': { size: 18, lineHeight: 24, tracking: -0.01 * 18, weight: '600' as const },
+  'body-lg': { size: 16, lineHeight: 24, tracking: -0.005 * 16, weight: '500' as const },
+  'body-md': { size: 14, lineHeight: 20, tracking: 0, weight: '400' as const },
+  'body-sm': { size: 12, lineHeight: 16, tracking: 0.01 * 12, weight: '400' as const },
+  'label-lg': { size: 14, lineHeight: 18, tracking: 0.01 * 14, weight: '600' as const },
+  'label-md': { size: 12, lineHeight: 16, tracking: 0.02 * 12, weight: '600' as const },
+  'label-sm': { size: 10, lineHeight: 14, tracking: 0.04 * 10, weight: '700' as const },
+} as const;
+
+/** Stitch radii — larger, more rounded for the floating card aesthetic. */
+export const stitchRadius = {
+  sm: 4,
+  md: 8,
+  lg: 12,
+  xl: 16,
+  '2xl': 20,
+  '3xl': 24,
+  full: 9999,
+} as const;
+
+/** Stitch spacing presets. */
+export const stitchSpace = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  '2xl': 32,
+  gutter: 16,
+  margin: 16,
+} as const;

@@ -71,11 +71,8 @@ export function subscribeBoard(
   }
 
   try {
-    const since = Date.now() - BOARD_WINDOW_HOURS * 60 * 60 * 1000;
     const q = query(
       collection(db(), COL.orders),
-      where('status', 'in', OPEN_STATUSES),
-      where('createdAt', '>=', since),
       orderBy('createdAt', 'desc'),
       limit(BOARD_MAX_ORDERS),
     );
@@ -325,7 +322,13 @@ export async function dispatchToRider(
   }
   try {
     const order = await readOrder(orderId);
-    const assign = coreAssignRider(order, rider.uid, rider.name);
+    const assign = {
+      ...coreAssignRider(order, rider.uid, rider.name),
+      captainUid: rider.uid,
+      captainName: rider.name,
+      captainPhone: rider.phone || '+919876500004',
+      assignmentStatus: 'ASSIGNED' as const,
+    };
     const move =
       order.status === 'ready_for_pickup' || order.status === 'packing' || order.status === 'vendor_accepted'
         ? withStatus(order, 'dispatched', 'admin', adminUid, `Assigned to rider ${rider.name}`)

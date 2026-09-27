@@ -37,7 +37,7 @@ export default function Payments() {
 
       <Group
         label="Coming with the payment provider"
-        footer="Pharmacy orders are pre-paid, so UPI is the first thing being wired up."
+        footer="UPI and online payment methods are being integrated for seamless one-touch checkout."
       >
         <Row
           icon={<Smartphone {...ICON} />}

@@ -9,7 +9,7 @@ import type { Captain, OrderCancellation } from '@dfc/core';
 
 const now = Date.now();
 
-let memCaptains: Captain[] = [
+const memCaptains: Captain[] = [
   {
     id: 'captain_001',
     name: 'Karthik',

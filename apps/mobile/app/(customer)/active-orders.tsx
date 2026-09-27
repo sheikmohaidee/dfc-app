@@ -1,8 +1,7 @@
 /**
- * DFC Active Orders Screen
- * Every in-flight order across all services with its live status, plus
- * "+ Add Service" so the customer can start a completely new order while
- * existing orders continue normally with their own Captain and tracking.
+ * DFC Active Orders Screen — Stitch Dark Floating Theme
+ * Displays in-flight orders across all services with real-time status and captain assignment.
+ * Supports "+ Add Service" to start parallel orders without interrupting ongoing deliveries.
  */
 
 import * as React from 'react';
@@ -21,10 +20,11 @@ import {
   Package,
   Printer,
   ShoppingBag,
-  ShoppingBag as BagIcon,
   Truck,
   Utensils,
   Plus,
+  ChevronRight,
+  ShieldCheck,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
@@ -32,45 +32,45 @@ import { formatInr, isTerminal, STATUS_LABEL, type Order } from '@dfc/core';
 import { useAuth } from '@/providers/auth';
 import { subscribeMyOrders } from '@/lib/orders';
 import { Screen } from '@/ui';
+import { DFCPressable } from '@/ui/animated';
+import { StitchHeader } from '@/ui/stitch-header';
 import { ServiceHub } from '@/ui/service-hub';
-import { PressableScale } from '@/ui/glass';
 
 const SUPPORTED_SERVICES = ['food', 'grocery', 'print', 'pickup_drop', 'buy_deliver', 'genie'];
 
 function serviceMeta(category: string) {
   switch (category) {
     case 'grocery':
-      return { label: 'Grocery', icon: <ShoppingBag size={16} color="#065F46" /> };
+      return { label: 'Grocery Basket', icon: <ShoppingBag size={18} color="#6EE7B7" />, bg: 'rgba(16, 185, 129, 0.15)' };
     case 'print':
-      return { label: 'Print & Xerox', icon: <Printer size={16} color="#6D28D9" /> };
+      return { label: 'Print & Xerox', icon: <Printer size={18} color="#C4B5FD" />, bg: 'rgba(139, 92, 246, 0.15)' };
     case 'pickup_drop':
-      return { label: 'Pickup & Drop', icon: <Truck size={16} color="#B45309" /> };
+      return { label: 'Pickup & Drop', icon: <Truck size={18} color="#FDE047" />, bg: 'rgba(234, 179, 8, 0.15)' };
     case 'buy_deliver':
-      return { label: 'Buy & Deliver', icon: <BagIcon size={16} color="#1D4ED8" /> };
+      return { label: 'Buy & Deliver', icon: <ShoppingBag size={18} color="#93C5FD" />, bg: 'rgba(59, 130, 246, 0.15)' };
     case 'concierge':
-      return { label: 'Genie', icon: <Package size={16} color="#7A1F3D" /> };
-    case 'pharmacy':
-      return { label: 'Pharmacy', icon: <Plus size={16} color="#1E40AF" /> };
+    case 'genie':
+      return { label: 'Genie Errand', icon: <Package size={18} color="#F472B6" />, bg: 'rgba(236, 72, 153, 0.15)' };
     default:
-      return { label: 'Food', icon: <Utensils size={16} color="#7A1F3D" /> };
+      return { label: 'Food Delivery', icon: <Utensils size={18} color="#C8BFFF" />, bg: 'rgba(106, 90, 205, 0.15)' };
   }
 }
 
 function statusPill(status: Order['status']) {
   switch (status) {
     case 'packing':
-      return { label: 'PREPARING', bg: '#FFD9E0', text: '#782C44' };
+      return { label: 'PREPARING', bg: 'rgba(106, 90, 205, 0.2)', text: '#C8BFFF', dot: '#8B7EF8' };
     case 'delivered':
-      return { label: 'DELIVERED', bg: '#ECFDF5', text: '#065F46' };
+      return { label: 'DELIVERED', bg: 'rgba(16, 185, 129, 0.2)', text: '#34D399', dot: '#10B981' };
     case 'cancelled':
     case 'rejected':
-      return { label: 'CANCELLED', bg: '#FFDAD6', text: '#BA1A1A' };
+      return { label: 'CANCELLED', bg: 'rgba(239, 68, 68, 0.2)', text: '#F87171', dot: '#EF4444' };
     case 'dispatched':
     case 'picked_up':
     case 'out_for_delivery':
-      return { label: 'ON THE WAY', bg: '#FEF3C7', text: '#B45309' };
+      return { label: 'ON THE WAY', bg: 'rgba(245, 158, 11, 0.2)', text: '#FBBF24', dot: '#F59E0B' };
     default:
-      return { label: 'CONFIRMED', bg: '#E9EDFF', text: '#1E40AF' };
+      return { label: 'CONFIRMED', bg: 'rgba(59, 130, 246, 0.2)', text: '#60A5FA', dot: '#3B82F6' };
   }
 }
 
@@ -85,50 +85,21 @@ export default function ActiveOrdersScreen() {
     return subscribeMyOrders(user.uid, (list) => setOrders(list));
   }, [user]);
 
-  // Completed and cancelled orders leave this list automatically.
+  // Terminal orders leave this list automatically.
   const activeOrders = orders.filter((o) => !isTerminal(o.status));
 
   return (
-    <Screen edges={['top']}>
-      {/* Header */}
-      <View
-        style={{
-          height: 60,
-          backgroundColor: '#F9F9FF',
-          paddingHorizontal: 20,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 12,
-          borderBottomWidth: 1,
-          borderBottomColor: '#DAC0C430',
-        }}
-      >
-        <Pressable
-          onPress={() => router.back()}
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 19,
-            backgroundColor: '#E9EDFF',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <ArrowLeft size={20} color="#7A1F3D" strokeWidth={2.2} />
-        </Pressable>
-        <View>
-          <Text style={{ fontFamily: 'Archivo', fontSize: 20, fontWeight: '800', color: '#7A1F3D' }}>
-            Active Orders
-          </Text>
-          <Text style={{ fontFamily: 'Archivo', fontSize: 11, color: '#554245' }}>
-            {activeOrders.length} in progress · each runs independently
-          </Text>
-        </View>
-      </View>
+    <Screen edges={['top']} style={{ backgroundColor: '#0E0E10' }}>
+      <StitchHeader
+        showBack={true}
+        title="Active Orders"
+        subtitle={`${activeOrders.length} in progress · parallel tracking`}
+        showNotifications={false}
+      />
 
       <ScrollView
         contentContainerStyle={{
-          paddingHorizontal: 20,
+          paddingHorizontal: 16,
           paddingTop: 16,
           paddingBottom: 48,
         }}
@@ -137,85 +108,95 @@ export default function ActiveOrdersScreen() {
         {activeOrders.length === 0 ? (
           <View
             style={{
-              backgroundColor: '#FFFFFF',
-              borderRadius: 16,
+              backgroundColor: '#18181B',
+              borderRadius: 20,
               borderWidth: 1,
-              borderColor: '#DAC0C4',
-              padding: 32,
+              borderColor: '#26262B',
+              padding: 36,
               alignItems: 'center',
               justifyContent: 'center',
-              marginBottom: 16,
+              marginBottom: 20,
             }}
           >
-            <Bike size={40} color="#DAC0C4" />
+            <View
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                backgroundColor: '#201F24',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 16,
+              }}
+            >
+              <Bike size={28} color="#6A5ACD" />
+            </View>
             <Text
               style={{
-                fontFamily: 'Archivo',
-                fontSize: 16,
+                fontFamily: 'PlusJakartaSans',
+                fontSize: 17,
                 fontWeight: '700',
-                color: '#141B2B',
-                marginTop: 12,
+                color: '#E5E1E4',
+                marginBottom: 6,
               }}
             >
               No active orders
             </Text>
             <Text
               style={{
-                fontFamily: 'Archivo',
+                fontFamily: 'PlusJakartaSans',
                 fontSize: 13,
-                color: '#554245',
+                color: '#928F9E',
                 textAlign: 'center',
-                marginTop: 4,
+                lineHeight: 18,
+                marginBottom: 20,
               }}
             >
-              Start a new service below — you can run several orders at once.
+              Start a new order below — DFC lets you run multiple deliveries simultaneously with dedicated riders.
             </Text>
           </View>
         ) : (
-          <View style={{ gap: 12, marginBottom: 16 }}>
+          <View style={{ gap: 14, marginBottom: 20 }}>
             {activeOrders.map((order) => {
               const meta = serviceMeta(order.category);
               const pill = statusPill(order.status);
               const statusLabel = STATUS_LABEL[order.status]?.en ?? order.status;
 
               return (
-                <Pressable
+                <DFCPressable
                   key={order.id}
                   onPress={() => router.push(`/(customer)/order/${order.id}` as any)}
+                  scaleTo={0.98}
                   style={{
-                    backgroundColor: '#FFFFFF',
-                    borderRadius: 16,
+                    backgroundColor: '#18181B',
+                    borderRadius: 20,
                     borderWidth: 1,
-                    borderColor: '#DAC0C4',
+                    borderColor: 'rgba(106, 90, 205, 0.4)',
                     padding: 16,
-                    shadowColor: '#000000',
-                    shadowOpacity: 0.04,
-                    shadowRadius: 10,
-                    shadowOffset: { width: 0, height: 3 },
-                    elevation: 2,
                     position: 'relative',
                     overflow: 'hidden',
                   }}
                 >
-                  {/* Live stripe */}
+                  {/* Top neon indicator */}
                   <View
                     style={{
                       position: 'absolute',
                       top: 0,
+                      left: 0,
                       right: 0,
-                      width: 5,
-                      height: '100%',
-                      backgroundColor: '#7A1F3D',
+                      height: 3,
+                      backgroundColor: '#6A5ACD',
                     }}
                   />
 
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                  {/* Service Info & Status */}
+                  <View className="flex-row items-start gap-3 mb-3.5">
                     <View
                       style={{
-                        width: 38,
-                        height: 38,
-                        borderRadius: 19,
-                        backgroundColor: '#FDF2F5',
+                        width: 44,
+                        height: 44,
+                        borderRadius: 14,
+                        backgroundColor: meta.bg,
                         alignItems: 'center',
                         justifyContent: 'center',
                       }}
@@ -223,16 +204,38 @@ export default function ActiveOrdersScreen() {
                       {meta.icon}
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontFamily: 'Archivo', fontSize: 16, fontWeight: '700', color: '#141B2B' }}>
+                      <Text
+                        style={{
+                          fontFamily: 'PlusJakartaSans',
+                          fontSize: 16,
+                          fontWeight: '700',
+                          color: '#E5E1E4',
+                        }}
+                      >
                         {meta.label}
                       </Text>
-                      <Text style={{ fontFamily: 'Archivo', fontSize: 12, color: '#554245' }}>
+                      <Text
+                        style={{
+                          fontFamily: 'PlusJakartaSans',
+                          fontSize: 12,
+                          color: '#928F9E',
+                          marginTop: 1,
+                        }}
+                      >
                         ORD-{order.code}
                         {order.storeName ? ` · ${order.storeName}` : ''}
                       </Text>
                     </View>
+
                     <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={{ fontFamily: 'Archivo', fontSize: 16, fontWeight: '800', color: '#141B2B' }}>
+                      <Text
+                        style={{
+                          fontFamily: 'PlusJakartaSans',
+                          fontSize: 16,
+                          fontWeight: '800',
+                          color: '#E5E1E4',
+                        }}
+                      >
                         {formatInr(order.pricing.totalPaise)}
                       </Text>
                       <View
@@ -240,17 +243,28 @@ export default function ActiveOrdersScreen() {
                           backgroundColor: pill.bg,
                           paddingHorizontal: 8,
                           paddingVertical: 3,
-                          borderRadius: 9999,
+                          borderRadius: 8,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 4,
                           marginTop: 4,
                         }}
                       >
+                        <View
+                          style={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: 3,
+                            backgroundColor: pill.dot,
+                          }}
+                        />
                         <Text
                           style={{
-                            fontFamily: 'Archivo',
+                            fontFamily: 'PlusJakartaSans',
                             fontSize: 10,
                             fontWeight: '800',
                             color: pill.text,
-                            letterSpacing: 0.5,
+                            letterSpacing: 0.4,
                           }}
                         >
                           {pill.label}
@@ -259,43 +273,84 @@ export default function ActiveOrdersScreen() {
                     </View>
                   </View>
 
-                  {/* Current status + Captain */}
+                  {/* Rider & Step Status */}
                   <View
                     style={{
-                      borderTopWidth: 1,
-                      borderTopColor: '#DAC0C440',
-                      paddingTop: 10,
+                      backgroundColor: '#121215',
+                      borderRadius: 12,
+                      padding: 12,
                       flexDirection: 'row',
                       alignItems: 'center',
                       justifyContent: 'space-between',
                     }}
                   >
-                    <Text style={{ fontFamily: 'Archivo', fontSize: 12, color: '#554245' }} numberOfLines={1}>
-                      {statusLabel}
-                      {order.captainName ? ` · Captain ${order.captainName}` : ''}
-                    </Text>
-                    <Text style={{ fontFamily: 'Archivo', fontSize: 13, fontWeight: '700', color: '#7A1F3D' }}>
-                      Track →
-                    </Text>
+                    <View className="flex-1 mr-3">
+                      <Text
+                        style={{
+                          fontFamily: 'PlusJakartaSans',
+                          fontSize: 12,
+                          fontWeight: '600',
+                          color: '#E5E1E4',
+                        }}
+                        numberOfLines={1}
+                      >
+                        {statusLabel}
+                      </Text>
+                      <Text
+                        style={{
+                          fontFamily: 'PlusJakartaSans',
+                          fontSize: 11,
+                          color: '#928F9E',
+                          marginTop: 1,
+                        }}
+                        numberOfLines={1}
+                      >
+                        {order.captainName ? `Captain ${order.captainName}` : 'Assigning nearest Captain...'}
+                      </Text>
+                    </View>
+
+                    <View
+                      style={{
+                        backgroundColor: '#6A5ACD',
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                        borderRadius: 8,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 4,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontFamily: 'PlusJakartaSans',
+                          fontSize: 12,
+                          fontWeight: '700',
+                          color: '#FFFFFF',
+                        }}
+                      >
+                        Track
+                      </Text>
+                      <ChevronRight size={13} color="#FFFFFF" strokeWidth={2.5} />
+                    </View>
                   </View>
-                </Pressable>
+                </DFCPressable>
               );
             })}
           </View>
         )}
 
-        {/* + Add Service */}
-        <PressableScale
-          to={0.97}
+        {/* + Add Service Button */}
+        <DFCPressable
+          scaleTo={0.97}
           onPress={() => {
             void Haptics.selectionAsync();
             setShowAddService((v) => !v);
           }}
           style={{
-            backgroundColor: '#FFFFFF',
+            backgroundColor: '#18181B',
             borderRadius: 16,
             borderWidth: 1.5,
-            borderColor: '#7A1F3D',
+            borderColor: '#6A5ACD',
             borderStyle: 'dashed',
             paddingVertical: 14,
             paddingHorizontal: 16,
@@ -305,31 +360,38 @@ export default function ActiveOrdersScreen() {
             gap: 8,
           }}
         >
-          <Plus size={18} color="#7A1F3D" strokeWidth={2.6} />
-          <Text style={{ fontFamily: 'Archivo', fontSize: 15, fontWeight: '800', color: '#7A1F3D' }}>
-            {showAddService ? 'Hide Services' : 'Add Service'}
+          <Plus size={18} color="#C8BFFF" strokeWidth={2.4} />
+          <Text
+            style={{
+              fontFamily: 'PlusJakartaSans',
+              fontSize: 14,
+              fontWeight: '700',
+              color: '#C8BFFF',
+            }}
+          >
+            {showAddService ? 'Hide Services' : 'Order Another Service'}
           </Text>
           {showAddService ? (
-            <ChevronUp size={16} color="#7A1F3D" strokeWidth={2.4} />
+            <ChevronUp size={16} color="#C8BFFF" strokeWidth={2.2} />
           ) : (
-            <ChevronDown size={16} color="#7A1F3D" strokeWidth={2.4} />
+            <ChevronDown size={16} color="#C8BFFF" strokeWidth={2.2} />
           )}
-        </PressableScale>
+        </DFCPressable>
 
         <Text
           style={{
-            fontFamily: 'Archivo',
+            fontFamily: 'PlusJakartaSans',
             fontSize: 12,
-            color: '#554245',
+            color: '#928F9E',
             textAlign: 'center',
-            marginTop: 8,
+            marginTop: 10,
           }}
         >
-          Starting a new order never interrupts the ones already running.
+          Starting a new service runs in parallel and will not disrupt ongoing orders.
         </Text>
 
         {showAddService ? (
-          <View style={{ marginTop: 12 }}>
+          <View style={{ marginTop: 16 }}>
             <ServiceHub only={SUPPORTED_SERVICES} />
           </View>
         ) : null}
