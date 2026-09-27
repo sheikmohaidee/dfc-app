@@ -36,6 +36,7 @@ import {
   type SubscriptionFrequency,
   type SubscriptionItem,
 } from '@dfc/core';
+import { DFCPressable } from '@/ui/animated';
 
 export default function SubscriptionsScreen() {
   const router = useRouter();
@@ -130,12 +131,13 @@ export default function SubscriptionsScreen() {
             {ESSENTIAL_SUBSCRIPTION_CATALOGUE.map((item) => {
               const isSelected = selectedItem.id === item.id;
               return (
-                <Pressable
+                <DFCPressable
                   key={item.id}
                   onPress={() => {
                     void Haptics.selectionAsync();
                     setSelectedItem(item);
                   }}
+                  scaleTo={0.96}
                   style={[styles.itemPill, isSelected && styles.itemPillActive]}
                 >
                   <View style={styles.itemPillText}>
@@ -147,7 +149,7 @@ export default function SubscriptionsScreen() {
                   <Text style={[styles.itemPrice, isSelected && styles.itemPriceActive]}>
                     {formatInr(item.unitPricePaise)}
                   </Text>
-                </Pressable>
+                </DFCPressable>
               );
             })}
           </View>
@@ -185,18 +187,19 @@ export default function SubscriptionsScreen() {
               {(['daily', 'weekdays', 'weekends'] as SubscriptionFrequency[]).map((f) => {
                 const isActive = frequency === f;
                 return (
-                  <Pressable
+                  <DFCPressable
                     key={f}
                     onPress={() => {
                       void Haptics.selectionAsync();
                       setFrequency(f);
                     }}
+                    scaleTo={0.96}
                     style={[styles.freqPill, isActive && styles.freqPillActive]}
                   >
                     <Text style={[styles.freqText, isActive && styles.freqTextActive]}>
                       {f === 'daily' ? 'Everyday' : f === 'weekdays' ? 'Mon – Fri' : 'Sat – Sun'}
                     </Text>
-                  </Pressable>
+                  </DFCPressable>
                 );
               })}
             </View>
@@ -208,9 +211,9 @@ export default function SubscriptionsScreen() {
               <Text style={styles.estLabel}>Monthly Estimated Bill</Text>
               <Text style={styles.estValue}>{formatInr(monthlyEstPaise)}</Text>
             </View>
-            <Pressable onPress={handleAddSubscription} style={styles.subscribeButton}>
+            <DFCPressable onPress={handleAddSubscription} scaleTo={0.97} style={styles.subscribeButton}>
               <Text style={styles.subscribeButtonText}>Start Subscription</Text>
-            </Pressable>
+            </DFCPressable>
           </View>
         </View>
 
@@ -234,8 +237,9 @@ export default function SubscriptionsScreen() {
                   ⏰ {sub.deliverySlot} · {sub.frequency.toUpperCase()}
                 </Text>
               </View>
-              <Pressable
+              <DFCPressable
                 onPress={() => handleTogglePause(sub.id)}
+                scaleTo={0.94}
                 style={[styles.pauseButton, !sub.isActive && styles.resumeButton]}
               >
                 {sub.isActive ? (
@@ -249,7 +253,7 @@ export default function SubscriptionsScreen() {
                     <Text style={styles.resumeText}>Resume</Text>
                   </>
                 )}
-              </Pressable>
+              </DFCPressable>
             </View>
 
             <View style={styles.activeSubFooter}>

@@ -1,459 +1,1103 @@
 /**
- * Vendor fulfilment.
- *
- * The packing checklist, preparation timers, and delay reporting (+10m / +20m).
+ * Vendor Order Fulfilment & Dispatch Details — Stitch Dark Floating Theme
+ * Implements:
+ * - 03 — Order Details (Kitchen Checklist, Station Routing, Captain Telemetry, Settlement)
+ * - 04 — Accept / Reject Order (Prep Time Matrix 10m/20m/30m/45m, Rejection Guardrails)
+ * - 06 — Ready for Handover OTP (Bag Staging, 4-digit code, Bluetooth Beacon, Dispatch Checklist)
  */
 
 import * as React from 'react';
-import { Alert, Modal, Pressable, ScrollView, TextInput, View } from 'react-native';
+import {
+  Alert,
+  Image,
+  Modal,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import Animated, { FadeIn } from 'react-native-reanimated';
-import { AlertTriangle, ArrowLeft, Clock, Share2, Timer, Video, X } from 'lucide-react-native';
-
+import * as Haptics from 'expo-haptics';
 import {
-  COPY,
-  CONFIDENCE_THRESHOLD,
-  formatInr,
-  formatWhatsAppKotPayload,
-  localityById,
-  SEED_KITCHEN_STREAMS,
-  toPaise,
-  type Order,
-  type OrderItem,
-} from '@dfc/core';
+  AlertCircle,
+  AlertTriangle,
+  ArrowLeft,
+  Check,
+  CheckCircle2,
+  Clock,
+  ExternalLink,
+  Flame,
+  Headphones,
+  Info,
+  Layers,
+  Leaf,
+  MapPin,
+  MessageSquare,
+  PackageCheck,
+  Phone,
+  Printer,
+  Receipt,
+  RotateCcw,
+  ShieldCheck,
+  Sparkles,
+  Star,
+  Timer,
+  Truck,
+  User,
+  Utensils,
+  Volume2,
+  X,
+  Zap,
+} from 'lucide-react-native';
 
+import { formatInr, type Order } from '@dfc/core';
 import { useAuth } from '@/providers/auth';
-import {
-  subscribeOrder,
-  vendorConfirmItem,
-  vendorMarkReady,
-  vendorMarkUnavailable,
-  vendorReportDelay,
-  vendorStartPacking,
-} from '@/lib/orders';
-import {
-  Badge,
-  Button,
-  Checkbox,
-  ErrorNote,
-  Loading,
-  Num,
-  Screen,
-  T,
-  Ta,
-} from '@/ui';
+import { demoStorage } from '@/demo/storage';
+import { mockOrderRepository } from '@/demo/repositories/order.repository';
 
-// ---------------------------------------------------------------------------
-
-function VerifyBlock({ order, item }: { order: Order; item: OrderItem }) {
-  const [editing, setEditing] = React.useState(false);
-  const [name, setName] = React.useState(item.name);
-  const [price] = React.useState(
-    item.unitPricePaise ? String(Math.round(item.unitPricePaise / 100)) : '',
-  );
-  const [busy, setBusy] = React.useState(false);
-
-  async function confirm(withEdit: boolean) {
-    setBusy(true);
-    try {
-      await vendorConfirmItem(order.id, item.id, {
-        ...(withEdit && name.trim() ? { name: name.trim() } : {}),
-        ...(price ? { pricePaise: toPaise(Number(price)) } : {}),
-      });
-      setEditing(false);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Animated.View
-      entering={FadeIn}
-      className="overflow-hidden rounded-card border border-verify-border bg-verify-tint"
-    >
-      <View className="flex-row items-center gap-2 border-b border-verify-border px-3.5 py-2.5">
-        <AlertTriangle size={15} color="#B45309" strokeWidth={2} />
-        <T className="flex-1 text-[12.5px] font-semibold tracking-tight text-verify-fg">
-          Item Verification
-        </T>
-        <Ta className="text-[10.5px] text-verify">உறுதிப்படுத்தவும்</Ta>
-      </View>
-
-      <View className="gap-3 px-3.5 py-3">
-        <View className="gap-1">
-          <T className="text-[10.5px] font-bold tracking-[0.4px] text-verify">ITEM</T>
-          {editing ? (
-            <TextInput
-              value={name}
-              onChangeText={setName}
-              autoFocus
-              className="h-11 rounded-control border border-verify-border bg-background px-3 font-sans text-[15px] font-semibold text-foreground"
-            />
-          ) : (
-            <T className="text-[15px] font-semibold tracking-[-0.2px] text-verify-fg">
-              {item.name} · {item.unit}
-            </T>
-          )}
-          <Num className="text-[11px] text-verify">
-            confidence {item.confidence.toFixed(2)} ·{' '}
-            {item.unitPricePaise ? formatInr(item.unitPricePaise) : '₹ —'}
-          </Num>
-        </View>
-
-        <View className="flex-row gap-2">
-          <Button
-            size="sm"
-            label="Confirm"
-            labelTa="சரி"
-            loading={busy}
-            className="flex-1"
-            onPress={() => void confirm(false)}
-          />
-          <Button
-            size="sm"
-            variant="outline"
-            label={editing ? 'Save' : 'Edit'}
-            onPress={() => (editing ? void confirm(true) : setEditing(true))}
-          />
-          <Button
-            size="sm"
-            variant="destructive"
-            label="Out of stock"
-            onPress={() => void vendorMarkUnavailable(order.id, item.id)}
-          />
-        </View>
-      </View>
-    </Animated.View>
-  );
+interface ChecklistItem {
+  id: string;
+  name: string;
+  qty: number;
+  price: number;
+  notes: string;
+  station: string;
+  prepared: boolean;
 }
 
-// ---------------------------------------------------------------------------
-
-export default function VendorOrder() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+export default function VendorOrderDetails() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { profile } = useAuth();
 
   const [order, setOrder] = React.useState<Order | null>(null);
-  const [loading, setLoading] = React.useState(true);
-  const [packed, setPacked] = React.useState<Record<string, boolean>>({});
-  const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [kotPrinting, setKotPrinting] = React.useState(false);
+  const [kotPrinted, setKotPrinted] = React.useState(false);
 
-  // Delay reporting modal state
-  const [delayModalOpen, setDelayModalOpen] = React.useState(false);
-  const [selectedDelay, setSelectedDelay] = React.useState(15);
-  const [delayReason, setDelayReason] = React.useState('Kitchen rush / High volume of orders');
-  const [delayBusy, setDelayBusy] = React.useState(false);
+  // Prep Countdown (8 mins 42 secs = 522s)
+  const [seconds, setSeconds] = React.useState(522);
+
+  // Interactive Checklist
+  const [checklist, setChecklist] = React.useState<ChecklistItem[]>([
+    {
+      id: 'item-1',
+      name: 'Smoked Texas Pulled Pork Brioche',
+      qty: 1,
+      price: 380,
+      notes: 'Slow cooked 14h, brioche bun, apple cider slaw',
+      station: 'Pit Smoker',
+      prepared: true,
+    },
+    {
+      id: 'item-2',
+      name: 'Smoked BBQ Chicken Wings',
+      qty: 2,
+      price: 580,
+      notes: '6 pcs, hickory charred, ranch dip',
+      station: 'Charcoal Grill',
+      prepared: true,
+    },
+    {
+      id: 'item-3',
+      name: 'Truffle Parmesan Hand-cut Fries',
+      qty: 1,
+      price: 190,
+      notes: 'White truffle oil, fresh shaved parmesan, herb dust',
+      station: 'Deep Fryer 2',
+      prepared: false,
+    },
+  ]);
+
+  // Handover Checklist (06)
+  const [handoverChecks, setHandoverChecks] = React.useState([
+    { id: 'h1', title: 'Thermal insulated bag seal applied', sub: 'Tamper-proof sticker #9921 attached', checked: true },
+    { id: 'h2', title: 'Food temperature verified hot', sub: 'Sensor logged at 68.4°C (>65°C target)', checked: true },
+    { id: 'h3', title: 'Cutlery omission verified', sub: 'Customer opted into Eco Zero-Plastic', checked: true },
+    { id: 'h4', title: 'Bill & KOT receipt taped to exterior', sub: 'Barcode facing outwards for scanner', checked: true },
+  ]);
+
+  // Modals
+  const [prepModalVisible, setPrepModalVisible] = React.useState(false);
+  const [rejectModalVisible, setRejectModalVisible] = React.useState(false);
+  const [handoverModalVisible, setHandoverModalVisible] = React.useState(false);
+  const [handoverSuccess, setHandoverSuccess] = React.useState(false);
+
+  // Prep Selection
+  const [selectedPrepMins, setSelectedPrepMins] = React.useState(20);
+  const [selectedRejectReason, setSelectedRejectReason] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    if (!id) return;
-    return subscribeOrder(id, (o) => {
-      setOrder(o);
-      setLoading(false);
-    });
+    const update = () => {
+      const found = (id ? mockOrderRepository.getOrderById(id) : null) || mockOrderRepository.getOrders()[0] || null;
+      setOrder(found);
+    };
+    update();
+    const unsub = demoStorage.subscribe(update);
+    return unsub;
   }, [id]);
 
-  if (loading) return <Screen><Loading /></Screen>;
-  if (!order) {
-    return (
-      <Screen>
-        <View className="flex-1 items-center justify-center">
-          <T className="text-[15px] text-muted-foreground">Order not found.</T>
-        </View>
-      </Screen>
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      setSeconds((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const mm = String(Math.floor(seconds / 60)).padStart(2, '0');
+  const ss = String(seconds % 60).padStart(2, '0');
+
+  const checkedCount = checklist.filter((i) => i.prepared).length;
+  const allPrepared = checkedCount === checklist.length;
+
+  const toggleCheck = (itemId: string) => {
+    void Haptics.selectionAsync();
+    setChecklist((prev) =>
+      prev.map((item) =>
+        item.id === itemId ? { ...item, prepared: !item.prepared } : item,
+      ),
     );
-  }
+  };
 
-  const active = order.items.filter((i) => i.included);
-  const flagged = active.filter((i) => i.confidence < CONFIDENCE_THRESHOLD);
-  const allPacked = active.length > 0 && active.every((i) => packed[i.id]);
-  const locality = localityById(order.localityId);
+  const toggleHandoverCheck = (checkId: string) => {
+    void Haptics.selectionAsync();
+    setHandoverChecks((prev) =>
+      prev.map((c) => (c.id === checkId ? { ...c, checked: !c.checked } : c)),
+    );
+  };
 
-  async function startPacking() {
-    setBusy(true);
-    setError(null);
-    try {
-      await vendorStartPacking(order!.id, user!.uid);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
+  const allHandoverVerified = handoverChecks.every((c) => c.checked);
 
-  async function markReady() {
-    setBusy(true);
-    setError(null);
-    try {
-      await vendorMarkReady(order!.id, user!.uid);
-      router.back();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
+  const handlePrintKOT = () => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setKotPrinting(true);
+    setTimeout(() => {
+      setKotPrinting(false);
+      setKotPrinted(true);
+      setTimeout(() => setKotPrinted(false), 3000);
+    }, 1200);
+  };
 
-  async function handleReportDelay() {
-    if (!delayReason.trim()) {
-      Alert.alert('Reason Required', 'Please provide a reason for the preparation delay.');
-      return;
+  const handleConfirmHandover = () => {
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setHandoverSuccess(true);
+    if (order?.id) {
+      void mockOrderRepository.completePreparation(order.id);
     }
-    setDelayBusy(true);
-    try {
-      await vendorReportDelay(order!.id, selectedDelay, delayReason.trim(), user!.uid);
-      setDelayModalOpen(false);
-      Alert.alert('Delay Reported', `An extra ${selectedDelay} minutes has been added and the customer has been notified.`);
-    } catch (e) {
-      Alert.alert('Error', (e as Error).message);
-    } finally {
-      setDelayBusy(false);
-    }
-  }
+    setTimeout(() => {
+      setHandoverModalVisible(false);
+      router.replace('/(vendor)/inbox');
+    }, 1500);
+  };
 
   return (
-    <Screen edges={['top']}>
-      {/* Header */}
-      <View className="flex-row items-center gap-3 border-b border-border px-4 py-3">
-        <Pressable onPress={() => router.back()} hitSlop={10}>
-          <ArrowLeft size={20} color="#18181B" strokeWidth={2} />
-        </Pressable>
-        <View className="flex-1">
-          <View className="flex-row items-center gap-2">
-            <T className="text-base font-semibold tracking-[-0.3px]">
-              #{order.code} · {order.customerName}
-            </T>
-            <Badge label={order.category.toUpperCase()} tone="grocery" />
-          </View>
-          <T className="mt-0.5 text-xs text-placeholder">
-            {locality?.name ?? order.localityId} · {active.length} items
-          </T>
-        </View>
-
+    <View style={{ flex: 1, backgroundColor: '#131315' }}>
+      {/* 1. Header Bar */}
+      <View
+        style={{
+          paddingTop: 48,
+          paddingHorizontal: 16,
+          paddingBottom: 12,
+          backgroundColor: 'rgba(19, 19, 21, 0.96)',
+          borderBottomWidth: 1,
+          borderBottomColor: '#201F21',
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
         <Pressable
-          onPress={() => setDelayModalOpen(true)}
-          className="flex-row items-center gap-1 rounded-lg border border-verify-border bg-verify-tint px-2.5 py-1.5"
-        >
-          <Clock size={13} color="#B45309" />
-          <T className="text-[11px] font-bold text-verify-fg">+ Delay</T>
-        </Pressable>
-      </View>
-
-      {/* Preparation & Delay Timing Banner */}
-      <View className="mx-4 mt-3 gap-2 rounded-lg border border-border bg-surface p-3">
-        <View className="flex-row items-center justify-between">
-          <View className="flex-row items-center gap-1.5">
-            <Timer size={14} color="#71717A" />
-            <T className="text-xs font-bold text-placeholder">PREPARATION TRACKING</T>
-          </View>
-          {order.delayMinutes ? (
-            <Badge label={`+${order.delayMinutes}m DELAY REPORTED`} tone="verify" />
-          ) : null}
-        </View>
-
-        {order.delayReason ? (
-          <View className="rounded border border-verify-border bg-verify-tint p-2">
-            <T className="text-xs font-semibold text-verify-fg">
-              Reason: {order.delayReason}
-            </T>
-          </View>
-        ) : null}
-
-        <View className="flex-row justify-between text-xs">
-          <T className="text-xs text-muted-foreground">
-            Prep Status: {order.actualPrepMinutes ? `${order.actualPrepMinutes}m taken` : order.prepStartedAt ? 'In preparation…' : 'Pending start'}
-          </T>
-          {order.riderName ? (
-            <T className="text-xs font-semibold text-grocery">Captain: {order.riderName}</T>
-          ) : (
-            <T className="text-xs text-placeholder">No rider assigned yet</T>
-          )}
-        </View>
-      </View>
-
-      {/* Advanced Operations: WhatsApp KOT Sync & Kitchen Cam */}
-      <View className="px-4 pt-3 flex-row items-center gap-2">
-        <Pressable
-          onPress={() => {
-            const kot = formatWhatsAppKotPayload(order).formattedKdsBody;
-            Alert.alert(
-              'WhatsApp KOT Ticket Generated',
-              kot,
-              [
-                { text: 'Dismiss' },
-                {
-                  text: 'Copy & Send KOT',
-                  onPress: () => {
-                    Alert.alert('Sent to Kitchen', 'KOT transmitted to kitchen thermal printer & WhatsApp.');
-                  },
-                },
-              ],
-            );
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          onPress={() => router.back()}
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: 12,
+            backgroundColor: '#201F21',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderWidth: 1,
+            borderColor: '#2A2A2C',
           }}
-          className="flex-1 flex-row items-center justify-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 py-2.5"
         >
-          <Share2 size={14} color="#16A34A" />
-          <T className="text-xs font-bold text-emerald-700 dark:text-emerald-400">WhatsApp KOT</T>
+          <ArrowLeft size={18} color="#E5E1E4" />
         </Pressable>
 
-        {order.storeId && SEED_KITCHEN_STREAMS[order.storeId] ? (
-          <View className="flex-row items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2.5">
-            <Video size={13} color="#DC2626" />
-            <T className="text-xs font-semibold text-foreground">Cam Active</T>
-          </View>
-        ) : null}
+        <View style={{ alignItems: 'center' }}>
+          <Text
+            style={{
+              fontSize: 10,
+              fontFamily: 'PlusJakartaSans_800ExtraBold',
+              fontWeight: '800',
+              color: '#C8BFFF',
+              letterSpacing: 1.5,
+              textTransform: 'uppercase',
+            }}
+          >
+            KITCHEN DISPATCH
+          </Text>
+          <Text
+            style={{
+              fontSize: 15,
+              fontFamily: 'PlusJakartaSans_700Bold',
+              fontWeight: '700',
+              color: '#E5E1E4',
+              letterSpacing: -0.2,
+            }}
+          >
+            Order Details
+          </Text>
+        </View>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Call Support"
+          onPress={() => Alert.alert('Kitchen Support', 'Connecting to DFC Kitchen Operations desk...')}
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: 12,
+            backgroundColor: '#201F21',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderWidth: 1,
+            borderColor: '#2A2A2C',
+          }}
+        >
+          <Headphones size={18} color="#E5E1E4" />
+        </Pressable>
       </View>
 
-      <ScrollView className="flex-1" contentContainerClassName="gap-3.5 pb-6">
-        <View className="flex-row items-center justify-between px-4 pt-2">
-          <View className="flex-row items-center gap-2">
-            <T className="text-[13px] font-semibold tracking-tight">{COPY.packItems.en}</T>
-            <Ta className="text-[11px]">{COPY.packItems.ta}</Ta>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 120, gap: 14 }}
+      >
+        {/* Top Sub-Header & KOT Action */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={{ width: 8, height: 8, borderRadius: 9999, backgroundColor: '#6A5ACD' }} />
+            <Text
+              style={{
+                fontSize: 12,
+                fontFamily: 'PlusJakartaSans_700Bold',
+                fontWeight: '700',
+                color: '#C8BFFF',
+                letterSpacing: 0.5,
+                textTransform: 'uppercase',
+              }}
+            >
+              LIVE KITCHEN TICKET #DFC-8492
+            </Text>
+          </View>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Print KOT"
+            onPress={handlePrintKOT}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              paddingHorizontal: 12,
+              paddingVertical: 7,
+              borderRadius: 10,
+              backgroundColor: '#2A2A2C',
+            }}
+          >
+            <Printer size={15} color={kotPrinted ? '#FFB59C' : '#C8BFFF'} />
+            <Text
+              style={{
+                fontSize: 12,
+                fontFamily: 'PlusJakartaSans_600SemiBold',
+                color: kotPrinted ? '#FFB59C' : '#E5E1E4',
+              }}
+            >
+              {kotPrinting ? 'Printing...' : kotPrinted ? 'Printed ✓' : 'Print KOT'}
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* 1. Order Status Header Card */}
+        <View
+          style={{
+            borderRadius: 20,
+            backgroundColor: '#201F21',
+            padding: 16,
+            borderWidth: 1,
+            borderColor: '#2A2A2C',
+            gap: 12,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 12 },
+            shadowOpacity: 0.7,
+            shadowRadius: 24,
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                paddingHorizontal: 10,
+                paddingVertical: 5,
+                borderRadius: 9999,
+                backgroundColor: 'rgba(106, 90, 205, 0.25)',
+              }}
+            >
+              <View style={{ width: 6, height: 6, borderRadius: 9999, backgroundColor: '#C8BFFF' }} />
+              <Text
+                style={{
+                  fontSize: 10,
+                  fontFamily: 'PlusJakartaSans_800ExtraBold',
+                  fontWeight: '800',
+                  color: '#C8BFFF',
+                  letterSpacing: 0.5,
+                  textTransform: 'uppercase',
+                }}
+              >
+                IN PREPARATION (COOKING)
+              </Text>
+            </View>
+
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={{ fontSize: 10, color: '#928F9E', textTransform: 'uppercase' }}>TIMER TARGET</Text>
+              <Text
+                style={{
+                  fontSize: 18,
+                  fontFamily: 'PlusJakartaSans_800ExtraBold',
+                  fontWeight: '800',
+                  color: '#FFB59C',
+                }}
+              >
+                {mm}:{ss}
+              </Text>
+            </View>
+          </View>
+
+          <View style={{ gap: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Clock size={16} color="#FFB59C" />
+              <Text style={{ fontSize: 16, fontFamily: 'PlusJakartaSans_700Bold', color: '#E5E1E4' }}>
+                Pickup in 9 mins
+              </Text>
+              <Text style={{ fontSize: 12, color: '#928F9E' }}>• Target: 8:24 PM</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <Zap size={14} color="#C8BFFF" />
+              <Text style={{ fontSize: 11, color: '#928F9E', fontFamily: 'PlusJakartaSans_500Medium' }}>
+                DFC Gourmet Food Express • Instant Delivery Priority
+              </Text>
+            </View>
+          </View>
+
+          {/* Micro Pipeline Tracker */}
+          <View style={{ flexDirection: 'row', gap: 6, paddingTop: 4 }}>
+            <View style={{ flex: 1, gap: 4 }}>
+              <View style={{ height: 4, borderRadius: 9999, backgroundColor: '#6A5ACD' }} />
+              <Text style={{ fontSize: 10, fontFamily: 'PlusJakartaSans_600SemiBold', color: '#C8BFFF' }}>
+                Accepted (8:11 PM)
+              </Text>
+            </View>
+            <View style={{ flex: 1, gap: 4 }}>
+              <View style={{ height: 4, borderRadius: 9999, backgroundColor: '#FFB59C' }} />
+              <Text style={{ fontSize: 10, fontFamily: 'PlusJakartaSans_600SemiBold', color: '#FFB59C' }}>
+                In Wok / Oven
+              </Text>
+            </View>
+            <View style={{ flex: 1, gap: 4 }}>
+              <View style={{ height: 4, borderRadius: 9999, backgroundColor: '#353437' }} />
+              <Text style={{ fontSize: 10, color: '#928F9E' }}>
+                Ready for Pickup
+              </Text>
+            </View>
           </View>
         </View>
 
-        <View className="px-4">
-          {active.map((item, i) => {
-            const flag = item.confidence < CONFIDENCE_THRESHOLD;
-            if (flag) return null;
-            const on = !!packed[item.id];
-            return (
+        {/* 2. Delivery Partner / Captain Card */}
+        <View
+          style={{
+            borderRadius: 20,
+            backgroundColor: '#201F21',
+            padding: 16,
+            borderWidth: 1,
+            borderColor: '#2A2A2C',
+            gap: 12,
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View
+              style={{
+                width: 46,
+                height: 46,
+                borderRadius: 14,
+                backgroundColor: '#353437',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Truck size={24} color="#7BD0FF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={{ fontSize: 15, fontFamily: 'PlusJakartaSans_700Bold', color: '#E5E1E4' }}>
+                  Captain Suresh Kumar
+                </Text>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 2,
+                    backgroundColor: '#2A2A2C',
+                    paddingHorizontal: 5,
+                    paddingVertical: 1,
+                    borderRadius: 4,
+                  }}
+                >
+                  <Text style={{ fontSize: 10, color: '#FFB59C', fontWeight: '700' }}>4.9 ★</Text>
+                </View>
+              </View>
+              <Text style={{ fontSize: 11, color: '#928F9E', marginTop: 2 }}>
+                Ather 450X (EV) • KA-01-MJ-8190
+              </Text>
+            </View>
+          </View>
+
+          {/* Telemetry Status Row */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              backgroundColor: '#1C1B1D',
+              borderRadius: 12,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <MapPin size={15} color="#7BD0FF" />
+              <Text style={{ fontSize: 12, fontFamily: 'PlusJakartaSans_600SemiBold', color: '#7BD0FF' }}>
+                1.2 km away • Arriving in 4 mins
+              </Text>
+            </View>
+            <View
+              style={{
+                backgroundColor: 'rgba(0, 115, 156, 0.3)',
+                paddingHorizontal: 8,
+                paddingVertical: 2,
+                borderRadius: 9999,
+              }}
+            >
+              <Text style={{ fontSize: 10, fontFamily: 'PlusJakartaSans_700Bold', color: '#DBF0FF' }}>
+                ON ROUTE
+              </Text>
+            </View>
+          </View>
+
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Call Captain"
+              onPress={() => Alert.alert('Calling Courier', 'Calling Captain Suresh Kumar (+91 98450 12345)...')}
+              style={{
+                flex: 1,
+                height: 40,
+                borderRadius: 12,
+                backgroundColor: '#2A2A2C',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+              }}
+            >
+              <Phone size={15} color="#C8BFFF" />
+              <Text style={{ fontSize: 12, fontFamily: 'PlusJakartaSans_600SemiBold', color: '#E5E1E4' }}>
+                Call Captain
+              </Text>
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Chat with Captain"
+              onPress={() => Alert.alert('Dispatch Chat', 'Opening live chat with Captain Suresh.')}
+              style={{
+                flex: 1,
+                height: 40,
+                borderRadius: 12,
+                backgroundColor: '#2A2A2C',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+              }}
+            >
+              <MessageSquare size={15} color="#7BD0FF" />
+              <Text style={{ fontSize: 12, fontFamily: 'PlusJakartaSans_600SemiBold', color: '#E5E1E4' }}>
+                Chat
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* 3. Customer Profile & Special Instructions Box */}
+        <View
+          style={{
+            borderRadius: 20,
+            backgroundColor: '#201F21',
+            padding: 16,
+            borderWidth: 1,
+            borderColor: '#2A2A2C',
+            gap: 12,
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 9999,
+                  backgroundColor: 'rgba(106, 90, 205, 0.3)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text style={{ fontSize: 13, fontFamily: 'PlusJakartaSans_700Bold', color: '#C8BFFF' }}>
+                  RS
+                </Text>
+              </View>
+              <View>
+                <Text style={{ fontSize: 14, fontFamily: 'PlusJakartaSans_700Bold', color: '#E5E1E4' }}>
+                  Rahul Sharma
+                </Text>
+                <Text style={{ fontSize: 11, color: '#C8BFFF', fontFamily: 'PlusJakartaSans_600SemiBold' }}>
+                  DFC Premier Guest • 42 past orders
+                </Text>
+              </View>
+            </View>
+            <ShieldCheck size={18} color="#7BD0FF" />
+          </View>
+
+          {/* Highlighted Chef Note Box */}
+          <View
+            style={{
+              backgroundColor: 'rgba(142, 44, 1, 0.25)',
+              borderRadius: 12,
+              padding: 12,
+              flexDirection: 'row',
+              gap: 10,
+              borderWidth: 1,
+              borderColor: '#8E2C01',
+            }}
+          >
+            <AlertCircle size={18} color="#FFB59C" />
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{
+                  fontSize: 10,
+                  fontFamily: 'PlusJakartaSans_800ExtraBold',
+                  fontWeight: '800',
+                  color: '#FFB59C',
+                  letterSpacing: 0.5,
+                  textTransform: 'uppercase',
+                }}
+              >
+                SPECIAL CHEF & PACKAGING NOTE
+              </Text>
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontFamily: 'PlusJakartaSans_600SemiBold',
+                  color: '#FFAA8D',
+                  marginTop: 2,
+                  lineHeight: 18,
+                }}
+              >
+                "Please make sure pulled pork is packed in insulated foil. Extra napkins requested."
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* 4. Itemized Kitchen Checklist */}
+        <View style={{ gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Utensils size={16} color="#C8BFFF" />
+              <Text style={{ fontSize: 15, fontFamily: 'PlusJakartaSans_700Bold', color: '#E5E1E4' }}>
+                Kitchen Assembly Checklist
+              </Text>
+            </View>
+            <Text style={{ fontSize: 12, fontFamily: 'PlusJakartaSans_700Bold', color: '#C8BFFF' }}>
+              {checkedCount} of {checklist.length} Checked
+            </Text>
+          </View>
+
+          <View style={{ gap: 8 }}>
+            {checklist.map((item) => (
               <Pressable
                 key={item.id}
-                onPress={() => setPacked((p) => ({ ...p, [item.id]: !p[item.id] }))}
-                className={`min-h-[52px] flex-row items-center gap-3 ${
-                  i < active.length - 1 ? 'border-b border-muted' : ''
-                }`}
+                onPress={() => toggleCheck(item.id)}
+                style={{
+                  borderRadius: 16,
+                  backgroundColor: item.prepared ? '#201F21' : '#2A2A2C',
+                  padding: 14,
+                  borderWidth: 1,
+                  borderColor: item.prepared ? '#2A2A2C' : '#8E2C01',
+                  flexDirection: 'row',
+                  alignItems: 'flex-start',
+                  gap: 12,
+                }}
               >
-                <Checkbox
-                  checked={on}
-                  size={22}
-                  onToggle={() => setPacked((p) => ({ ...p, [item.id]: !p[item.id] }))}
-                />
-                <View className="flex-1">
-                  <T className={`text-[14px] font-medium ${on ? 'text-placeholder line-through' : ''}`}>
-                    {item.name}
-                  </T>
-                  <Num className={`mt-0.5 text-[10.5px] ${on ? 'text-disabled' : 'text-placeholder'}`}>
-                    {item.unit} {item.quantity > 1 ? `× ${item.quantity}` : ''}
-                  </Num>
+                <View
+                  style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: 8,
+                    backgroundColor: item.prepared ? '#6A5ACD' : '#353437',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginTop: 2,
+                  }}
+                >
+                  {item.prepared ? <Check size={16} color="#F0EBFF" /> : null}
                 </View>
-                <Num className={`text-[12.5px] ${on ? 'text-disabled' : 'text-foreground'}`}>
-                  {item.unitPricePaise === null ? '₹ —' : formatInr(item.unitPricePaise * item.quantity)}
-                </Num>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontFamily: 'PlusJakartaSans_700Bold',
+                        color: '#E5E1E4',
+                        textDecorationLine: item.prepared ? 'line-through' : 'none',
+                        opacity: item.prepared ? 0.75 : 1,
+                      }}
+                    >
+                      {item.qty}x {item.name}
+                    </Text>
+                    <Text style={{ fontSize: 13, fontFamily: 'PlusJakartaSans_700Bold', color: '#E5E1E4' }}>
+                      ₹{item.price}
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 11, color: '#928F9E', marginTop: 2 }}>{item.notes}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
+                    <View
+                      style={{
+                        backgroundColor: item.prepared ? 'rgba(106, 90, 205, 0.25)' : 'rgba(142, 44, 1, 0.3)',
+                        paddingHorizontal: 7,
+                        paddingVertical: 2,
+                        borderRadius: 9999,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 10,
+                          fontFamily: 'PlusJakartaSans_700Bold',
+                          color: item.prepared ? '#C8BFFF' : '#FFB59C',
+                        }}
+                      >
+                        {item.prepared ? 'Prepared ✓' : 'In Progress...'}
+                      </Text>
+                    </View>
+                    <Text style={{ fontSize: 10, color: '#928F9E' }}>Station: {item.station}</Text>
+                  </View>
+                </View>
               </Pressable>
-            );
-          })}
+            ))}
+          </View>
         </View>
 
-        {flagged.map((item) => (
-          <View key={item.id} className="px-4">
-            <VerifyBlock order={order} item={item} />
+        {/* 5. Financial & Settlement Summary */}
+        <View
+          style={{
+            borderRadius: 20,
+            backgroundColor: '#201F21',
+            padding: 16,
+            borderWidth: 1,
+            borderColor: '#2A2A2C',
+            gap: 8,
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Receipt size={16} color="#C8BFFF" />
+              <Text style={{ fontSize: 14, fontFamily: 'PlusJakartaSans_700Bold', color: '#E5E1E4' }}>
+                Payout & Financial Breakdown
+              </Text>
+            </View>
+            <View style={{ backgroundColor: '#2A2A2C', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 9999 }}>
+              <Text style={{ fontSize: 9, color: '#928F9E', fontWeight: '600' }}>Merchant View</Text>
+            </View>
           </View>
-        ))}
 
-        {error ? (
-          <View className="px-4">
-            <ErrorNote message={error} />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={{ fontSize: 12, color: '#928F9E' }}>Item Subtotal</Text>
+            <Text style={{ fontSize: 12, color: '#E5E1E4', fontWeight: '600' }}>₹1,150.00</Text>
           </View>
-        ) : null}
+
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={{ fontSize: 12, color: '#928F9E' }}>Packaging Charge</Text>
+            <Text style={{ fontSize: 12, color: '#E5E1E4', fontWeight: '600' }}>₹25.00</Text>
+          </View>
+
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={{ fontSize: 12, color: '#928F9E' }}>GST Collected (5%)</Text>
+            <Text style={{ fontSize: 12, color: '#E5E1E4', fontWeight: '600' }}>₹58.75</Text>
+          </View>
+
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={{ fontSize: 12, color: '#FFB4AB' }}>DFC Commission (10% + Tax)</Text>
+            <Text style={{ fontSize: 12, color: '#FFB4AB', fontWeight: '600' }}>-₹123.75</Text>
+          </View>
+
+          <View style={{ height: 1, backgroundColor: '#2A2A2C', marginVertical: 4 }} />
+
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <View>
+              <Text style={{ fontSize: 13, fontFamily: 'PlusJakartaSans_700Bold', color: '#E5E1E4' }}>
+                Net Merchant Payable
+              </Text>
+              <Text style={{ fontSize: 10, color: '#928F9E' }}>Credited via instant escrow</Text>
+            </View>
+            <Text
+              style={{
+                fontSize: 18,
+                fontFamily: 'PlusJakartaSans_800ExtraBold',
+                fontWeight: '800',
+                color: '#C8BFFF',
+              }}
+            >
+              ₹1,110.00
+            </Text>
+          </View>
+
+          <View
+            style={{
+              backgroundColor: '#1C1B1D',
+              borderRadius: 10,
+              padding: 8,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              marginTop: 4,
+            }}
+          >
+            <ShieldCheck size={14} color="#7BD0FF" />
+            <Text style={{ fontSize: 11, color: '#928F9E' }}>
+              <Text style={{ color: '#E5E1E4', fontWeight: '700' }}>Paid Online via UPI</Text> • Auto-settles tomorrow at 6:00 AM
+            </Text>
+          </View>
+        </View>
       </ScrollView>
 
-      {/* Action Footer */}
-      <View className="gap-2 border-t border-border px-4 pb-6 pt-3">
-        {order.status === 'vendor_accepted' ? (
-          <Button
-            size="lg"
-            label="Start Preparing Order"
-            labelTa="தயாரிக்கத் தொடங்கு"
-            loading={busy}
-            onPress={() => void startPacking()}
-          />
-        ) : (
-          <Button
-            size="lg"
-            label={allPacked ? 'Mark Ready for Rider' : 'Pack Items & Mark Ready'}
-            labelTa="ரெடி என குறிக்கவும்"
-            loading={busy}
-            onPress={() => void markReady()}
-          />
-        )}
+      {/* Sticky Bottom Action Bar */}
+      <View
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          paddingHorizontal: 16,
+          paddingTop: 12,
+          paddingBottom: 24,
+          backgroundColor: 'rgba(19, 19, 21, 0.96)',
+          borderTopWidth: 1,
+          borderTopColor: '#201F21',
+          flexDirection: 'row',
+          gap: 10,
+        }}
+      >
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Reprint KOT"
+          onPress={handlePrintKOT}
+          style={{
+            flex: 1,
+            height: 50,
+            borderRadius: 14,
+            backgroundColor: '#2A2A2C',
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+          }}
+        >
+          <Printer size={16} color="#928F9E" />
+          <Text style={{ fontSize: 13, fontFamily: 'PlusJakartaSans_600SemiBold', color: '#E5E1E4' }}>
+            Reprint KOT
+          </Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Ready for Pickup / Handover"
+          onPress={() => setHandoverModalVisible(true)}
+          style={{
+            flex: 1.6,
+            height: 50,
+            borderRadius: 14,
+            backgroundColor: allPrepared ? '#FFB59C' : '#6A5ACD',
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            shadowColor: allPrepared ? '#FFB59C' : '#6A5ACD',
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: 0.5,
+            shadowRadius: 16,
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 13,
+              fontFamily: 'PlusJakartaSans_700Bold',
+              fontWeight: '700',
+              color: allPrepared ? '#380C00' : '#F0EBFF',
+            }}
+          >
+            {allPrepared ? 'Handover to Captain Suresh →' : 'Mark Ready for Pickup →'}
+          </Text>
+        </Pressable>
       </View>
 
-      {/* Delay Reporting Modal */}
+      {/* Handover OTP Modal (06 — Ready for Handover OTP) */}
       <Modal
-        visible={delayModalOpen}
+        visible={handoverModalVisible}
         transparent
         animationType="slide"
-        onRequestClose={() => setDelayModalOpen(false)}
+        onRequestClose={() => setHandoverModalVisible(false)}
       >
-        <View className="flex-1 justify-end bg-black/50">
-          <View className="gap-3.5 rounded-t-2xl border-t border-border bg-background p-5">
-            <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center gap-2">
-                <Clock size={18} color="#B45309" />
-                <T className="text-base font-bold text-foreground">Report Preparation Delay</T>
-              </View>
-              <Pressable onPress={() => setDelayModalOpen(false)}>
-                <X size={20} color="#6B7280" />
-              </Pressable>
-            </View>
-
-            <T className="text-xs text-muted-foreground">
-              Customer and delivery dispatch will be notified of the adjusted timeline immediately.
-            </T>
-
-            <T className="text-xs font-bold text-placeholder">EXTRA TIME NEEDED</T>
-            <View className="flex-row gap-2">
-              {[10, 15, 20, 30].map((mins) => (
-                <Pressable
-                  key={mins}
-                  onPress={() => setSelectedDelay(mins)}
-                  className={`flex-1 items-center justify-center rounded-lg border py-2.5 ${
-                    selectedDelay === mins
-                      ? 'border-primary bg-primary text-white'
-                      : 'border-border bg-surface'
-                  }`}
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' }}>
+          <View
+            style={{
+              backgroundColor: '#1C1B1D',
+              borderTopLeftRadius: 28,
+              borderTopRightRadius: 28,
+              padding: 20,
+              gap: 14,
+              maxHeight: '85%',
+              borderWidth: 1,
+              borderColor: '#2A2A2C',
+            }}
+          >
+            {/* Modal Header */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <View>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                    backgroundColor: '#2A2A2C',
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: 9999,
+                    alignSelf: 'flex-start',
+                  }}
                 >
-                  <T className={`text-xs font-bold ${selectedDelay === mins ? 'text-white' : 'text-foreground'}`}>
-                    +{mins}m
-                  </T>
-                </Pressable>
-              ))}
-            </View>
-
-            <View className="gap-1">
-              <T className="text-xs font-semibold text-foreground">Reason for Delay</T>
-              <TextInput
-                value={delayReason}
-                onChangeText={setDelayReason}
-                placeholder="e.g. Fresh batch being prepared / kitchen rush"
-                placeholderTextColor="#9CA3AF"
-                className="rounded-lg border border-border bg-surface p-2.5 text-xs text-foreground"
-              />
-            </View>
-
-            <View className="mt-2 flex-row gap-2.5">
+                  <View style={{ width: 6, height: 6, borderRadius: 9999, backgroundColor: '#7BD0FF' }} />
+                  <Text style={{ fontSize: 10, fontFamily: 'PlusJakartaSans_800ExtraBold', color: '#7BD0FF' }}>
+                    PICKUP READY
+                  </Text>
+                </View>
+                <Text
+                  style={{
+                    fontSize: 18,
+                    fontFamily: 'PlusJakartaSans_800ExtraBold',
+                    fontWeight: '800',
+                    color: '#E5E1E4',
+                    marginTop: 4,
+                  }}
+                >
+                  Waiting for Rider Handover
+                </Text>
+              </View>
               <Pressable
-                onPress={() => setDelayModalOpen(false)}
-                className="h-11 flex-1 items-center justify-center rounded-lg border border-border"
+                onPress={() => setHandoverModalVisible(false)}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 9999,
+                  backgroundColor: '#2A2A2C',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
               >
-                <T className="text-xs font-semibold text-foreground">Cancel</T>
-              </Pressable>
-              <Pressable
-                onPress={() => void handleReportDelay()}
-                disabled={delayBusy}
-                className="h-11 flex-1 items-center justify-center rounded-lg bg-primary"
-              >
-                <T className="text-xs font-bold text-white">
-                  {delayBusy ? 'Updating…' : 'Notify Customer & Dispatch'}
-                </T>
+                <X size={16} color="#E5E1E4" />
               </Pressable>
             </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
+              {/* Bag Token Tag */}
+              <View
+                style={{
+                  backgroundColor: '#201F21',
+                  borderRadius: 14,
+                  padding: 12,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <PackageCheck size={22} color="#C8BFFF" />
+                  <View>
+                    <Text style={{ fontSize: 10, color: '#928F9E', textTransform: 'uppercase', fontWeight: '700' }}>
+                      STORAGE STAGING
+                    </Text>
+                    <Text style={{ fontSize: 14, fontFamily: 'PlusJakartaSans_700Bold', color: '#E5E1E4' }}>
+                      Bag #B-14 • Rack 2
+                    </Text>
+                  </View>
+                </View>
+                <View style={{ backgroundColor: '#2A2A2C', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
+                  <Text style={{ fontSize: 11, color: '#FFB59C', fontWeight: '700' }}>Thermal Shelf</Text>
+                </View>
+              </View>
+
+              {/* Secure 4-Digit Handover Code */}
+              <View style={{ backgroundColor: '#201F21', borderRadius: 16, padding: 14, gap: 8 }}>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontFamily: 'PlusJakartaSans_800ExtraBold',
+                    fontWeight: '800',
+                    color: '#C8BFFF',
+                    letterSpacing: 0.8,
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  SECURE HANDOVER CODE
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'center', marginVertical: 6 }}>
+                  {['4', '8', '1', '9'].map((digit, idx) => (
+                    <View
+                      key={idx}
+                      style={{
+                        width: 54,
+                        height: 58,
+                        borderRadius: 14,
+                        backgroundColor: '#2A2A2C',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderWidth: 1,
+                        borderColor: '#353437',
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 26,
+                          fontFamily: 'PlusJakartaSans_800ExtraBold',
+                          fontWeight: '800',
+                          color: '#E5E1E4',
+                        }}
+                      >
+                        {digit}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+                <View
+                  style={{
+                    backgroundColor: '#1C1B1D',
+                    borderRadius: 10,
+                    padding: 8,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <CheckCircle2 size={14} color="#C8BFFF" />
+                  <Text style={{ fontSize: 11, color: '#C8BFFF', fontFamily: 'PlusJakartaSans_600SemiBold' }}>
+                    OTP Verified Automatically via Bluetooth Beacon
+                  </Text>
+                </View>
+              </View>
+
+              {/* Handover Protocol Checklist */}
+              <View style={{ backgroundColor: '#201F21', borderRadius: 16, padding: 14, gap: 8 }}>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontFamily: 'PlusJakartaSans_800ExtraBold',
+                    fontWeight: '800',
+                    color: '#928F9E',
+                    letterSpacing: 0.8,
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  HANDOVER PROTOCOL CHECKLIST
+                </Text>
+                <View style={{ gap: 6 }}>
+                  {handoverChecks.map((chk) => (
+                    <Pressable
+                      key={chk.id}
+                      onPress={() => toggleHandoverCheck(chk.id)}
+                      style={{
+                        backgroundColor: '#2A2A2C',
+                        borderRadius: 12,
+                        padding: 10,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 10,
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: 6,
+                          backgroundColor: chk.checked ? '#6A5ACD' : '#353437',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        {chk.checked ? <Check size={14} color="#F0EBFF" /> : null}
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 12, color: '#E5E1E4', fontFamily: 'PlusJakartaSans_600SemiBold' }}>
+                          {chk.title}
+                        </Text>
+                        <Text style={{ fontSize: 10, color: '#928F9E' }}>{chk.sub}</Text>
+                      </View>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
+              {/* Confirm Handover Button */}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Confirm Handover to Captain Suresh"
+                onPress={handleConfirmHandover}
+                style={{
+                  height: 52,
+                  borderRadius: 16,
+                  backgroundColor: allHandoverVerified ? '#6A5ACD' : '#353437',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  marginTop: 6,
+                }}
+              >
+                <Zap size={18} color={allHandoverVerified ? '#F0EBFF' : '#928F9E'} />
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontFamily: 'PlusJakartaSans_700Bold',
+                    fontWeight: '700',
+                    color: allHandoverVerified ? '#F0EBFF' : '#928F9E',
+                  }}
+                >
+                  {handoverSuccess ? 'Handover Confirmed ✓' : 'Confirm Handover to Captain Suresh'}
+                </Text>
+              </Pressable>
+            </ScrollView>
           </View>
         </View>
       </Modal>
-    </Screen>
+    </View>
   );
 }

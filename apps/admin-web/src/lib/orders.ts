@@ -71,11 +71,8 @@ export function subscribeBoard(
   }
 
   try {
-    const since = Date.now() - BOARD_WINDOW_HOURS * 60 * 60 * 1000;
     const q = query(
       collection(db(), COL.orders),
-      where('status', 'in', OPEN_STATUSES),
-      where('createdAt', '>=', since),
       orderBy('createdAt', 'desc'),
       limit(BOARD_MAX_ORDERS),
     );

@@ -1,12 +1,11 @@
 /**
- * DFC Universal Search Screen - Full Stitch Design Implementation
- * Glassmorphism Search Input, Voice/Visual Search, Smart Suggestions, Recent Pills, and Browse Categories.
+ * DFC Universal Search Screen — Stitch Dark Floating Theme
+ * Glassmorphic Search Input, Voice/Visual Search, Smart Suggestions, Recent Pills, and Browse Categories.
  */
 
 import * as React from 'react';
 import {
   Alert,
-  Pressable,
   ScrollView,
   Text,
   TextInput,
@@ -26,6 +25,7 @@ import {
   Store,
   Utensils,
   X,
+  ChevronRight,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
@@ -34,6 +34,8 @@ import { mockRestaurantRepository } from '@/demo/repositories/restaurant.reposit
 import { mockGroceryRepository } from '@/demo/repositories/grocery.repository';
 import { useCart } from '@/providers/cart';
 import { Screen } from '@/ui';
+import { DFCPressable } from '@/ui/animated';
+import { StitchHeader } from '@/ui/stitch-header';
 
 export default function UniversalSearchScreen() {
   const router = useRouter();
@@ -42,8 +44,8 @@ export default function UniversalSearchScreen() {
   const [isVoiceActive, setIsVoiceActive] = React.useState(false);
   const [recentSearches, setRecentSearches] = React.useState([
     'Filter Coffee',
-    'Amma Mess',
-    'Chicken Biryani',
+    'Amma Mess Biryani',
+    'A4 Color Printout',
     'Jigarthanda',
   ]);
 
@@ -78,125 +80,96 @@ export default function UniversalSearchScreen() {
   };
 
   return (
-    <Screen edges={['top']}>
+    <Screen edges={['top']} style={{ backgroundColor: '#0E0E10' }}>
       {/* Top Header */}
-      <View
-        style={{
-          height: 64,
-          backgroundColor: '#F9F9FF',
-          paddingHorizontal: 20,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <Pressable
-          onPress={() => router.back()}
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: 19,
-            backgroundColor: '#E9EDFF',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <ArrowLeft size={20} color="#7A1F3D" strokeWidth={2.2} />
-        </Pressable>
-
-        <Text
-          style={{
-            fontFamily: 'Archivo',
-            fontSize: 22,
-            fontWeight: '800',
-            color: '#7A1F3D',
-            letterSpacing: -0.4,
-          }}
-        >
-          Search
-        </Text>
-
-        <View style={{ width: 38 }} />
-      </View>
+      <StitchHeader
+        showBack={true}
+        title="Search Anything"
+        subtitle="Food, Groceries, Prints & Errands in Madurai"
+        showNotifications={false}
+      />
 
       <ScrollView
         contentContainerStyle={{
-          paddingHorizontal: 20,
+          paddingHorizontal: 16,
           paddingTop: 8,
           paddingBottom: 40,
         }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Glassmorphism Search Input Container */}
+        {/* Floating Search Input Container */}
         <View
           style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: 16,
+            backgroundColor: '#18181B',
+            borderRadius: 18,
             borderWidth: 1,
-            borderColor: '#DAC0C4',
+            borderColor: '#26262B',
             paddingHorizontal: 14,
             paddingVertical: 10,
             flexDirection: 'row',
             alignItems: 'center',
             shadowColor: '#000000',
-            shadowOpacity: 0.05,
-            shadowRadius: 10,
+            shadowOpacity: 0.4,
+            shadowRadius: 12,
             shadowOffset: { width: 0, height: 4 },
-            elevation: 3,
-            marginBottom: 24,
+            elevation: 4,
+            marginBottom: 20,
           }}
         >
-          <Search size={20} color="#887275" />
+          <Search size={18} color="#928F9E" />
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="What can we get for you?"
-            placeholderTextColor="#887275"
+            placeholder="Search dishes, groceries, stores, xerox..."
+            placeholderTextColor="#5C5A64"
             autoFocus
             style={{
               flex: 1,
               paddingHorizontal: 10,
-              fontFamily: 'Archivo',
-              fontSize: 15,
-              color: '#141B2B',
+              fontFamily: 'PlusJakartaSans',
+              fontSize: 14,
+              color: '#E5E1E4',
             }}
           />
 
           {query.length > 0 ? (
-            <Pressable onPress={() => setQuery('')} style={{ padding: 4 }}>
-              <X size={18} color="#887275" />
-            </Pressable>
+            <DFCPressable onPress={() => setQuery('')} scaleTo={0.9} style={{ padding: 4 }}>
+              <X size={18} color="#928F9E" />
+            </DFCPressable>
           ) : (
-            <View className="flex-row items-center gap-2 border-l border-[#DAC0C4] pl-3">
+            <View className="flex-row items-center gap-2 border-l border-[#26262B] pl-3">
               {/* Voice Mic Button */}
-              <Pressable
+              <DFCPressable
                 onPress={handleVoiceSearch}
+                scaleTo={0.9}
                 style={{
                   width: 32,
                   height: 32,
                   borderRadius: 16,
-                  backgroundColor: isVoiceActive ? '#FFDAD6' : '#FDF2F5',
+                  backgroundColor: isVoiceActive ? 'rgba(106, 90, 205, 0.4)' : '#201F25',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <Mic size={18} color="#7A1F3D" />
-              </Pressable>
+                <Mic size={16} color={isVoiceActive ? '#C8BFFF' : '#A09CA8'} />
+              </DFCPressable>
 
               {/* Lens / Camera Button */}
-              <Pressable
+              <DFCPressable
                 onPress={() => router.push('/(customer)/chat')}
+                scaleTo={0.9}
                 style={{
                   width: 32,
                   height: 32,
                   borderRadius: 16,
+                  backgroundColor: '#201F25',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <Camera size={18} color="#554245" />
-              </Pressable>
+                <Camera size={16} color="#A09CA8" />
+              </DFCPressable>
             </View>
           )}
         </View>
@@ -206,11 +179,11 @@ export default function UniversalSearchScreen() {
           <View className="gap-6">
             {!hasResults ? (
               <View className="items-center py-16">
-                <Text style={{ fontFamily: 'Archivo', fontSize: 16, fontWeight: '700', color: '#141B2B' }}>
+                <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 16, fontWeight: '700', color: '#E5E1E4' }}>
                   No matches found for "{query}"
                 </Text>
-                <Text style={{ fontFamily: 'Archivo', fontSize: 13, color: '#554245', textAlign: 'center', marginTop: 4 }}>
-                  Try searching for Biryani, Dolo 650, Parotta, or Anna Nagar.
+                <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 13, color: '#928F9E', textAlign: 'center', marginTop: 6, lineHeight: 18 }}>
+                  Try searching for Biryani, Fresh Milk, Xerox, or Anna Nagar.
                 </Text>
               </View>
             ) : (
@@ -218,36 +191,40 @@ export default function UniversalSearchScreen() {
                 {/* Restaurants */}
                 {searchResults && searchResults.restaurants.length > 0 ? (
                   <View className="gap-3">
-                    <Text style={{ fontFamily: 'Archivo', fontSize: 14, fontWeight: '800', color: '#7A1F3D' }}>
+                    <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 12, fontWeight: '700', color: '#C8BFFF', letterSpacing: 0.5 }}>
                       RESTAURANTS ({searchResults.restaurants.length})
                     </Text>
                     {searchResults.restaurants.map((r) => (
-                      <Pressable
+                      <DFCPressable
                         key={r.id}
                         onPress={() => router.push(`/(customer)/food/restaurant/${r.id}` as any)}
+                        scaleTo={0.98}
                         style={{
-                          backgroundColor: '#FFFFFF',
-                          borderRadius: 12,
+                          backgroundColor: '#18181B',
+                          borderRadius: 16,
                           borderWidth: 1,
-                          borderColor: '#DAC0C4',
+                          borderColor: '#26262B',
                           padding: 14,
                           flexDirection: 'row',
                           alignItems: 'center',
                           justifyContent: 'space-between',
                         }}
                       >
-                        <View>
-                          <Text style={{ fontFamily: 'Archivo', fontSize: 15, fontWeight: '700', color: '#141B2B' }}>
+                        <View style={{ flex: 1, paddingRight: 10 }}>
+                          <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 15, fontWeight: '700', color: '#E5E1E4' }}>
                             {r.name}
                           </Text>
-                          <Text style={{ fontFamily: 'Archivo', fontSize: 12, color: '#554245' }}>
+                          <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 12, color: '#928F9E', marginTop: 2 }}>
                             {r.localityName} · {r.cuisines.join(', ')}
                           </Text>
                         </View>
-                        <Text style={{ fontFamily: 'Archivo', fontSize: 13, fontWeight: '700', color: '#7A1F3D' }}>
-                          View Menu →
-                        </Text>
-                      </Pressable>
+                        <View className="flex-row items-center gap-1">
+                          <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 12, fontWeight: '700', color: '#C8BFFF' }}>
+                            Menu
+                          </Text>
+                          <ChevronRight size={14} color="#C8BFFF" />
+                        </View>
+                      </DFCPressable>
                     ))}
                   </View>
                 ) : null}
@@ -255,32 +232,54 @@ export default function UniversalSearchScreen() {
                 {/* Dishes */}
                 {searchResults && searchResults.dishes.length > 0 ? (
                   <View className="gap-3">
-                    <Text style={{ fontFamily: 'Archivo', fontSize: 14, fontWeight: '800', color: '#7A1F3D' }}>
+                    <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 12, fontWeight: '700', color: '#C8BFFF', letterSpacing: 0.5 }}>
                       DISHES & FOOD ({searchResults.dishes.length})
                     </Text>
                     {searchResults.dishes.map((d) => (
                       <View
                         key={d.id}
                         style={{
-                          backgroundColor: '#FFFFFF',
-                          borderRadius: 12,
+                          backgroundColor: '#18181B',
+                          borderRadius: 16,
                           borderWidth: 1,
-                          borderColor: '#DAC0C4',
+                          borderColor: '#26262B',
                           padding: 14,
                           flexDirection: 'row',
                           alignItems: 'center',
                           justifyContent: 'space-between',
                         }}
                       >
-                        <View>
-                          <Text style={{ fontFamily: 'Archivo', fontSize: 15, fontWeight: '700', color: '#141B2B' }}>
-                            {d.name}
-                          </Text>
-                          <Text style={{ fontFamily: 'Archivo', fontSize: 12, color: '#554245' }}>
-                            {d.restaurantName} · {formatInr(d.pricePaise)}
+                        <View style={{ flex: 1, paddingRight: 12 }}>
+                          <View className="flex-row items-center gap-2">
+                            <View
+                              style={{
+                                width: 12,
+                                height: 12,
+                                borderWidth: 1.5,
+                                borderColor: d.isVeg ? '#10B981' : '#EF4444',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                borderRadius: 3,
+                              }}
+                            >
+                              <View
+                                style={{
+                                  width: 5,
+                                  height: 5,
+                                  borderRadius: 2.5,
+                                  backgroundColor: d.isVeg ? '#10B981' : '#EF4444',
+                                }}
+                              />
+                            </View>
+                            <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 15, fontWeight: '700', color: '#E5E1E4' }}>
+                              {d.name}
+                            </Text>
+                          </View>
+                          <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 12, color: '#928F9E', marginTop: 2 }}>
+                            {d.restaurantName} · <Text style={{ color: '#C8BFFF', fontWeight: '700' }}>{formatInr(d.pricePaise)}</Text>
                           </Text>
                         </View>
-                        <Pressable
+                        <DFCPressable
                           onPress={async () => {
                             void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                             const payload = {
@@ -312,17 +311,18 @@ export default function UniversalSearchScreen() {
                               );
                             }
                           }}
+                          scaleTo={0.94}
                           style={{
-                            backgroundColor: '#7A1F3D',
-                            paddingHorizontal: 12,
-                            paddingVertical: 6,
-                            borderRadius: 6,
+                            backgroundColor: '#6A5ACD',
+                            paddingHorizontal: 14,
+                            paddingVertical: 8,
+                            borderRadius: 10,
                           }}
                         >
-                          <Text style={{ fontFamily: 'Archivo', fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}>
+                          <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}>
                             ADD +
                           </Text>
-                        </Pressable>
+                        </DFCPressable>
                       </View>
                     ))}
                   </View>
@@ -337,92 +337,89 @@ export default function UniversalSearchScreen() {
             <View className="mb-6">
               <Text
                 style={{
-                  fontFamily: 'Archivo',
-                  fontSize: 18,
+                  fontFamily: 'PlusJakartaSans',
+                  fontSize: 13,
                   fontWeight: '700',
-                  color: '#141B2B',
+                  color: '#E5E1E4',
+                  letterSpacing: 0.5,
                   marginBottom: 12,
                 }}
               >
-                Smart Suggestions
+                SMART SUGGESTIONS
               </Text>
 
               <View className="gap-3">
-                <Pressable
+                <DFCPressable
                   onPress={() => setQuery('2 mutton biryani from Amma Mess')}
+                  scaleTo={0.98}
                   style={{
-                    backgroundColor: '#FFFFFF',
-                    borderRadius: 12,
+                    backgroundColor: '#18181B',
+                    borderRadius: 16,
                     borderWidth: 1,
-                    borderColor: '#DAC0C4',
+                    borderColor: '#26262B',
                     padding: 14,
                     flexDirection: 'row',
                     alignItems: 'center',
                     gap: 12,
-                    shadowColor: '#000',
-                    shadowOpacity: 0.03,
-                    shadowRadius: 6,
                   }}
                 >
                   <View
                     style={{
                       width: 40,
                       height: 40,
-                      borderRadius: 20,
-                      backgroundColor: '#E9EDFF',
+                      borderRadius: 12,
+                      backgroundColor: 'rgba(106, 90, 205, 0.2)',
                       alignItems: 'center',
                       justifyContent: 'center',
                     }}
                   >
-                    <Utensils size={20} color="#7A1F3D" />
+                    <Utensils size={18} color="#C8BFFF" />
                   </View>
                   <View className="flex-1">
-                    <Text style={{ fontFamily: 'Archivo', fontSize: 15, fontWeight: '700', color: '#141B2B' }}>
+                    <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 14, fontWeight: '700', color: '#E5E1E4' }}>
                       "2 mutton biryani from Amma Mess"
                     </Text>
-                    <Text style={{ fontFamily: 'Archivo', fontSize: 12, color: '#554245', marginTop: 2 }}>
-                      Estimated 35 mins
+                    <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 12, color: '#928F9E', marginTop: 2 }}>
+                      Estimated 35 mins · Trending lunch
                     </Text>
                   </View>
-                </Pressable>
+                </DFCPressable>
 
-                <Pressable
+                <DFCPressable
                   onPress={() => setQuery('Spiral binding print 20 pages')}
+                  scaleTo={0.98}
                   style={{
-                    backgroundColor: '#FFFFFF',
-                    borderRadius: 12,
+                    backgroundColor: '#18181B',
+                    borderRadius: 16,
                     borderWidth: 1,
-                    borderColor: '#DAC0C4',
+                    borderColor: '#26262B',
                     padding: 14,
                     flexDirection: 'row',
                     alignItems: 'center',
                     gap: 12,
-                    shadowColor: '#000',
-                    shadowOpacity: 0.03,
-                    shadowRadius: 6,
                   }}
                 >
                   <View
                     style={{
                       width: 40,
                       height: 40,
-                      borderRadius: 20,
-                      backgroundColor: '#F5F3FF',
+                      borderRadius: 12,
+                      backgroundColor: 'rgba(59, 130, 246, 0.2)',
                       alignItems: 'center',
                       justifyContent: 'center',
                     }}
                   >
-                    <Printer size={20} color="#7C3AED" />
+                    <Printer size={18} color="#93C5FD" />
                   </View>
                   <View className="flex-1">
-                    <Text style={{ fontFamily: 'Archivo', fontSize: 15, fontWeight: '700', color: '#141B2B' }}>
+                    <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 14, fontWeight: '700', color: '#E5E1E4' }}>
                       "Spiral binding print 20 pages"
                     </Text>
-                    <Text style={{ fontFamily: 'Archivo', fontSize: 12, color: '#554245', marginTop: 2 }}>
-                      Express Print & Xerox available
+                    <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 12, color: '#928F9E', marginTop: 2 }}>
+                      Express Print & Xerox · Tallakulam Hub
                     </Text>
                   </View>
-                </Pressable>
+                </DFCPressable>
               </View>
             </View>
 
@@ -430,38 +427,39 @@ export default function UniversalSearchScreen() {
             {recentSearches.length > 0 ? (
               <View className="mb-6">
                 <View className="flex-row items-center justify-between mb-3">
-                  <Text style={{ fontFamily: 'Archivo', fontSize: 18, fontWeight: '700', color: '#141B2B' }}>
-                    Recent
+                  <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 13, fontWeight: '700', color: '#E5E1E4', letterSpacing: 0.5 }}>
+                    RECENT SEARCHES
                   </Text>
-                  <Pressable onPress={() => setRecentSearches([])}>
-                    <Text style={{ fontFamily: 'Archivo', fontSize: 13, fontWeight: '600', color: '#7A1F3D' }}>
+                  <DFCPressable onPress={() => setRecentSearches([])} scaleTo={0.94}>
+                    <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 12, fontWeight: '600', color: '#C8BFFF' }}>
                       Clear all
                     </Text>
-                  </Pressable>
+                  </DFCPressable>
                 </View>
 
                 <View className="flex-row flex-wrap gap-2">
                   {recentSearches.map((item) => (
-                    <Pressable
+                    <DFCPressable
                       key={item}
                       onPress={() => setQuery(item)}
+                      scaleTo={0.94}
                       style={{
-                        backgroundColor: '#FFFFFF',
+                        backgroundColor: '#18181B',
                         borderWidth: 1,
-                        borderColor: '#DAC0C4',
-                        borderRadius: 9999,
-                        paddingHorizontal: 14,
-                        paddingVertical: 8,
+                        borderColor: '#26262B',
+                        borderRadius: 20,
+                        paddingHorizontal: 12,
+                        paddingVertical: 7,
                         flexDirection: 'row',
                         alignItems: 'center',
                         gap: 6,
                       }}
                     >
-                      <History size={14} color="#554245" />
-                      <Text style={{ fontFamily: 'Archivo', fontSize: 13, color: '#141B2B', fontWeight: '500' }}>
+                      <History size={13} color="#928F9E" />
+                      <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 12, color: '#E5E1E4', fontWeight: '600' }}>
                         {item}
                       </Text>
-                    </Pressable>
+                    </DFCPressable>
                   ))}
                 </View>
               </View>
@@ -471,124 +469,185 @@ export default function UniversalSearchScreen() {
             <View>
               <Text
                 style={{
-                  fontFamily: 'Archivo',
-                  fontSize: 18,
+                  fontFamily: 'PlusJakartaSans',
+                  fontSize: 13,
                   fontWeight: '700',
-                  color: '#141B2B',
+                  color: '#E5E1E4',
+                  letterSpacing: 0.5,
                   marginBottom: 12,
                 }}
               >
-                Browse Categories
+                BROWSE CATEGORIES
               </Text>
 
               <View className="flex-row flex-wrap gap-3">
                 {/* Restaurants */}
-                <Pressable
+                <DFCPressable
                   onPress={() => router.push('/(customer)/food')}
+                  scaleTo={0.97}
                   style={{
                     flex: 1,
                     minWidth: '45%',
-                    backgroundColor: '#FFFFFF',
-                    borderRadius: 16,
+                    backgroundColor: '#18181B',
+                    borderRadius: 18,
                     padding: 16,
                     borderWidth: 1,
-                    borderColor: '#DAC0C4',
+                    borderColor: '#26262B',
                   }}
                 >
-                  <Store size={28} color="#7A1F3D" />
+                  <View
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 14,
+                      backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginBottom: 12,
+                    }}
+                  >
+                    <Store size={22} color="#F87171" />
+                  </View>
                   <Text
                     style={{
-                      fontFamily: 'Archivo',
-                      fontSize: 16,
+                      fontFamily: 'PlusJakartaSans',
+                      fontSize: 15,
                       fontWeight: '700',
-                      color: '#141B2B',
-                      marginTop: 10,
+                      color: '#E5E1E4',
                     }}
                   >
                     Restaurants
                   </Text>
-                </Pressable>
+                  <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 11, color: '#928F9E', marginTop: 2 }}>
+                    42+ iconic eateries
+                  </Text>
+                </DFCPressable>
 
                 {/* Print & Xerox */}
-                <Pressable
+                <DFCPressable
                   onPress={() => router.push('/(customer)/print')}
+                  scaleTo={0.97}
                   style={{
                     flex: 1,
                     minWidth: '45%',
-                    backgroundColor: '#FFFFFF',
-                    borderRadius: 16,
+                    backgroundColor: '#18181B',
+                    borderRadius: 18,
                     padding: 16,
                     borderWidth: 1,
-                    borderColor: '#DAC0C4',
+                    borderColor: '#26262B',
                   }}
                 >
-                  <Printer size={28} color="#7A1F3D" />
+                  <View
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 14,
+                      backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginBottom: 12,
+                    }}
+                  >
+                    <Printer size={22} color="#60A5FA" />
+                  </View>
                   <Text
                     style={{
-                      fontFamily: 'Archivo',
-                      fontSize: 16,
+                      fontFamily: 'PlusJakartaSans',
+                      fontSize: 15,
                       fontWeight: '700',
-                      color: '#141B2B',
-                      marginTop: 10,
+                      color: '#E5E1E4',
                     }}
                   >
                     Print & Xerox
                   </Text>
-                </Pressable>
+                  <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 11, color: '#928F9E', marginTop: 2 }}>
+                    Laser A4 & binding
+                  </Text>
+                </DFCPressable>
 
                 {/* Groceries */}
-                <Pressable
+                <DFCPressable
                   onPress={() => router.push('/(customer)/grocery')}
+                  scaleTo={0.97}
                   style={{
                     flex: 1,
                     minWidth: '45%',
-                    backgroundColor: '#FFFFFF',
-                    borderRadius: 16,
+                    backgroundColor: '#18181B',
+                    borderRadius: 18,
                     padding: 16,
                     borderWidth: 1,
-                    borderColor: '#DAC0C4',
+                    borderColor: '#26262B',
                   }}
                 >
-                  <ShoppingBag size={28} color="#7A1F3D" />
+                  <View
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 14,
+                      backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginBottom: 12,
+                    }}
+                  >
+                    <ShoppingBag size={22} color="#34D399" />
+                  </View>
                   <Text
                     style={{
-                      fontFamily: 'Archivo',
-                      fontSize: 16,
+                      fontFamily: 'PlusJakartaSans',
+                      fontSize: 15,
                       fontWeight: '700',
-                      color: '#141B2B',
-                      marginTop: 10,
+                      color: '#E5E1E4',
                     }}
                   >
                     Groceries
                   </Text>
-                </Pressable>
+                  <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 11, color: '#928F9E', marginTop: 2 }}>
+                    Fresh produce & dairy
+                  </Text>
+                </DFCPressable>
 
-                {/* Package Drop */}
-                <Pressable
+                {/* Package Drop / Genie */}
+                <DFCPressable
                   onPress={() => router.push('/(customer)/genie')}
+                  scaleTo={0.97}
                   style={{
                     flex: 1,
                     minWidth: '45%',
-                    backgroundColor: '#FFFFFF',
-                    borderRadius: 16,
+                    backgroundColor: '#18181B',
+                    borderRadius: 18,
                     padding: 16,
                     borderWidth: 1,
-                    borderColor: '#DAC0C4',
+                    borderColor: '#26262B',
                   }}
                 >
-                  <Package size={28} color="#7A1F3D" />
-                  <Text
+                  <View
                     style={{
-                      fontFamily: 'Archivo',
-                      fontSize: 16,
-                      fontWeight: '700',
-                      color: '#141B2B',
-                      marginTop: 10,
+                      width: 44,
+                      height: 44,
+                      borderRadius: 14,
+                      backgroundColor: 'rgba(168, 85, 247, 0.15)',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginBottom: 12,
                     }}
                   >
-                    Package Drop
+                    <Package size={22} color="#C084FC" />
+                  </View>
+                  <Text
+                    style={{
+                      fontFamily: 'PlusJakartaSans',
+                      fontSize: 15,
+                      fontWeight: '700',
+                      color: '#E5E1E4',
+                    }}
+                  >
+                    Genie Concierge
                   </Text>
-                </Pressable>
+                  <Text style={{ fontFamily: 'PlusJakartaSans', fontSize: 11, color: '#928F9E', marginTop: 2 }}>
+                    Any errand or courier
+                  </Text>
+                </DFCPressable>
               </View>
             </View>
           </>

@@ -109,7 +109,7 @@ export function PaymentPanel({
           {payment.method === 'cash' ? (
             <Banknote className="size-4 text-grocery" strokeWidth={2} />
           ) : (
-            <Smartphone className="size-4 text-pharmacy" strokeWidth={2} />
+            <Smartphone className="size-4 text-primary" strokeWidth={2} />
           )}
           <span className="flex-1 text-[13px] font-medium capitalize">
             {payment.method === 'upi_intent' ? 'UPI transfer' : payment.method}

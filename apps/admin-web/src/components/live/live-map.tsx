@@ -50,10 +50,12 @@ function project(lat: number, lng: number): [number, number] {
 }
 
 const CATEGORY_COLOR: Record<string, string> = {
-  pharmacy: tokens.category.pharmacy.solid,
   grocery: tokens.category.grocery.solid,
   food: tokens.category.food.solid,
   concierge: tokens.category.concierge.solid,
+  print: tokens.category.concierge.solid,
+  pickup_drop: tokens.category.food.solid,
+  buy_deliver: tokens.category.grocery.solid,
 };
 
 // ---------------------------------------------------------------------------

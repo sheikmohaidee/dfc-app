@@ -608,8 +608,10 @@ export function OrderSheet({
 
         <SheetBody className="flex flex-col gap-4">
           <div className="flex items-center gap-2">
-            <Badge tone={order.category as 'pharmacy'}>{order.category.toUpperCase()}</Badge>
-            <Badge tone={order.paymentMode === 'prepaid' ? 'pharmacy' : 'grocery'}>
+            <Badge tone={order.category === 'food' ? 'food' : order.category === 'grocery' ? 'grocery' : 'concierge'}>
+              {order.category.toUpperCase()}
+            </Badge>
+            <Badge tone={order.paymentMode === 'prepaid' ? 'concierge' : 'grocery'}>
               {order.paymentMode === 'prepaid' ? 'PREPAID' : 'COD'}
             </Badge>
             <Badge tone="neutral">{STATUS_LABEL[order.status].en.toUpperCase()}</Badge>

@@ -17,6 +17,13 @@ import {
 import { Geist_400Regular, Geist_500Medium, Geist_600SemiBold, Geist_700Bold } from '@expo-google-fonts/geist';
 import { GeistMono_400Regular, GeistMono_500Medium, GeistMono_600SemiBold } from '@expo-google-fonts/geist-mono';
 import {
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+  PlusJakartaSans_800ExtraBold,
+} from '@expo-google-fonts/plus-jakarta-sans';
+import {
   HindMadurai_400Regular,
   HindMadurai_500Medium,
   HindMadurai_600SemiBold,
@@ -40,6 +47,11 @@ export default function RootLayout() {
   );
 
   const [loaded, error] = useFonts({
+    PlusJakartaSans: PlusJakartaSans_400Regular,
+    PlusJakartaSansMedium: PlusJakartaSans_500Medium,
+    PlusJakartaSansSemiBold: PlusJakartaSans_600SemiBold,
+    PlusJakartaSansBold: PlusJakartaSans_700Bold,
+    PlusJakartaSansExtraBold: PlusJakartaSans_800ExtraBold,
     Archivo: Archivo_400Regular,
     ArchivoMedium: Archivo_500Medium,
     ArchivoSemiBold: Archivo_600SemiBold,
@@ -80,11 +92,11 @@ export default function RootLayout() {
                   white screen and a force-quit, which is costly on a rider's phone
                   at somebody's door. */}
               <ErrorBoundary>
-                <StatusBar style="dark" />
+                <StatusBar style="light" />
                 <Stack
                   screenOptions={{
                     headerShown: false,
-                    contentStyle: { backgroundColor: '#F7F8F9' },
+                    contentStyle: { backgroundColor: '#0E0E10' },
                     animation: 'slide_from_right',
                   }}
                 >

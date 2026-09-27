@@ -83,7 +83,7 @@ const badgeVariants = cva(
   {
     variants: {
       tone: {
-        pharmacy: 'text-pharmacy-fg bg-pharmacy-tint border-pharmacy-border',
+        primary: 'text-primary bg-primary/15 border-primary/30',
         grocery: 'text-grocery-fg bg-grocery-tint border-grocery-border',
         food: 'text-food-fg bg-food-tint border-food-border',
         concierge: 'text-concierge-fg bg-concierge-tint border-concierge-border',

@@ -284,7 +284,7 @@ export async function createOrderFromExtraction(args: {
 }): Promise<Order> {
   if (DEMO_MODE) {
     const storeName = args.extraction.storeHint || 'Amma Mess';
-    const storeId = args.extraction.category === 'pharmacy' ? 'pharm-meenakshi' : 'rest-amma-mess';
+    const storeId = args.extraction.category === 'grocery' ? 'store-grocery-1' : 'rest-amma-mess';
     return mockOrderRepository.createDirectOrder({
       category: args.extraction.category,
       storeName,

@@ -1,18 +1,17 @@
 /**
- * The building blocks every settings screen is made of.
- *
- * Grouped rows on a grey field — the pattern people already know from every
- * app on their phone. Novelty here would cost comprehension and buy nothing.
+ * The building blocks every settings screen is made of — Stitch Dark Floating Theme.
+ * Grouped rows on an elevated dark field with Plus Jakarta Sans typography.
  */
 
 import * as React from 'react';
-import { Pressable, ScrollView, Switch as RNSwitch, View } from 'react-native';
+import { Pressable, ScrollView, Switch as RNSwitch, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, ChevronRight } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 
 import type { Bi } from '@dfc/core';
 import { useLang } from '@/providers/language';
-import { Screen, T, Ta } from './index';
+import { Screen } from './index';
 
 // ---------------------------------------------------------------------------
 
@@ -29,19 +28,69 @@ export function SettingsHeader({
   const { bilingual } = useLang();
 
   return (
-    <View className="flex-row items-center gap-2.5 border-b border-muted px-4 pb-3 pt-2">
-      <Pressable
-        onPress={() => router.back()}
-        hitSlop={12}
-        accessibilityRole="button"
-        accessibilityLabel="Go back"
-        className="-ml-2 size-9 items-center justify-center"
-      >
-        <ArrowLeft size={21} color="#18181B" strokeWidth={2} />
-      </Pressable>
-      <View className="flex-1">
-        <T className="text-[17px] font-semibold tracking-[-0.3px]">{title}</T>
-        {titleTa && bilingual ? <Ta className="mt-0.5 text-[11.5px]">{titleTa}</Ta> : null}
+    <View
+      style={{
+        height: 60,
+        backgroundColor: '#0E0E10',
+        borderBottomWidth: 1,
+        borderBottomColor: '#201F21',
+        paddingHorizontal: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        zIndex: 50,
+      }}
+    >
+      <View className="flex-row items-center gap-3 flex-1">
+        <Pressable
+          onPress={() => {
+            void Haptics.selectionAsync();
+            if (router.canGoBack()) router.back();
+            else router.replace('/(customer)/account');
+          }}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: 19,
+            backgroundColor: '#1C1B1D',
+            borderWidth: 1,
+            borderColor: '#2A2A2C',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <ArrowLeft size={19} color="#E5E1E4" strokeWidth={2.2} />
+        </Pressable>
+        <View className="flex-1">
+          <Text
+            numberOfLines={1}
+            style={{
+              fontFamily: 'PlusJakartaSans',
+              fontSize: 17,
+              fontWeight: '700',
+              color: '#E5E1E4',
+              letterSpacing: -0.2,
+            }}
+          >
+            {title}
+          </Text>
+          {titleTa && bilingual ? (
+            <Text
+              numberOfLines={1}
+              style={{
+                fontFamily: 'PlusJakartaSans',
+                fontSize: 11,
+                fontWeight: '500',
+                color: '#928F9E',
+              }}
+            >
+              {titleTa}
+            </Text>
+          ) : null}
+        </View>
       </View>
       {right}
     </View>
@@ -51,9 +100,15 @@ export function SettingsHeader({
 export function SettingsScroll({ children }: { children: React.ReactNode }) {
   return (
     <ScrollView
-      className="flex-1 bg-surface"
-      contentContainerClassName="gap-6 px-4 py-5 pb-12"
+      style={{ flex: 1, backgroundColor: '#0E0E10' }}
+      contentContainerStyle={{
+        paddingHorizontal: 16,
+        paddingTop: 16,
+        paddingBottom: 48,
+        gap: 20,
+      }}
       keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
     >
       {children}
     </ScrollView>
@@ -71,22 +126,50 @@ export function Group({
 }) {
   const rows = React.Children.toArray(children).filter(Boolean);
   return (
-    <View className="gap-2">
+    <View style={{ gap: 8 }}>
       {label ? (
-        <T className="px-1 text-[10.5px] font-bold tracking-[1.05px] text-placeholder">
-          {label.toUpperCase()}
-        </T>
+        <Text
+          style={{
+            paddingHorizontal: 4,
+            fontFamily: 'PlusJakartaSans',
+            fontSize: 11,
+            fontWeight: '700',
+            color: '#C8BFFF',
+            letterSpacing: 1,
+            textTransform: 'uppercase',
+          }}
+        >
+          {label}
+        </Text>
       ) : null}
-      <View className="overflow-hidden rounded-card border border-border bg-background">
+      <View
+        style={{
+          borderRadius: 18,
+          borderWidth: 1,
+          borderColor: '#26262B',
+          backgroundColor: '#18181B',
+          overflow: 'hidden',
+        }}
+      >
         {rows.map((row, i) => (
           <View key={i}>
-            {i > 0 ? <View className="ml-[52px] h-px bg-muted" /> : null}
+            {i > 0 ? <View style={{ marginLeft: 52, height: 1, backgroundColor: '#26262B' }} /> : null}
             {row}
           </View>
         ))}
       </View>
       {footer ? (
-        <T className="px-1 text-[11.5px] leading-[17px] text-placeholder">{footer}</T>
+        <Text
+          style={{
+            paddingHorizontal: 4,
+            fontFamily: 'PlusJakartaSans',
+            fontSize: 11,
+            color: '#928F9E',
+            lineHeight: 16,
+          }}
+        >
+          {footer}
+        </Text>
       ) : null}
     </View>
   );
@@ -125,30 +208,78 @@ export function Row({
 
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        if (onPress) {
+          void Haptics.selectionAsync();
+          onPress();
+        }
+      }}
       disabled={!onPress}
       accessibilityRole={onPress ? 'button' : undefined}
-      // 56px keeps every row above the 44px floor with room for a hint line.
-      className="min-h-[56px] flex-row items-center gap-3 px-4 py-3 active:bg-muted"
+      style={{
+        minHeight: 56,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+      }}
     >
-      {icon ? <View className="w-6 items-center">{icon}</View> : null}
+      {icon ? <View style={{ width: 24, alignItems: 'center' }}>{icon}</View> : null}
 
-      <View className="flex-1">
-        <T
-          className={`text-[15px] ${danger ? 'font-medium text-destructive' : 'text-foreground'}`}
+      <View style={{ flex: 1 }}>
+        <Text
+          style={{
+            fontFamily: 'PlusJakartaSans',
+            fontSize: 14,
+            fontWeight: '600',
+            color: danger ? '#F87171' : '#E5E1E4',
+          }}
         >
           {primary(bi)}
-        </T>
-        {sub ? <Ta className="mt-0.5 text-[11.5px]">{sub}</Ta> : null}
+        </Text>
+        {sub ? (
+          <Text
+            style={{
+              fontFamily: 'PlusJakartaSans',
+              fontSize: 11,
+              color: '#928F9E',
+              marginTop: 2,
+            }}
+          >
+            {sub}
+          </Text>
+        ) : null}
         {hint ? (
-          <T className="mt-1 text-[12px] leading-[17px] text-muted-foreground">{hint}</T>
+          <Text
+            style={{
+              fontFamily: 'PlusJakartaSans',
+              fontSize: 11,
+              color: '#928F9E',
+              marginTop: 2,
+              lineHeight: 16,
+            }}
+          >
+            {hint}
+          </Text>
         ) : null}
       </View>
 
-      {value ? <T className="text-[13.5px] text-muted-foreground">{value}</T> : null}
+      {value ? (
+        <Text
+          style={{
+            fontFamily: 'PlusJakartaSans',
+            fontSize: 13,
+            color: '#C8BFFF',
+            fontWeight: '600',
+          }}
+        >
+          {value}
+        </Text>
+      ) : null}
       {right}
       {onPress && chevron && !right ? (
-        <ChevronRight size={17} color="#A1A1AA" strokeWidth={2} />
+        <ChevronRight size={16} color="#6E6B77" strokeWidth={2} />
       ) : null}
     </Pressable>
   );
@@ -176,10 +307,13 @@ export function ToggleRow({
       right={
         <RNSwitch
           value={value}
-          onValueChange={onChange}
-          trackColor={{ false: '#E4E4E7', true: '#16A34A' }}
+          onValueChange={(v) => {
+            void Haptics.selectionAsync();
+            onChange(v);
+          }}
+          trackColor={{ false: '#26252E', true: '#6A5ACD' }}
           thumbColor="#FFFFFF"
-          ios_backgroundColor="#E4E4E7"
+          ios_backgroundColor="#26252E"
         />
       }
     />
@@ -206,18 +340,26 @@ export function ChoiceRow({
       chevron={false}
       right={
         <View
-          className={`size-[22px] items-center justify-center rounded-full border-2 ${
-            selected ? 'border-primary' : 'border-disabled'
-          }`}
+          style={{
+            width: 22,
+            height: 22,
+            borderRadius: 11,
+            borderWidth: 2,
+            borderColor: selected ? '#6A5ACD' : '#35343A',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
         >
-          {selected ? <View className="size-[11px] rounded-full bg-primary" /> : null}
+          {selected ? (
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#6A5ACD' }} />
+          ) : null}
         </View>
       }
     />
   );
 }
 
-/** Wraps a whole settings screen: header + grey scrolling field. */
+/** Wraps a whole settings screen: header + dark scrolling field. */
 export function SettingsScreen({
   title,
   titleTa,
@@ -228,7 +370,7 @@ export function SettingsScreen({
   children: React.ReactNode;
 }) {
   return (
-    <Screen>
+    <Screen edges={['top']} style={{ backgroundColor: '#0E0E10' }}>
       <SettingsHeader title={title} titleTa={titleTa} />
       <SettingsScroll>{children}</SettingsScroll>
     </Screen>

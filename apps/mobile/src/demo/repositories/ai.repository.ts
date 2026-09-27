@@ -37,23 +37,24 @@ export const mockAiRepository = {
       };
     }
 
-    // 2. Pharmacy matching (Dolo, Pan 40, Azithral, Prescription)
-    if (input.kind === 'photo' || raw.includes('dolo') || raw.includes('pan 40') || raw.includes('medicine') || raw.includes('tablets') || raw.includes('paracetamol')) {
+    // 2. Photo OCR / Handwritten shopping list matching
+    if (input.kind === 'photo' || raw.includes('list') || raw.includes('provisions')) {
       return {
         extraction: {
-          category: 'pharmacy',
-          storeHint: 'Meenakshi Medicals',
+          category: 'grocery',
+          storeHint: 'Reliance Smart Bazar, Simmakkal',
           items: [
-            { name: 'Dolo 650 Tablet', quantity: 1, unit: 'strip of 15', estimatedPriceRupees: 31, confidence: 0.99 },
-            { name: 'Pan 40 Tablet', quantity: 1, unit: 'strip of 15', estimatedPriceRupees: 148, confidence: 0.97 },
-            { name: 'Cetzine 10mg Tablet', quantity: 1, unit: 'strip of 10', estimatedPriceRupees: 21, confidence: 0.52, note: 'Needs pharmacist confirmation' },
+            { name: 'Aavin Green Standard Milk', quantity: 2, unit: '500ml pouch', estimatedPriceRupees: 50, confidence: 0.99 },
+            { name: 'Ponni Boiled Rice', quantity: 1, unit: '5 kg bag', estimatedPriceRupees: 310, confidence: 0.96 },
+            { name: 'Gold Winner Sunflower Oil', quantity: 1, unit: '1L pouch', estimatedPriceRupees: 135, confidence: 0.98 },
+            { name: 'Tata Salt', quantity: 1, unit: '1 kg packet', estimatedPriceRupees: 28, confidence: 0.95 },
           ],
           stops: [],
-          transcript: input.text || 'Prescription OCR scan',
-          summary: 'Read 3 medicines from handwritten prescription (1 needs confirmation)',
-          needsHuman: true,
+          transcript: input.text || 'Handwritten grocery provisions list OCR',
+          summary: 'Extracted 4 daily grocery items from shopping list',
+          needsHuman: false,
         },
-        latencyMs: 1100,
+        latencyMs: 950,
         model: 'gemini-2.5-flash (demo)',
       };
     }

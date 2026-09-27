@@ -38,6 +38,7 @@ import {
 import { Badge, Button, Card, Input, RupeeInput, Skeleton, Switch } from '@/components/ui/primitives';
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { addProduct, adjustStock, deleteProduct, patchProduct, subscribeProducts } from '@/lib/catalogue';
+import { AdminShell } from '@/components/admin-shell';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 
@@ -47,12 +48,11 @@ const STOCK_TONE: Record<StockState, 'destructive' | 'verify' | 'grocery'> = {
   ok: 'grocery',
 };
 
-const TONE_BY_CATEGORY: Record<Category, 'pharmacy' | 'grocery' | 'food' | 'concierge'> = {
-  pharmacy: 'pharmacy',
+const TONE_BY_CATEGORY: Partial<Record<Category, 'grocery' | 'food' | 'concierge'>> = {
   grocery: 'grocery',
   food: 'food',
   concierge: 'concierge',
-  print: 'pharmacy',
+  print: 'concierge',
   pickup_drop: 'food',
   buy_deliver: 'grocery',
 };
@@ -108,8 +108,8 @@ function Row({
   return (
     <div
       className={cn(
-        'grid grid-cols-[minmax(0,1fr)_92px_112px_112px_128px_84px_44px] items-center gap-3 border-b px-4 py-2.5 transition-colors hover:bg-surface',
-        !product.isActive && 'opacity-45',
+        'grid grid-cols-[minmax(0,1fr)_100px_130px_110px_130px_90px_50px] items-center gap-3 border-b border-white/5 px-5 py-3 transition-colors hover:bg-white/[0.02]',
+        !product.isActive && 'opacity-40',
       )}
     >
       <div className="flex min-w-0 items-center gap-2.5">
@@ -395,132 +395,130 @@ export default function CataloguePage() {
   }
 
   return (
-    <main className="flex h-dvh flex-col overflow-hidden">
-      <div className="flex h-14 shrink-0 items-center gap-4 border-b px-5">
-        <Link
-          href="/"
-          className="flex items-center gap-2 text-[13px] font-medium text-body-strong transition-colors hover:text-foreground"
-        >
-          <ArrowLeft className="size-4" />
-          Board
-        </Link>
-        <div className="flex flex-col leading-none">
-          <span className="text-[13.5px] font-semibold tracking-tight">Catalogue &amp; Menu</span>
-          <span className="ta mt-0.5 text-[10px] text-placeholder">பொருட்கள் &amp; மெனு மேலாண்மை</span>
-        </div>
-        <div className="flex-1" />
-        <div className="relative w-full max-w-[300px]">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-[15px] -translate-y-1/2 text-placeholder" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search items…"
-            className="h-[34px] pl-9"
-          />
-        </div>
-        <Button size="sm" onClick={() => setAddModalOpen(true)} className="gap-1.5">
-          <Plus className="size-3.5" strokeWidth={2.4} />
-          Add Item
-        </Button>
-      </div>
-
-      {/* Stock health */}
-      <div className="flex shrink-0 gap-3 border-b px-5 py-3">
-        {[
-          { label: 'PRODUCTS', value: String(products.length), tone: '' },
-          { label: 'OUT OF STOCK', value: String(outCount), tone: outCount ? 'text-destructive' : '' },
-          { label: 'RUNNING LOW', value: String(lowCount), tone: lowCount ? 'text-verify' : '' },
-          { label: 'STOCK VALUE', value: formatInr(stockValue), tone: '' },
-        ].map((s) => (
-          <Card key={s.label} className="flex-1 px-4 py-2.5">
-            <span className="text-[10px] font-bold tracking-[0.1em] text-placeholder">
-              {s.label}
-            </span>
-            <div className={cn('tnum mt-1 text-lg font-semibold tracking-tight', s.tone)}>
-              {s.value}
+    <AdminShell
+      title="Products & Catalogue"
+      subtitle="பொருட்கள் & மெனு மேலாண்மை · Direct inventory, stock control & real-time pricing"
+    >
+      <div className="space-y-6">
+        {/* Top Action bar & Stock health */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { label: 'TOTAL PRODUCTS', value: String(products.length), tone: 'text-white' },
+            { label: 'OUT OF STOCK', value: String(outCount), tone: outCount ? 'text-rose-400 font-bold' : 'text-slate-400' },
+            { label: 'RUNNING LOW', value: String(lowCount), tone: lowCount ? 'text-amber-400 font-bold' : 'text-slate-400' },
+            { label: 'STOCK VALUE', value: formatInr(stockValue), tone: 'text-emerald-400' },
+          ].map((s) => (
+            <div key={s.label} className="bg-[#18191B] border border-white/5 rounded-2xl p-4 shadow-xl">
+              <span className="text-[10px] font-bold tracking-[0.1em] text-slate-400">
+                {s.label}
+              </span>
+              <div className={cn('tnum mt-1 text-2xl font-bold tracking-tight', s.tone)}>
+                {s.value}
+              </div>
             </div>
-          </Card>
-        ))}
-      </div>
-
-      <div className="flex h-11 shrink-0 items-center gap-2 border-b px-5">
-        {(['all', 'out', 'low', 'ok'] as const).map((k) => (
-          <button
-            key={k}
-            onClick={() => setOnly(k)}
-            className={cn(
-              'h-7 rounded-md px-3 text-[12.5px] transition-colors',
-              only === k
-                ? 'bg-primary font-medium text-primary-foreground'
-                : 'border text-body-strong hover:bg-muted',
-            )}
-          >
-            {k === 'all' ? 'All' : STOCK_LABEL[k].en}
-          </button>
-        ))}
-        <div className="flex-1" />
-        {outCount > 0 ? (
-          <span className="flex items-center gap-1.5 text-[12px] text-destructive-fg">
-            <TriangleAlert className="size-3.5" />
-            {outCount} product{outCount === 1 ? '' : 's'} unavailable right now
-          </span>
-        ) : null}
-      </div>
-
-      {/* Table */}
-      <div className="scroll-slim min-h-0 flex-1 overflow-y-auto">
-        <div className="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_92px_112px_112px_128px_84px_44px] gap-3 border-b bg-surface px-4 py-2">
-          {['PRODUCT', 'STATE', 'ON HAND', 'MRP', 'SELL PRICE', 'ACTIVE', ''].map((h, i) => (
-            <span
-              key={i}
-              className={cn(
-                'text-[10px] font-bold tracking-[0.1em] text-placeholder',
-                i > 0 && i < 5 && 'text-center',
-                i === 5 && 'text-right',
-              )}
-            >
-              {h}
-            </span>
           ))}
         </div>
 
-        {loading ? (
-          <div className="space-y-2 p-4">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <Skeleton key={i} className="h-12 w-full" />
+        {/* Filters and search toolbar */}
+        <div className="bg-[#18191B] border border-white/5 rounded-2xl p-4 shadow-xl flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            {(['all', 'out', 'low', 'ok'] as const).map((k) => (
+              <button
+                key={k}
+                onClick={() => setOnly(k)}
+                className={cn(
+                  'h-8 rounded-xl px-3.5 text-xs font-medium transition-all',
+                  only === k
+                    ? 'bg-[#6A5ACD] text-white shadow-lg shadow-[#6A5ACD]/25'
+                    : 'bg-[#222327] text-slate-400 hover:text-white hover:bg-white/10',
+                )}
+              >
+                {k === 'all' ? 'All Items' : STOCK_LABEL[k].en}
+              </button>
             ))}
           </div>
-        ) : error ? (
-          <div className="m-4 flex items-start gap-2 rounded-lg border border-destructive-border bg-destructive-tint p-3">
-            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
-            <div className="text-[12.5px] leading-relaxed text-destructive-fg">
-              {error}
-            </div>
-          </div>
-        ) : visible.length === 0 ? (
-          <div className="grid h-48 place-items-center gap-3 text-center">
-            <div>
-              <p className="text-[14px] font-medium">No items found</p>
-              <p className="mt-1 text-[12.5px] text-muted-foreground">
-                Click <strong>+ Add Item</strong> above to create a new menu item.
-              </p>
-            </div>
-          </div>
-        ) : (
-          visible.map((p) => (
-            <Row
-              key={p.id}
-              product={p}
-              onDelete={(id) => void deleteProduct(id)}
-            />
-          ))
-        )}
-      </div>
 
-      <div className="flex h-[30px] shrink-0 items-center gap-4 border-t bg-surface px-5">
-        <span className="tnum text-[10.5px] text-placeholder">
-          {visible.length} of {products.length} menu items · toggle switches update availability instantly
-        </span>
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <div className="relative flex-1 md:w-72">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search items by name, store..."
+                className="w-full h-9 rounded-xl bg-[#222327] border border-white/5 pl-9 pr-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#6A5ACD]"
+              />
+            </div>
+            <button
+              onClick={() => setAddModalOpen(true)}
+              className="flex items-center gap-2 h-9 px-4 rounded-xl bg-[#6A5ACD] hover:bg-[#5848b8] text-white text-xs font-semibold shadow-lg shadow-[#6A5ACD]/25 transition-all"
+            >
+              <Plus className="size-4" strokeWidth={2.4} />
+              Add Product
+            </button>
+          </div>
+        </div>
+
+        {outCount > 0 ? (
+          <div className="flex items-center gap-2 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-xl px-4 py-2.5 text-xs">
+            <TriangleAlert className="size-4 shrink-0 text-rose-400" />
+            <span><strong>{outCount} item{outCount === 1 ? '' : 's'}</strong> are currently marked out of stock and unavailable in the customer app.</span>
+          </div>
+        ) : null}
+
+        {/* Product Table Card */}
+        <div className="bg-[#18191B] border border-white/5 rounded-2xl shadow-xl overflow-hidden">
+          <div className="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_100px_130px_110px_130px_90px_50px] gap-3 border-b border-white/5 bg-[#222327]/80 backdrop-blur px-5 py-3">
+            {['PRODUCT & STORE', 'STATUS', 'ON HAND', 'MRP', 'SELL PRICE', 'ACTIVE', ''].map((h, i) => (
+              <span
+                key={i}
+                className={cn(
+                  'text-[10px] font-bold tracking-[0.1em] text-slate-400',
+                  i > 0 && i < 5 && 'text-center',
+                  i === 5 && 'text-right',
+                )}
+              >
+                {h}
+              </span>
+            ))}
+          </div>
+
+          <div className="divide-y divide-white/5">
+            {loading ? (
+              <div className="space-y-3 p-5">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <Skeleton key={i} className="h-12 w-full bg-[#222327]" />
+                ))}
+              </div>
+            ) : error ? (
+              <div className="m-5 flex items-start gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-rose-300">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-rose-400" />
+                <div className="text-xs leading-relaxed">{error}</div>
+              </div>
+            ) : visible.length === 0 ? (
+              <div className="grid h-48 place-items-center gap-3 text-center p-8">
+                <div>
+                  <p className="text-sm font-semibold text-white">No products found</p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Click <strong>+ Add Product</strong> above to create a new catalogue item.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              visible.map((p) => (
+                <Row
+                  key={p.id}
+                  product={p}
+                  onDelete={(id) => void deleteProduct(id)}
+                />
+              ))
+            )}
+          </div>
+
+          <div className="flex h-10 items-center justify-between border-t border-white/5 bg-[#141517] px-5 text-[11px] text-slate-500">
+            <span>Showing {visible.length} of {products.length} menu items</span>
+            <span>Real-time sync enabled · Toggle switches update customer app immediately</span>
+          </div>
+        </div>
       </div>
 
       <AddProductDialog
@@ -528,6 +526,6 @@ export default function CataloguePage() {
         onClose={() => setAddModalOpen(false)}
         onAdded={() => {}}
       />
-    </main>
+    </AdminShell>
   );
 }

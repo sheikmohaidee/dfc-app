@@ -28,11 +28,10 @@ import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader, SheetTitle } 
 import { createCustomOrder } from '@/lib/orders';
 import { cn } from '@/lib/utils';
 
-const CATEGORY_NAMES: Record<Category, string> = {
+const CATEGORY_NAMES: Partial<Record<Category, string>> = {
   grocery: 'Grocery',
   food: 'Food / Restaurant',
   concierge: 'Concierge Errand',
-  pharmacy: 'Pharmacy',
   print: 'Print & Xerox',
   pickup_drop: 'Pickup & Drop',
   buy_deliver: 'Custom Delivery',

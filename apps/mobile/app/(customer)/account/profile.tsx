@@ -57,32 +57,54 @@ export default function Profile() {
 
   return (
     <SettingsScreen title={COPY.profile.en} titleTa={COPY.profile.ta}>
-      <Card className="gap-4 p-4">
+      <Card className="gap-4 p-4 border-[#26262B] bg-[#18181B]">
         <View className="gap-1.5">
-          <T className="text-[11px] font-bold tracking-[0.9px] text-placeholder">NAME</T>
+          <T className="text-[11px] font-bold tracking-[0.9px] text-[#C8BFFF]">NAME</T>
           <TextInput
             value={name}
             onChangeText={setName}
             placeholder="R. Karthikeyan"
-            placeholderTextColor="#A1A1AA"
+            placeholderTextColor="#5C5A64"
             autoCapitalize="words"
             accessibilityLabel="Your name"
-            className="h-12 rounded-control border border-border bg-background px-3.5 font-sans text-[15px] text-foreground"
+            style={{
+              height: 48,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: '#2D2C34',
+              backgroundColor: '#121215',
+              paddingHorizontal: 14,
+              fontFamily: 'PlusJakartaSans',
+              fontSize: 14,
+              color: '#E5E1E4',
+            }}
           />
         </View>
 
         <View className="gap-1.5">
-          <T className="text-[11px] font-bold tracking-[0.9px] text-placeholder">
+          <T className="text-[11px] font-bold tracking-[0.9px] text-[#C8BFFF]">
             DOOR NUMBER & STREET
           </T>
           <TextInput
             value={address}
             onChangeText={setAddress}
             placeholder="14/2, 2nd Main Road"
-            placeholderTextColor="#A1A1AA"
+            placeholderTextColor="#5C5A64"
             multiline
             accessibilityLabel="Address line"
-            className="min-h-[68px] rounded-control border border-border bg-background px-3.5 py-3 font-sans text-[15px] leading-[21px] text-foreground"
+            style={{
+              minHeight: 68,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: '#2D2C34',
+              backgroundColor: '#121215',
+              paddingHorizontal: 14,
+              paddingTop: 10,
+              fontFamily: 'PlusJakartaSans',
+              fontSize: 14,
+              color: '#E5E1E4',
+              textAlignVertical: 'top',
+            }}
           />
         </View>
       </Card>
